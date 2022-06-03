@@ -10,7 +10,8 @@ Meant to ease the build work, all projects upgraded to VS 2019, compiling, with 
 ## Build Steps
 This git repo contains accessory scripts to clone the other repos and perform the builds. So clone this repo as first step.
 
-Firs step is to run `001_clone_git_repos.cmd` and then you will have the following directories, which are all the cleaned-up and as much as possible up to date dependencies to build eMule, plus the program directory itself.
+### 001_clone_git_repos
+First step is to run `001_clone_git_repos.cmd` and then you will have the following directories, which are all the cleaned-up and as much as possible up to date dependencies to build eMule, plus the program directory itself.
 
 ```
 eMule-cryptopp-8.4.0
@@ -24,6 +25,7 @@ eMule-zlib-1.2.12
 eMule
 ```
 
+### 002_create_symlinks
 Second step is to run `002_create_symlinks.cmd` just to keep some source code references to include directories unchanged in eMule main project.
 
 Then there are scripts each to `launch_VS` if you want to play around with the libraries or the main project, and scripts `build_MSBuild` to launch the builds of each.
@@ -31,3 +33,6 @@ Then there are scripts each to `launch_VS` if you want to play around with the l
 The directory `libs` is the place where built libraries are copied and referenced by the linker of the main eMule project to build the final executable file.
 
 The external libraries should require no change at this stage, so they are mostly for reference and all forked from their original repositories for integrity. Minor changes had to be made to build them on Visual Studio 2019, which you can see in git history.
+
+### 003_build_MSBuild_ALL
+Finally you should be ready to go, this last script `003_build_MSBuild_ALL.cmd` launches all the library builds in parallel. As last step you will have to build eMule `build_MSBuild_eMule.cmd` as of course it depends on all the libraries that you just built.
