@@ -2,6 +2,7 @@
 
 CD /D %~dp0
 
+MKDIR libs
 MKDIR eMule-zz-deps-links
 
 CD eMule-zz-deps-links
