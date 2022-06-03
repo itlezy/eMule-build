@@ -36,3 +36,6 @@ The external libraries should require no change at this stage, so they are mostl
 
 ### 003_build_MSBuild_ALL
 Finally you should be ready to go, this last script `003_build_MSBuild_ALL.cmd` launches all the library builds in parallel. As last step you will have to build eMule `build_MSBuild_eMule.cmd` as of course it depends on all the libraries that you just built.
+
+### Notes
+Please note that I have upgraded few libraries such as libpng, cryptopp, etc.. just taking the most recent minor version from their current git repositories, where applicable. Some others such as ResizableLib or CxImage are not really recent nor maintained. Due to the library upgrades and some other compiler switch changes, please ensure you test properly this build, as I am now doing.
