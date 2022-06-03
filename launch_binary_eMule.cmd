@@ -1,6 +1,6 @@
 CD /D %~dp0
 
-SET CDD=%~dp0\tmp
+SET CDD=%~dp0tmp
 ECHO %CDD%
 
 SET HOMEPATH=%CDD%\Home

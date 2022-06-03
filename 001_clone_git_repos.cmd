@@ -4,13 +4,7 @@ CD /D %~dp0
 
 git clone https://github.com/itlezy/eMule-libpng.git "eMule-libpng-1.5.30"
 CD "eMule-libpng-1.5.30"
-git checkout "tags/v1.5.30"
-
-CD /D %~dp0
-
-git clone https://github.com/itlezy/eMule-libpng.git "eMule-libpng-1.6.37"
-CD "eMule-libpng-1.6.37"
-git checkout "tags/v1.6.37"
+git switch "1.5.30-eMule"
 
 CD /D %~dp0
 
