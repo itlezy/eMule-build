@@ -22,13 +22,13 @@ CD /D %~dp0
 
 git clone https://github.com/itlezy/eMule-cryptopp.git "eMule-cryptopp-8.4.0"
 CD "eMule-cryptopp-8.4.0"
-git checkout "tags/CRYPTOPP_8_4_0"
+git switch "CRYPTOPP_8_4_0-eMule"
 
 CD /D %~dp0
 
 git clone https://github.com/itlezy/eMule-zlib.git "eMule-zlib-1.2.12"
 CD "eMule-zlib-1.2.12"
-git checkout "tags/v1.2.12"
+git switch "v1.2.12-eMule"
 
 CD /D %~dp0
 
@@ -36,7 +36,7 @@ REM miniupnpc website http://miniupnp.free.fr/files/download.php?file=miniupnpc-
 
 git clone https://github.com/itlezy/eMule-miniupnp.git "eMule-miniupnp-2.2.3"
 CD "eMule-miniupnp-2.2.3"
-git checkout "tags/miniupnpc_2_2_3"
+git switch "miniupnpc_2_2_3-eMule"
 
 REM Inactive repos
 
@@ -44,6 +44,7 @@ CD /D %~dp0
 
 git clone https://github.com/itlezy/eMule-CxImage.git "eMule-CxImage-7.02"
 CD "eMule-CxImage-7.02"
+
 
 CD /D %~dp0
 
@@ -54,9 +55,11 @@ git switch "v3.9.1"
 CD /D %~dp0
 
 git clone https://github.com/itlezy/eMule-ResizableLib.git
+CD "eMule-ResizableLib"
+
 
 CD /D %~dp0
 
 git clone https://github.com/itlezy/eMule.git
 CD "eMule"
-git switch "v0.60d"
+git switch "v0.60d-dev"
