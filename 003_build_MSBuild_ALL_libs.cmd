@@ -1,4 +1,4 @@
-REM place-holder TODO
+@ECHO OFF
 
 CD /D %~dp0
 
