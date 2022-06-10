@@ -56,4 +56,4 @@ CD /D %~dp0
 
 git clone https://github.com/itlezy/eMule.git
 CD "eMule"
-git switch "v0.60d-dev"
+git switch "v0.60d-build"
