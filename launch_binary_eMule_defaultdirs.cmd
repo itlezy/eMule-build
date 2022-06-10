@@ -1,5 +1,5 @@
 @ECHO OFF
 
-CD /D %~dp0
+CD /D %USERPROFILE%
 
-START "" .\eMule\srchybrid\x64\Release\eMule.exe
+START "" %~dp0eMule\srchybrid\x64\Release\eMule.exe
