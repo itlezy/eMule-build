@@ -13,5 +13,6 @@ IF %ERRORLEVEL% NEQ 0 (
 ) ELSE (
   CD /D %~dp0
   START "" %ComSpec% /C launch_binary_eMule_defaultdirs.cmd
+  START "" %ComSpec% /C package_binary_eMule_release.cmd
   ECHO ALL DONE
 )
