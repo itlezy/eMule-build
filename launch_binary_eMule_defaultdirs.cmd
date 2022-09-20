@@ -4,4 +4,5 @@ DEL /Q %LOCALAPPDATA%\eMule\logs\*.log
 
 CD /D %USERPROFILE%
 
-START "" %~dp0eMule\srchybrid\x64\Release\eMule.exe
+COPY  /Y %~dp0eMule\srchybrid\x64\Release\eMule.exe  %~dp0eMule\srchybrid\x64\Release\eMule_def.exe
+START "" %~dp0eMule\srchybrid\x64\Release\eMule_def.exe

@@ -18,4 +18,5 @@ MD "%APPDATA%"
 MD "%LOCALAPPDATA%"
 
 CD /D eMule\srchybrid\x64\Release\
-START "" .\eMule.exe
+COPY  /Y .\eMule.exe .\eMule_loc.exe
+START "" .\eMule_loc.exe
