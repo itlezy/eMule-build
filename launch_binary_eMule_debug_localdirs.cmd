@@ -17,6 +17,6 @@ SET LOCALAPPDATA=%CDD%\Home\AppData_Local
 MD "%APPDATA%"
 MD "%LOCALAPPDATA%"
 
-CD /D eMule\srchybrid\x64\Release\
-COPY  /Y .\eMule.exe .\eMule_loc.exe
-START "" /MIN /HIGH .\eMule_loc.exe
+CD /D eMule\srchybrid\x64\Debug\
+COPY  /Y .\eMule.exe .\eMule_debug_loc.exe
+START "" /MIN /HIGH .\eMule_debug_loc.exe

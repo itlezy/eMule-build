@@ -1,0 +1,26 @@
+MSB3025
+
+C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\Microsoft.CppCommon.targets
+
+---
+
+Deleting the .vs folder does not affect or solve the problem.
+
+The issue is in Microsoft.CppCommon.targets:
+
+ <!-- make sure lib's pdb is near the lib -->
+ <Copy Condition="'%(ClCompile.ProgramDatabaseFileName)' != '$(OutDir)$(TargetName).pdb' and
+                  ('%(ClCompile.DebugInformationFormat)' == 'ProgramDatabase' or '%(ClCompile.DebugInformationFormat)' == 'EditAndContinue') and
+                  Exists(%(ClCompile.ProgramDatabaseFileName))" SourceFiles="%(ClCompile.ProgramDatabaseFileName)" DestinationFiles="$(OutDir)$(TargetName).pdb" />
+
+The simplest way to fix the problem is to comment out this section, entirely:
+
+ <!-- make sure lib's pdb is near the lib 
+ <Copy Condition="'%(ClCompile.ProgramDatabaseFileName)' != '$(OutDir)$(TargetName).pdb' and
+                  ('%(ClCompile.DebugInformationFormat)' == 'ProgramDatabase' or '%(ClCompile.DebugInformationFormat)' == 'EditAndContinue') and
+                  Exists(%(ClCompile.ProgramDatabaseFileName))" SourceFiles="%(ClCompile.ProgramDatabaseFileName)" DestinationFiles="$(OutDir)$(TargetName).pdb" />  -->
+
+
+---
+
+https://learn.microsoft.com/en-us/answers/questions/357286/vs-2019-upgrade-to-1694-causes-compilelink-error.html

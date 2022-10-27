@@ -1,6 +1,7 @@
 eMule
 eMule-*
 libs
+libs_debug
 tmp
 
 *.zip
