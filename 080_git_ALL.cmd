@@ -12,6 +12,6 @@ CD %~dp0eMule-mbedtls-2.28    &&  CD  &&  git add -A  &&  git commit -a -m "%MSG
 CD %~dp0eMule-miniupnp-2.2.3  &&  CD  &&  git add -A  &&  git commit -a -m "%MSG%"  &&  git push
 CD %~dp0eMule-ResizableLib    &&  CD  &&  git add -A  &&  git commit -a -m "%MSG%"  &&  git push
 CD %~dp0eMule-zlib-1.2.12     &&  CD  &&  git add -A  &&  git commit -a -m "%MSG%"  &&  git push
-CD %~dp0eMule                 &&  CD  &&  git add -A  &&  git commit -a -m "%MSG%"  &&  git push
+REM -- NOT THIS ONE -- CD %~dp0eMule                 &&  CD  &&  git add -A  &&  git commit -a -m "%MSG%"  &&  git push
 
 CD %~dp0
