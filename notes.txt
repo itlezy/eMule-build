@@ -24,3 +24,39 @@ The simplest way to fix the problem is to comment out this section, entirely:
 ---
 
 https://learn.microsoft.com/en-us/answers/questions/357286/vs-2019-upgrade-to-1694-causes-compilelink-error.html
+
+---
+
+You can interactively rewrite history with git rebase -i:
+
+git rebase HEAD~6 -i 
+Will open your editor and allow you to either squash multiple commits into one, or completely remove them from history (by deleting the line for those commits in your editor.) The ~6 means rewrite the last 6 commits, the -i means do it interactively. In your case, you'll want to remove the lines that say "pick 1c4a11a" and "pick b4ab3c".
+
+Note that the most recent commit in the editor that gets launched is the last line, not the first one, and since you're rewriting history and you've already pushed, you'll also have to "git push --force", not just "git push" in order to send your changes upstream.
+
+---
+
+dumpbin /headers obj\adler32.obj | findstr machine
+
+---
+
+vcpkg install libtorrent:x64-windows-static --clean-after-build 
+vcpkg.exe install libpng:x64-windows-static --clean-after-build 
+vcpkg.exe install mbedtls:x64-windows-static --clean-after-build 
+vcpkg.exe install zlib:x64-windows-static --clean-after-build 
+
+---
+
+upnpc -e "mut" -a 10.133.242.126 10690 10690 TCP
+upnpc -e "muu" -a 10.133.242.126 10694 10694 UDP
+ 
+---
+
+http://upd.emule-security.org/server.met
+https://upd.emule-security.org/ipfilter.zip
+https://upd.emule-security.org/ip-to-country.csv.zip
+https://upd.emule-security.org/nodes.dat
+http://www.emule-mods.de/
+https://forum.sharing-devils.to/
+
+---
