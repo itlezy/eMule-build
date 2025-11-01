@@ -4,9 +4,11 @@ CD /D %~dp0
 
 CALL incl_VCVARS64.cmd
 
+SET "ZLIB_PATH=%~dp0eMule-zlib-1.2.12"
+
 CD eMule-libpng-1.5.30\projects\vstudio
 
-MSBuild vstudio.sln -target:Clean,Build /property:Configuration="Debug Library" /property:Platform=x64 /p:AdditionalIncludeDirectories="..\..\..\eMule-zlib-1.2.12"
+MSBuild vstudio.sln -target:Clean,Build /property:Configuration="Debug Library" /property:Platform=x64 /p:AdditionalIncludeDirectories="%ZLIB_PATH%"
 
 IF %ERRORLEVEL% NEQ 0 (
   PAUSE
