@@ -6,7 +6,7 @@ CALL incl_VCVARS64.cmd
 
 CD eMule-libpng-1.5.30\projects\vstudio
 
-MSBuild vstudio.sln -target:Clean,Build /property:Configuration="Debug Library" /property:Platform=x64
+MSBuild vstudio.sln -target:Clean,Build /property:Configuration="Debug Library" /property:Platform=x64 /p:AdditionalIncludeDirectories="..\..\..\eMule-zlib-1.2.12"
 
 IF %ERRORLEVEL% NEQ 0 (
   PAUSE
