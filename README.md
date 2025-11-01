@@ -2,6 +2,8 @@
 
 Meant to ease the build work, all projects upgraded to VS 2019, compiling, with correct path references and updated libraries (as much as possible)
 
+**Latest version: eMule 0.70b**
+
 ## Pre-requisites
 1. Have a recent `git` installed and available on `PATH`
 2. Ensure the command `mklink` is available on your Windows system, otherwise get `junction` from Sysinternals and modify `002_create_symlinks.cmd` accordingly

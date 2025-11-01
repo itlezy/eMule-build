@@ -1,6 +1,6 @@
 @ECHO OFF
 
-SET PACK_NAME=eMule0.60d-broadband_x64-snapshot.zip
+SET PACK_NAME=eMule0.70b-broadband_x64-snapshot.zip
 
 CD /D %~dp0
 

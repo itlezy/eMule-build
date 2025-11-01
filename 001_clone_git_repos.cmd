@@ -54,6 +54,6 @@ CD "eMule-ResizableLib"
 
 CD /D %~dp0
 
-git clone https://github.com/itlezy/eMule.git
+git clone https://github.com/irwir/eMule.git
 CD "eMule"
-git switch "v0.60d-build"
+git checkout eMule_v0.70b-community
