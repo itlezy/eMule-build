@@ -6,10 +6,10 @@ CALL incl_VCVARS64.cmd
 
 CD eMule-CxImage-7.02\CxImage
 
-MSBuild cximage.vcxproj -target:Clean,Build /property:Configuration=Debug /property:Platform=x64
+MSBuild cximage.vcxproj -target:Clean,Build /property:Configuration=Debug /property:Platform=x64 /property:PlatformToolset=%OVERLORD_PLATFORM_TOOLSET%
 
 IF %ERRORLEVEL% NEQ 0 (
-  PAUSE
+  EXIT /B %ERRORLEVEL%
 ) ELSE (
   CD /D %~dp0
   DEL /Q libs_debug\cximage*
