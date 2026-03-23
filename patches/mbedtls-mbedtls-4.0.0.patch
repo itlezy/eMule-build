@@ -26,7 +26,7 @@ index 0000000000..76910b8455
 +  emule.vcxproj expects:  ..\eMule-mbedtls\visualc\VS2017\$(Platform)\$(Configuration)\mbedtls.lib
 +  This project produces:  visualc\VS2017\$(Platform)\$(Configuration)\mbedtls.lib
 +
-+  Prerequisites: run workspace.ps1 setup first (setup.ps1 is only a compatibility wrapper).
++  Prerequisites: run workspace.ps1 setup first.
 +-->
 +<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 +  <ItemGroup Label="ProjectConfigurations">

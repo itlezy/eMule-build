@@ -341,7 +341,6 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
     $git = Get-GitExe
     $perl = Get-PerlExe
     $cmake = Resolve-Tool @('cmake.exe', 'cmake')
-    $tar = Resolve-Tool @('tar.exe', 'tar')
     $vs = Get-VsInfo
     $sdk = Get-SdkInfo
     $identity = if ($git) { Get-GitIdentity $Root } else { $null }
@@ -370,8 +369,6 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
     $perlStatus = if ($perl) { 'pass' } elseif (-not $mbedtlsConfigured -and $Intent -in @('general','setup','repair')) { 'fail' } else { 'warn' }
     Add-Check $results $perlStatus 'perl' ($perl ? $perl : 'not found; required to regenerate mbedtls Visual Studio files')
     Add-Check $results ($cmake ? 'pass' : 'fail') 'cmake' ($cmake ? $cmake : 'not found on PATH')
-    $tarStatus = if ($tar) { 'pass' } elseif ($Intent -eq 'package') { 'fail' } else { 'warn' }
-    Add-Check $results $tarStatus 'tar' ($tar ? $tar : 'not found on PATH')
     Add-Check $results ($vs.VsWhere ? 'pass' : 'warn') 'vswhere' ($vs.VsWhere ? $vs.VsWhere : 'not found; using install scan')
     Add-Check $results ($vs.Root ? 'pass' : 'fail') 'visual-studio' ($vs.Root ? $vs.Root : 'Visual Studio 2022 not found')
     Add-Check $results ($vs.MSBuild ? 'pass' : 'fail') 'msbuild' ($vs.MSBuild ? $vs.MSBuild : 'MSBuild.exe not found')
@@ -438,7 +435,7 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
     [pscustomobject]@{
         Results = @($results)
         Failed  = (@($results | Where-Object Status -eq 'fail')).Count
-        Tools   = [pscustomobject]@{ Git=$git; Perl=$perl; CMake=$cmake; Tar=$tar; MSBuild=$vs.MSBuild; DevEnv=$vs.DevEnv }
+        Tools   = [pscustomobject]@{ Git=$git; Perl=$perl; CMake=$cmake; MSBuild=$vs.MSBuild; DevEnv=$vs.DevEnv }
     }
 }
 
@@ -640,6 +637,20 @@ function Repair-Workspace {
     Build-ProjectInternal $r 'eMule' $Config
 }
 
+function New-PackageZip([string]$SourceFile, [string]$DestinationZip) {
+    if (Test-Path -LiteralPath $DestinationZip) {
+        Remove-Item -LiteralPath $DestinationZip -Force
+    }
+    $sourceDir = Split-Path -Parent $SourceFile
+    $leaf = Split-Path -Leaf $SourceFile
+    Push-Location $sourceDir
+    try {
+        Compress-Archive -LiteralPath ".\$leaf" -DestinationPath $DestinationZip -CompressionLevel Optimal
+    } finally {
+        Pop-Location
+    }
+}
+
 function Run-Binary {
     $envReport = Get-EnvReport 'run-binary' $Config 'eMule'
     Show-Report $envReport
@@ -741,10 +752,8 @@ switch ($Command) {
         Invoke-WithWorkspaceLock 'package' {
             $r = Get-EnvReport 'package' 'Release' 'eMule'
             Show-Report $r
-            $zipName = 'eMule0.72a-broadband_x64-snapshot.zip'
-            $zip = Join-Path $Root $zipName
-            if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
-            Invoke-Native -Exe $r.Tools.Tar -ArgumentList @('-a','-c','-C','eMule\srchybrid\x64\Release','-f',$zipName,'eMule.exe') -Label 'tar package' -WorkDir $Root
+            $zip = Join-Path $Root 'eMule0.72a-broadband_x64-snapshot.zip'
+            New-PackageZip -SourceFile (Get-OutputPath 'eMule' 'Release') -DestinationZip $zip
         }
     }
     'clean-config' {

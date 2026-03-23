@@ -91,7 +91,6 @@ eMule-build/
   eMule-zlib/             ← madler/zlib @ v1.3.2
   eMule-mbedtls/          ← Mbed-TLS/mbedtls @ mbedtls-4.0.0
   patches/                ← VS2022 porting patches for each dep
-  setup.ps1               ← one-time setup script
   003_build_MSBuild_ALL_libs.cmd
   003_build_MSBuild_ALL_libs_debug.cmd
   004_build_MSBuild_eMule.cmd
@@ -103,10 +102,10 @@ eMule-build/
 ```
 pwsh -File .\workspace.ps1 env-check
 pwsh -File .\workspace.ps1 dep-status
-pwsh -File .\setup.ps1
+pwsh -File .\workspace.ps1 setup
 ```
 
-`setup.ps1` is a thin compatibility wrapper over `workspace.ps1`. The setup flow does five things:
+The setup flow does five things:
 
 1. **Creates or reuses local dep build branches** named `emule-build-v0.72a`, then records the workspace patch as a local commit in each third-party dep. The upstream-pinned checkout remains the superproject baseline; the local branch is the developer build state.
 

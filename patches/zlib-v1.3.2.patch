@@ -37,7 +37,7 @@ index 0000000..e6779d9
 +    set(CMAKE_DEBUG_POSTFIX "d")      -> Debug appends "d"    -> "zsd"
 +  These are plain set() calls and cannot be overridden via -D on the cmake command line.
 +
-+  Run workspace.ps1 setup first (setup.ps1 is only a compatibility wrapper).
++  Run workspace.ps1 setup first.
 +-->
 +<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 +
