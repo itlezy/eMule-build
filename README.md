@@ -174,7 +174,7 @@ pwsh -File .\workspace.ps1 repair
 
 - `dep-status` shows the current branch, commit, patch state, and cleanliness for `eMule` and each dependency
 - `clean-generated` removes generated build trees, logs, temp files, and app outputs without touching the disposable local build-branch commits
-- `repair` reapplies the standard setup flow to bring a throw-away build tree back to the expected state
+- `repair` reapplies setup and restores the selected build configuration (`Release` by default) so the workspace is immediately runnable again after `clean-generated`
 
 ---
 
@@ -198,6 +198,8 @@ Deps stay at workspace root and the build files now point there directly. No jun
 ### Tooling entrypoint
 
 `workspace.ps1` is the single backend for setup, env preflight, builds, IDE launch, binary launch, and packaging. The existing `.cmd` files remain as compatibility shims that call `workspace.cmd`, which in turn requires `pwsh`.
+
+Mutating commands are serialized with a workspace lock, so concurrent `build-*`, `setup`, `repair`, `package`, and cleanup invocations wait instead of racing each other in the same tree.
 
 Useful inspection commands:
 - `pwsh -File .\workspace.ps1 env-check`

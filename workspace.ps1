@@ -461,6 +461,29 @@ function Invoke-Native([string]$Exe, [string[]]$ArgumentList, [string]$Label, [s
     }
 }
 
+function Get-WorkspaceMutexName {
+    $bytes = [Text.Encoding]::UTF8.GetBytes($Root.ToLowerInvariant())
+    $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))
+    "Local\eMule-build-$hash"
+}
+
+function Invoke-WithWorkspaceLock([string]$Label, [scriptblock]$Action) {
+    $mutex = [Threading.Mutex]::new($false, (Get-WorkspaceMutexName))
+    $acquired = $false
+    try {
+        $acquired = $mutex.WaitOne([TimeSpan]::FromHours(12))
+        if (-not $acquired) {
+            throw "Timed out waiting for workspace lock while running $Label."
+        }
+        & $Action
+    } finally {
+        if ($acquired) {
+            $mutex.ReleaseMutex() | Out-Null
+        }
+        $mutex.Dispose()
+    }
+}
+
 function Set-MbedTlsStaticRuntime([string]$BuildDir) {
     foreach ($rel in @('library\mbedtls.vcxproj','library\mbedx509.vcxproj','tf-psa-crypto\core\tfpsacrypto.vcxproj','tf-psa-crypto\drivers\builtin\builtin.vcxproj','tf-psa-crypto\drivers\everest\everest.vcxproj','tf-psa-crypto\drivers\p256-m\p256m.vcxproj')) {
         $path = Join-Path $BuildDir $rel
@@ -609,6 +632,14 @@ function Build-Libs {
     if ($failed) { throw 'One or more library builds failed.' }
 }
 
+function Repair-Workspace {
+    Run-Setup
+    Build-Libs
+    $r = Get-EnvReport 'build-app' $Config 'eMule'
+    Show-Report $r
+    Build-ProjectInternal $r 'eMule' $Config
+}
+
 function Run-Binary {
     $envReport = Get-EnvReport 'run-binary' $Config 'eMule'
     Show-Report $envReport
@@ -668,26 +699,32 @@ function Show-DependencyStatus {
 switch ($Command) {
     'env-check' { Show-Report (Get-EnvReport 'general' $Config $Project) }
     'dep-status' { Show-DependencyStatus }
-    'setup' { Run-Setup }
-    'repair' { Run-Setup }
-    'build-libs' { Build-Libs }
+    'setup' { Invoke-WithWorkspaceLock 'setup' { Run-Setup } }
+    'repair' { Invoke-WithWorkspaceLock 'repair' { Repair-Workspace } }
+    'build-libs' { Invoke-WithWorkspaceLock 'build-libs' { Build-Libs } }
     'build-app' {
-        $Project = 'eMule'
-        $r = Get-EnvReport 'build-app' $Config $Project
-        Show-Report $r
-        Build-ProjectInternal $r 'eMule' $Config
+        Invoke-WithWorkspaceLock 'build-app' {
+            $Project = 'eMule'
+            $r = Get-EnvReport 'build-app' $Config $Project
+            Show-Report $r
+            Build-ProjectInternal $r 'eMule' $Config
+        }
     }
     'build-all' {
-        Build-Libs
-        $r = Get-EnvReport 'build-app' $Config 'eMule'
-        Show-Report $r
-        Build-ProjectInternal $r 'eMule' $Config
+        Invoke-WithWorkspaceLock 'build-all' {
+            Build-Libs
+            $r = Get-EnvReport 'build-app' $Config 'eMule'
+            Show-Report $r
+            Build-ProjectInternal $r 'eMule' $Config
+        }
     }
     'build-project' {
-        $intent = if ($Project -eq 'eMule') { 'build-app' } else { 'build-project' }
-        $r = Get-EnvReport $intent $Config $Project
-        Show-Report $r
-        Build-ProjectInternal $r $Project $Config
+        Invoke-WithWorkspaceLock "build-project:$Project" {
+            $intent = if ($Project -eq 'eMule') { 'build-app' } else { 'build-project' }
+            $r = Get-EnvReport $intent $Config $Project
+            Show-Report $r
+            Build-ProjectInternal $r $Project $Config
+        }
     }
     'open-solution' {
         $r = Get-EnvReport 'open-solution' $Config 'eMule'
@@ -701,17 +738,22 @@ switch ($Command) {
     }
     'run-binary' { Run-Binary }
     'package' {
-        $r = Get-EnvReport 'package' 'Release' 'eMule'
-        Show-Report $r
-        $zip = Join-Path $Root 'eMule0.72a-broadband_x64-snapshot.zip'
-        if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
-        Invoke-Native -Exe $r.Tools.Tar -ArgumentList @('-a','-c','-C',(Join-Path $Root 'eMule\srchybrid\x64\Release'),'-f',$zip,'eMule.exe') -Label 'tar package' -WorkDir $null
+        Invoke-WithWorkspaceLock 'package' {
+            $r = Get-EnvReport 'package' 'Release' 'eMule'
+            Show-Report $r
+            $zipName = 'eMule0.72a-broadband_x64-snapshot.zip'
+            $zip = Join-Path $Root $zipName
+            if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+            Invoke-Native -Exe $r.Tools.Tar -ArgumentList @('-a','-c','-C','eMule\srchybrid\x64\Release','-f',$zipName,'eMule.exe') -Label 'tar package' -WorkDir $Root
+        }
     }
     'clean-config' {
-        $r = Get-EnvReport 'clean-config' $Config 'eMule'
-        Show-Report $r
-        $path = Join-Path $Root "eMule\srchybrid\x64\$Config\config"
-        if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
+        Invoke-WithWorkspaceLock 'clean-config' {
+            $r = Get-EnvReport 'clean-config' $Config 'eMule'
+            Show-Report $r
+            $path = Join-Path $Root "eMule\srchybrid\x64\$Config\config"
+            if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
+        }
     }
-    'clean-generated' { Clean-Generated }
+    'clean-generated' { Invoke-WithWorkspaceLock 'clean-generated' { Clean-Generated } }
 }
