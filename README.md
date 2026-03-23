@@ -41,7 +41,8 @@ eMule v0.72a dropped two dependencies (CxImage, libpng) and upgraded several oth
 **Architecture:**
 - Deps are now **git submodules** at fixed tags instead of runtime-cloned directories
 - `emule.sln`, `emule.slnx`, `emule.vcxproj`, and the affected source includes were retargeted to the real workspace-root dependency paths
-- Dep patches are stored as `git diff` patch files in `patches/` and applied once during setup
+- eMule itself is tracked directly in the `eMule` fork; third-party deps use local build branches created by setup
+- Dep patches are stored as `git diff` patch files in `patches/` and recorded as local commits on each dep's `emule-build-v0.72a` branch
 - zlib 1.3.2 removed its VS project files upstream — built via cmake instead
 
 ---
@@ -102,13 +103,13 @@ pwsh -File .\setup.ps1
 
 `setup.ps1` is a thin compatibility wrapper over `workspace.ps1`. The setup flow does five things:
 
-1. **Applies patch files** to each dep submodule (`git apply --3way`). The patches fix build system issues for VS 2022 x64: toolset upgrades, CRT policy (`/MT`+`/MTd`), output directory corrections, and x64 configuration additions.
+1. **Creates or reuses local dep build branches** named `emule-build-v0.72a`, then records the workspace patch as a local commit in each third-party dep. The upstream-pinned checkout remains the superproject baseline; the local branch is the developer build state.
 
 2. **Configures the mbedtls cmake build** — generates the VS project files under `eMule-mbedtls\visualc\VS2017\`.
 
 3. **Normalizes generated mbedtls vcxproj files** — rewrites their CRT setting from `/MD`+`/MDd` to `/MT`+`/MTd` after cmake generation.
 
-4. **Enables mbedtls threading support** — copies `threading_alt.h` from eMule and enables `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` in `crypto_config.h`.
+4. **Keeps mbedtls threading support in source control** — `tf-psa-crypto` gets its own local build commit with `threading_alt.h` and `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` enabled.
 
 5. **Configures the zlib cmake build** — runs cmake once with the correct generator and `/MT` runtime library flag. Only needed on first run; idempotent thereafter.
 
@@ -120,8 +121,9 @@ Patches applied per dep:
 | id3lib | `id3lib-v3.9.1.patch` | zlib include path (`../zlib` → `../eMule-zlib`) |
 | miniupnpc | `miniupnpc-miniupnpc_2_3_3.patch` | Full vcxproj rewrite: x64 configs, cscript PreBuildEvent, `/MT`+`/MTd` CRT, `_strnicmp` replacing deprecated `_memicmp` |
 | ResizableLib | `resizablelib-master.patch` | SDK 8.1 → v143; OutDir `bin\` removed; Release\|x64 + Debug\|x64 Unicode+Static+`/MT`+`/MTd` |
-| zlib | `zlib-v1.3.2.patch` | Adds `contrib/vstudio/vc/zlib.vcxproj` cmake wrapper (upstream removed VS project files in 1.3.x) |
-| mbedtls | `mbedtls-mbedtls-4.0.0.patch` | Adds custom `mbedTLS.vcxproj` wrapper; `setup.ps1` then rewrites the generated component vcxproj files to `/MT`+`/MTd` and enables `MBEDTLS_THREADING_C`+`MBEDTLS_THREADING_ALT` |
+| zlib | `zlib-v1.3.2.patch` | Adds `contrib/vstudio/vc/zlib.vcxproj` cmake wrapper and ignores generated `cmake-build/` noise |
+| mbedtls | `mbedtls-mbedtls-4.0.0.patch` | Adds custom `mbedTLS.vcxproj` wrapper and ignores generated `visualc/VS2017` noise |
+| tf-psa-crypto | `mbedtls-tf-psa-crypto-v1.0.0.patch` | Adds `threading_alt.h` and enables `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` |
 
 ---
 
@@ -167,13 +169,17 @@ Deps stay at workspace root and the build files now point there directly. No jun
 
 `workspace.ps1` is the single backend for setup, env preflight, builds, IDE launch, binary launch, and packaging. The existing `.cmd` files remain as compatibility shims that call `workspace.cmd`, which in turn requires `pwsh`.
 
+### Dependency branch model
+
+Third-party deps are not edited on detached HEAD anymore. `setup` switches each dep to a local `emule-build-v0.72a` branch, applies the matching patch if needed, and records it as a local commit. Root `.gitmodules` marks these deps with `ignore = all`, so the local build branches do not spam normal root `git status` output.
+
 ### CRT policy
 
 All dependency static libs must be compiled with `RuntimeLibrary=MultiThreaded` (`/MT`) for Release and `MultiThreadedDebug` (`/MTd`) for Debug. This matches eMule's static MFC link. Using `/MD` in any dep causes `__imp_*` linker errors at the eMule link step. All patches enforce this.
 
 ### MbedTLS 4.0
 
-MbedTLS 4.0 removed the pre-built VS project files and restructured into 6 separate static libs under `tf-psa-crypto/`. The patch adds `visualc/VS2017/mbedTLS.vcxproj` — a Utility project that builds all 6 components and combines them into a single `mbedtls.lib` via `lib.exe` in a PostBuildEvent. Because cmake generates the component vcxproj files, `setup.ps1` rewrites those generated files after configure so they use `/MT` and `/MTd` instead of `/MD` and `/MDd`. eMule source requires:
+MbedTLS 4.0 removed the pre-built VS project files and restructured into 6 separate static libs under `tf-psa-crypto/`. The top-level patch adds `visualc/VS2017/mbedTLS.vcxproj` — a Utility project that builds all 6 components and combines them into a single `mbedtls.lib` via `lib.exe` in a PostBuildEvent. Because cmake generates the component vcxproj files, `workspace.ps1` still rewrites those generated files after configure so they use `/MT` and `/MTd` instead of `/MD` and `/MDd`. The source-tree threading changes now live in the dedicated `tf-psa-crypto` patch/branch rather than ad-hoc `.Replace()` calls. eMule source requires:
 - `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` enabled in `psa/crypto_config.h` (eMule provides its own `threading_alt.h` using Windows `CRITICAL_SECTION`)
 - `MBEDTLS_ALLOW_PRIVATE_ACCESS` in `emule.vcxproj` preprocessor defines (for `private/sha1.h` access)
 
@@ -196,9 +202,10 @@ MbedTLS 4.0 calls `BCryptGenRandom()` from `bcrypt.dll`. This import library mus
 To bump a dep to a newer version:
 
 1. Update the submodule commit: `cd eMule-depname && git fetch && git checkout NEW_TAG`
-2. Regenerate the patch: `git diff > ../patches/depname-NEW_TAG.patch` (from the dep dir after re-applying your changes)
-3. Update `.gitmodules` if the branch tracking changes
-4. Commit from the workspace root: `git add eMule-depname patches/ .gitmodules && git commit`
+2. Recreate or update the local `emule-build-v0.72a` branch changes for that dep
+3. Regenerate the patch from the dep build branch: `git diff HEAD~1..HEAD > ../patches/depname-NEW_TAG.patch`
+4. Update `.gitmodules` if the upstream tracking metadata changes
+5. Commit the workspace metadata from the root repo
 
 ---
 

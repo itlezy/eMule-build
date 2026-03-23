@@ -1,3 +1,17 @@
+diff --git a/.gitignore b/.gitignore
+index 573b41f..8ec15eb 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -24,6 +24,8 @@
+ .vs
+ *.user
+ *.nupkg
++/cmake-build/
++/contrib/vstudio/vc/x64/
+ contrib/vstudio/vc143/x86
+ contrib/vstudio/vc143/x64
+ contrib/vstudio/vc143/arm
+
 diff --git a/contrib/vstudio/vc/zlib.vcxproj b/contrib/vstudio/vc/zlib.vcxproj
 new file mode 100644
 index 0000000..e6779d9
