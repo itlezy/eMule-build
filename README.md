@@ -116,7 +116,6 @@ Patches applied per dep:
 
 | Dep | Patch | What it fixes |
 |-----|-------|---------------|
-| eMule | `emule-eMule_v0.72a-community.patch` | Removes the old dependency-junction assumptions by retargeting solution/project paths and source includes to the workspace-root deps |
 | cryptopp | `cryptopp-CRYPTOPP_8_9_0.patch` | OutDir `Output\` subdir mismatch |
 | id3lib | `id3lib-v3.9.1.patch` | zlib include path (`../zlib` → `../eMule-zlib`) |
 | miniupnpc | `miniupnpc-miniupnpc_2_3_3.patch` | Full vcxproj rewrite: x64 configs, cscript PreBuildEvent, `/MT`+`/MTd` CRT, `_strnicmp` replacing deprecated `_memicmp` |

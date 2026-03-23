@@ -136,7 +136,7 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
     $tar = Resolve-Tool @('tar.exe', 'tar')
     $vs = Get-VsInfo
     $sdk = Get-SdkInfo
-    $required = @('eMule\srchybrid\emule.vcxproj','eMule\srchybrid\emule.sln','eMule-cryptopp\cryptlib.vcxproj','eMule-id3lib\libprj\id3lib.vcxproj','eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj','eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj','eMule-zlib','eMule-mbedtls','patches\emule-eMule_v0.72a-community.patch','patches\mbedtls-mbedtls-4.0.0.patch','patches\zlib-v1.3.2.patch')
+    $required = @('eMule\srchybrid\emule.vcxproj','eMule\srchybrid\emule.sln','eMule-cryptopp\cryptlib.vcxproj','eMule-id3lib\libprj\id3lib.vcxproj','eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj','eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj','eMule-zlib','eMule-mbedtls','patches\mbedtls-mbedtls-4.0.0.patch','patches\zlib-v1.3.2.patch')
 
     Add-Check $results 'pass' 'pwsh' "PowerShell $($PSVersionTable.PSVersion)"
     Add-Check $results ($git ? 'pass' : 'fail') 'git' ($git ? $git : 'not found on PATH')
@@ -251,7 +251,6 @@ function Run-Setup {
     Show-Report $envReport
     Invoke-Native -Exe $envReport.Tools.Git -ArgumentList @('-C', $Root, 'submodule', 'update', '--init', '--recursive') -Label 'git submodule update' -WorkDir $null
     foreach ($pair in @(
-        @('eMule','emule-eMule_v0.72a-community.patch'),
         @('eMule-cryptopp','cryptopp-CRYPTOPP_8_9_0.patch'),
         @('eMule-id3lib','id3lib-v3.9.1.patch'),
         @('eMule-miniupnp','miniupnpc-miniupnpc_2_3_3.patch'),
