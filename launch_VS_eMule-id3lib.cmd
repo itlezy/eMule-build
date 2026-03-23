@@ -1,3 +1,4 @@
 @ECHO OFF
-CD /D %~dp0
-START "" eMule-id3lib\libprj\id3lib.vcxproj
+CALL "%~dp0workspace.cmd" open-project -Project id3lib %*
+EXIT /B %ERRORLEVEL%
+

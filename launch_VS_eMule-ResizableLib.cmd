@@ -1,3 +1,4 @@
 @ECHO OFF
-CD /D %~dp0
-START "" eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj
+CALL "%~dp0workspace.cmd" open-project -Project ResizableLib %*
+EXIT /B %ERRORLEVEL%
+

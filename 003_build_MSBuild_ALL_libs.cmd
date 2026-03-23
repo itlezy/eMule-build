@@ -1,4 +1,4 @@
 @ECHO OFF
-CD /D %~dp0
-powershell -ExecutionPolicy Bypass -File 003_build_MSBuild_ALL_libs.ps1 -Config Release
-IF %ERRORLEVEL% NEQ 0 PAUSE
+CALL "%~dp0workspace.cmd" build-libs -Config Release %*
+EXIT /B %ERRORLEVEL%
+

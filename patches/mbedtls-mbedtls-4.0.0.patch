@@ -1,17 +1,18 @@
-warning: in the working copy of 'C:/prj/p2p/eMule-my/analysis/eMule-merge/eMule/mbedtls/visualc/VS2017/mbedTLS.vcxproj', LF will be replaced by CRLF the next time Git touches it
-diff --git a/C:/prj/p2p/eMule-my/analysis/eMule-merge/eMule/mbedtls/visualc/VS2017/mbedTLS.vcxproj b/C:/prj/p2p/eMule-my/analysis/eMule-merge/eMule/mbedtls/visualc/VS2017/mbedTLS.vcxproj
+diff --git a/visualc/VS2017/mbedTLS.vcxproj b/visualc/VS2017/mbedTLS.vcxproj
 new file mode 100644
-index 0000000..5ab7a76
+index 0000000000..76910b8455
 --- /dev/null
-+++ b/C:/prj/p2p/eMule-my/analysis/eMule-merge/eMule/mbedtls/visualc/VS2017/mbedTLS.vcxproj
-@@ -0,0 +1,93 @@
++++ b/visualc/VS2017/mbedTLS.vcxproj
+@@ -0,0 +1,95 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!--
 +  Wrapper project: builds all MbedTLS 4.0 component libs then combines them
 +  into a single mbedtls.lib at $(Platform)\$(Configuration)\mbedtls.lib.
 +
-+  emule.vcxproj expects:  ..\mbedtls\visualc\vs2017\$(Platform)\$(Configuration)\mbedtls.lib
++  emule.vcxproj expects:  ..\eMule-mbedtls\visualc\VS2017\$(Platform)\$(Configuration)\mbedtls.lib
 +  This project produces:  visualc\VS2017\$(Platform)\$(Configuration)\mbedtls.lib
++
++  Prerequisites: run setup.ps1 first (cmake configure generates the component vcxproj files).
 +-->
 +<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 +  <ItemGroup Label="ProjectConfigurations">

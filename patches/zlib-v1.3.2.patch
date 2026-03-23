@@ -1,20 +1,19 @@
-warning: in the working copy of 'C:/prj/p2p/eMule-my/analysis/eMule-merge/eMule-zlib/contrib/vstudio/vc/zlib.vcxproj', LF will be replaced by CRLF the next time Git touches it
-diff --git a/C:/prj/p2p/eMule-my/analysis/eMule-merge/eMule-zlib/contrib/vstudio/vc/zlib.vcxproj b/C:/prj/p2p/eMule-my/analysis/eMule-merge/eMule-zlib/contrib/vstudio/vc/zlib.vcxproj
+diff --git a/contrib/vstudio/vc/zlib.vcxproj b/contrib/vstudio/vc/zlib.vcxproj
 new file mode 100644
-index 0000000..adf4a82
+index 0000000..e6779d9
 --- /dev/null
-+++ b/C:/prj/p2p/eMule-my/analysis/eMule-merge/eMule-zlib/contrib/vstudio/vc/zlib.vcxproj
++++ b/contrib/vstudio/vc/zlib.vcxproj
 @@ -0,0 +1,88 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!--
-+  zlib.vcxproj — Utility wrapper for building zlib 1.3.2 via cmake.
++  zlib.vcxproj -- Utility wrapper for building zlib 1.3.2 via cmake.
 +
 +  zlib 1.3.2 removed contrib/vstudio/vc/ (cmake is now the canonical build system).
 +  This file recreates the project that emule.sln expects at this path.
 +
 +  How it works:
-+    PreBuildEvent  — cmake configure (skipped if cmake-build\CMakeCache.txt already exists)
-+    PostBuildEvent — cmake --build for the active config, then copy+rename the output:
++    PreBuildEvent  -- cmake configure (skipped if cmake-build\CMakeCache.txt already exists)
++    PostBuildEvent -- cmake --build for the active config, then copy+rename the output:
 +                       cmake output:  cmake-build\<Config>\zs.lib  (Release)
 +                                      cmake-build\<Config>\zsd.lib (Debug)
 +                       expected path: x64\<Config>\zlib.lib
@@ -24,7 +23,7 @@ index 0000000..adf4a82
 +    set(CMAKE_DEBUG_POSTFIX "d")      -> Debug appends "d"    -> "zsd"
 +  These are plain set() calls and cannot be overridden via -D on the cmake command line.
 +
-+  Run 003b_cmake_configure_zlib.cmd first (or let the PreBuildEvent do it automatically).
++  Run setup.ps1 first (or let the PreBuildEvent do it automatically).
 +-->
 +<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 +

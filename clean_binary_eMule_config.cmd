@@ -1,5 +1,4 @@
 @ECHO OFF
+CALL "%~dp0workspace.cmd" clean-config -Config Release %*
+EXIT /B %ERRORLEVEL%
 
-CD /D %~dp0
-
-RMDIR /S /Q eMule\srchybrid\x64\Release\config

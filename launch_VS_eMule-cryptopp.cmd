@@ -1,3 +1,4 @@
 @ECHO OFF
-CD /D %~dp0
-START "" eMule-cryptopp\cryptlib.vcxproj
+CALL "%~dp0workspace.cmd" open-project -Project cryptopp %*
+EXIT /B %ERRORLEVEL%
+

@@ -1,3 +1,4 @@
 @ECHO OFF
-CD /D %~dp0
-START "" eMule\srchybrid\emule.sln
+CALL "%~dp0workspace.cmd" open-solution %*
+EXIT /B %ERRORLEVEL%
+

@@ -1,5 +1,4 @@
 @ECHO OFF
+CALL "%~dp0workspace.cmd" build-app -Config Release %*
+EXIT /B %ERRORLEVEL%
 
-CD /D %~dp0
-
-START "" %ComSpec% /C build_MSBuild_eMule.cmd

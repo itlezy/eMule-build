@@ -1,3 +1,4 @@
 @ECHO OFF
-CD /D %~dp0
-START "" eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj
+CALL "%~dp0workspace.cmd" open-project -Project miniupnp %*
+EXIT /B %ERRORLEVEL%
+

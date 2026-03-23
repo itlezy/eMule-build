@@ -1,3 +1,4 @@
 @ECHO OFF
-CD /D %~dp0
-START "" eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj
+CALL "%~dp0workspace.cmd" open-project -Project mbedtls %*
+EXIT /B %ERRORLEVEL%
+

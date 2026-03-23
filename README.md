@@ -40,7 +40,7 @@ eMule v0.72a dropped two dependencies (CxImage, libpng) and upgraded several oth
 
 **Architecture:**
 - Deps are now **git submodules** at fixed tags instead of runtime-cloned directories
-- No symlinks or junctions — dep paths are referenced directly in `emule.sln` / `emule.vcxproj`
+- `emule.sln`, `emule.slnx`, `emule.vcxproj`, and the affected source includes were retargeted to the real workspace-root dependency paths
 - Dep patches are stored as `git diff` patch files in `patches/` and applied once during setup
 - zlib 1.3.2 removed its VS project files upstream — built via cmake instead
 
@@ -54,9 +54,11 @@ eMule v0.72a dropped two dependencies (CxImage, libpng) and upgraded several oth
    - MFC and ATL for latest build tools
    - Windows SDK 10.0 (any recent version)
 
-2. **Git** on `PATH` (includes git submodule support)
+2. **PowerShell 7 (`pwsh`)** on `PATH`
 
-3. **CMake 3.15+** on `PATH` — required for zlib build
+3. **Git** on `PATH` (includes git submodule support)
+
+4. **CMake 3.15+** on `PATH` — required for zlib build
    Download from [cmake.org](https://cmake.org/download/) or install via Visual Studio Installer
 
 ---
@@ -91,28 +93,36 @@ eMule-build/
   build_MSBuild_eMule-*.cmd
 ```
 
-### 2. Run setup.ps1
+### 2. Run env-check and setup
 
 ```
-powershell -ExecutionPolicy Bypass -File setup.ps1
+pwsh -File .\workspace.ps1 env-check
+pwsh -File .\setup.ps1
 ```
 
-This script does three things:
+`setup.ps1` is a thin compatibility wrapper over `workspace.ps1`. The setup flow does five things:
 
 1. **Applies patch files** to each dep submodule (`git apply --3way`). The patches fix build system issues for VS 2022 x64: toolset upgrades, CRT policy (`/MT`+`/MTd`), output directory corrections, and x64 configuration additions.
 
-2. **Configures the zlib cmake build** — runs cmake once with the correct generator and `/MT` runtime library flag. Only needed on first run; idempotent thereafter.
+2. **Configures the mbedtls cmake build** — generates the VS project files under `eMule-mbedtls\visualc\VS2017\`.
+
+3. **Normalizes generated mbedtls vcxproj files** — rewrites their CRT setting from `/MD`+`/MDd` to `/MT`+`/MTd` after cmake generation.
+
+4. **Enables mbedtls threading support** — copies `threading_alt.h` from eMule and enables `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` in `crypto_config.h`.
+
+5. **Configures the zlib cmake build** — runs cmake once with the correct generator and `/MT` runtime library flag. Only needed on first run; idempotent thereafter.
 
 Patches applied per dep:
 
 | Dep | Patch | What it fixes |
 |-----|-------|---------------|
+| eMule | `emule-eMule_v0.72a-community.patch` | Removes the old dependency-junction assumptions by retargeting solution/project paths and source includes to the workspace-root deps |
 | cryptopp | `cryptopp-CRYPTOPP_8_9_0.patch` | OutDir `Output\` subdir mismatch |
 | id3lib | `id3lib-v3.9.1.patch` | zlib include path (`../zlib` → `../eMule-zlib`) |
 | miniupnpc | `miniupnpc-miniupnpc_2_3_3.patch` | Full vcxproj rewrite: x64 configs, cscript PreBuildEvent, `/MT`+`/MTd` CRT, `_strnicmp` replacing deprecated `_memicmp` |
 | ResizableLib | `resizablelib-master.patch` | SDK 8.1 → v143; OutDir `bin\` removed; Release\|x64 + Debug\|x64 Unicode+Static+`/MT`+`/MTd` |
 | zlib | `zlib-v1.3.2.patch` | Adds `contrib/vstudio/vc/zlib.vcxproj` cmake wrapper (upstream removed VS project files in 1.3.x) |
-| mbedtls | `mbedtls-mbedtls-4.0.0.patch` | CRT `/MD`→`/MT` and `/MDd`→`/MTd` for all 6 component vcxproj files; enables `MBEDTLS_THREADING_C`+`MBEDTLS_THREADING_ALT` in `crypto_config.h`; adds custom `mbedTLS.vcxproj` wrapper that combines all 6 libs into one |
+| mbedtls | `mbedtls-mbedtls-4.0.0.patch` | Adds custom `mbedTLS.vcxproj` wrapper; `setup.ps1` then rewrites the generated component vcxproj files to `/MT`+`/MTd` and enables `MBEDTLS_THREADING_C`+`MBEDTLS_THREADING_ALT` |
 
 ---
 
@@ -121,21 +131,21 @@ Patches applied per dep:
 ### Build all libraries (Release)
 
 ```
-003_build_MSBuild_ALL_libs.cmd
+pwsh -File .\workspace.ps1 build-libs -Config Release
 ```
 
-Launches all six library builds in parallel in separate windows. Wait for all to complete before building eMule.
+The compatibility wrapper `003_build_MSBuild_ALL_libs.cmd` still exists and delegates to the same backend.
 
 ### Build all libraries (Debug)
 
 ```
-003_build_MSBuild_ALL_libs_debug.cmd
+pwsh -File .\workspace.ps1 build-libs -Config Debug
 ```
 
 ### Build eMule
 
 ```
-004_build_MSBuild_eMule.cmd
+pwsh -File .\workspace.ps1 build-app -Config Release
 ```
 
 Or open `eMule\srchybrid\emule.sln` in Visual Studio 2022 and build from the IDE.
@@ -150,9 +160,13 @@ Individual dep build scripts are also available: `build_MSBuild_eMule-cryptopp.c
 
 ## Architecture notes
 
-### Flat submodule layout
+### Flat submodule layout without junctions
 
-Deps are submodules at workspace root, not nested inside `eMule/`. The `emule.sln` and `emule.vcxproj` reference them with paths like `..\..\eMule-cryptopp\` (two levels up from `srchybrid/`). No symlinks or junctions are needed.
+Deps stay at workspace root and the build files now point there directly. No junctions or symlinks are required in the supported workflow.
+
+### Tooling entrypoint
+
+`workspace.ps1` is the single backend for setup, env preflight, builds, IDE launch, binary launch, and packaging. The existing `.cmd` files remain as compatibility shims that call `workspace.cmd`, which in turn requires `pwsh`.
 
 ### CRT policy
 
@@ -160,7 +174,7 @@ All dependency static libs must be compiled with `RuntimeLibrary=MultiThreaded` 
 
 ### MbedTLS 4.0
 
-MbedTLS 4.0 removed the pre-built VS project files and restructured into 6 separate static libs under `tf-psa-crypto/`. The patch adds `visualc/VS2017/mbedTLS.vcxproj` — a Utility project that builds all 6 components and combines them into a single `mbedtls.lib` via `lib.exe` in a PostBuildEvent. eMule source requires:
+MbedTLS 4.0 removed the pre-built VS project files and restructured into 6 separate static libs under `tf-psa-crypto/`. The patch adds `visualc/VS2017/mbedTLS.vcxproj` — a Utility project that builds all 6 components and combines them into a single `mbedtls.lib` via `lib.exe` in a PostBuildEvent. Because cmake generates the component vcxproj files, `setup.ps1` rewrites those generated files after configure so they use `/MT` and `/MTd` instead of `/MD` and `/MDd`. eMule source requires:
 - `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` enabled in `psa/crypto_config.h` (eMule provides its own `threading_alt.h` using Windows `CRITICAL_SECTION`)
 - `MBEDTLS_ALLOW_PRIVATE_ACCESS` in `emule.vcxproj` preprocessor defines (for `private/sha1.h` access)
 

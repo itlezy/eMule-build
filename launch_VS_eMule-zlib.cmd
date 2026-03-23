@@ -1,3 +1,4 @@
 @ECHO OFF
-CD /D %~dp0
-START "" eMule-zlib\contrib\vstudio\vc\zlib.vcxproj
+CALL "%~dp0workspace.cmd" open-project -Project zlib %*
+EXIT /B %ERRORLEVEL%
+
