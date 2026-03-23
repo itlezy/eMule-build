@@ -21,6 +21,7 @@ $PSNativeCommandUseErrorActionPreference = $false
 $Root = Split-Path -Parent $PSCommandPath
 $Manifest = Import-PowerShellDataFile -Path (Join-Path $Root 'deps.psd1')
 $Workspace = $Manifest.Workspace
+$GeneratedProjects = $Workspace.GeneratedProjects
 $BuildBranch = $Manifest.BuildBranch
 $DependencyPatches = $Manifest.Dependencies
 $DependencyOrder = @($Manifest.DependencyOrder)
@@ -49,6 +50,10 @@ function Resolve-FirstExisting([string[]]$Paths) {
         }
     }
     $null
+}
+
+function Get-WorkspacePath([string]$RelativePath) {
+    Join-Path $Root $RelativePath
 }
 
 function Get-PatchPath([string]$PatchFile) {
@@ -305,6 +310,47 @@ function Get-OutputPath([string]$Name, [string]$Configuration) {
     Join-Path $Root $Projects[$Name].Output[$Configuration]
 }
 
+function Get-GeneratedProjectProfile([string]$Name) {
+    $profile = $GeneratedProjects[$Name]
+    if (-not $profile) {
+        throw "No generated project profile defined for $Name."
+    }
+    $profile
+}
+
+function Test-WorkspacePaths([string[]]$RelativePaths) {
+    foreach ($relativePath in $RelativePaths) {
+        if (-not (Test-Path -LiteralPath (Get-WorkspacePath $relativePath))) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Test-GeneratedProjectReady([string]$Name) {
+    Test-WorkspacePaths (Get-GeneratedProjectProfile $Name).ConfigureReady
+}
+
+function Get-GeneratedProjectBuildDir([string]$Name) {
+    Get-WorkspacePath (Get-GeneratedProjectProfile $Name).Configure.Build
+}
+
+function Get-GeneratedProjectSourceDir([string]$Name) {
+    Get-WorkspacePath (Get-GeneratedProjectProfile $Name).Configure.Source
+}
+
+function Get-GeneratedProjectArtifactName([string]$Name, [string]$Configuration) {
+    $profile = Get-GeneratedProjectProfile $Name
+    if (-not $profile.Contains('BuildArtifacts')) {
+        throw "No build artifact mapping defined for $Name."
+    }
+    $artifactName = $profile.BuildArtifacts[$Configuration]
+    if ([string]::IsNullOrWhiteSpace($artifactName)) {
+        throw "No build artifact defined for $Name/$Configuration."
+    }
+    $artifactName
+}
+
 function Get-PackageProfile([string]$Configuration = 'Release') {
     $profile = $Workspace.Package[$Configuration]
     if (-not $profile) {
@@ -328,6 +374,20 @@ function Get-PackagePath([string]$Configuration = 'Release') {
         throw "No package archive name defined for configuration $Configuration."
     }
     Join-Path (Get-PackageOutputDir $Configuration) $archiveName
+}
+
+function Get-PackageRootDir([string]$Configuration = 'Release') {
+    $profile = Get-PackageProfile $Configuration
+    if ([string]::IsNullOrWhiteSpace($profile.RootDir)) {
+        throw "No package root directory defined for configuration $Configuration."
+    }
+    $profile.RootDir
+}
+
+function Get-PackageEntryPath([string]$Configuration = 'Release', [string]$Entry) {
+    $rootDir = Get-PackageRootDir $Configuration
+    $cleanEntry = $Entry -replace '\\','/'
+    "$rootDir/$cleanEntry"
 }
 
 function Get-DependencyBranchState([string]$DependencyKey) {
@@ -405,7 +465,8 @@ function Get-ToolsContext {
 }
 
 function Get-ExpectedWorkspacePaths {
-    @(
+    $paths = [System.Collections.Generic.List[string]]::new()
+    foreach ($path in @(
         'deps.psd1',
         'eMule\srchybrid\emule.vcxproj',
         'eMule\srchybrid\emule.sln',
@@ -424,7 +485,15 @@ function Get-ExpectedWorkspacePaths {
         'patches\mbedtls-tf-psa-crypto-v1.0.0.patch',
         $Workspace.Templates.zlib.Source,
         $Workspace.Templates.mbedtls.Source
-    )
+    )) {
+        $paths.Add($path) | Out-Null
+    }
+    foreach ($item in @((Get-PackageProfile 'Release').Include)) {
+        if ($item.Source) {
+            $paths.Add($item.Source) | Out-Null
+        }
+    }
+    @($paths | Select-Object -Unique)
 }
 
 function Get-DependencySeverity([string]$Intent, [bool]$Ready) {
@@ -441,7 +510,7 @@ function Get-ConfigureSeverity([string]$Intent, [bool]$Ready) {
 
 function Get-ToolReport([string]$Intent, $ToolsContext) {
     $results = [System.Collections.Generic.List[object]]::new()
-    $mbedtlsConfigured = Test-MbedTlsConfigureReady
+    $mbedtlsConfigured = Test-GeneratedProjectReady 'mbedtls'
 
     Add-Check $results 'pass' 'pwsh' "PowerShell $($PSVersionTable.PSVersion)"
     Add-Check $results ($ToolsContext.Git ? 'pass' : 'fail') 'git' ($ToolsContext.Git ? $ToolsContext.Git : 'not found on PATH')
@@ -495,13 +564,13 @@ function Get-WorkspaceReport([string]$Intent, $ToolsContext) {
         }
     }
 
-    $mbedtlsReady = Test-MbedTlsConfigureReady
+    $mbedtlsReady = Test-GeneratedProjectReady 'mbedtls'
     $mbedtlsConfigStatus = Get-ConfigureSeverity $Intent $mbedtlsReady
-    Add-Check $results $mbedtlsConfigStatus 'mbedtls-configure' ($mbedtlsReady ? 'visualc\VS2017 generated project tree ready' : 'missing or incomplete; run setup/repair')
+    Add-Check $results $mbedtlsConfigStatus 'mbedtls-configure' ($mbedtlsReady ? ((Get-GeneratedProjectProfile 'mbedtls').Configure.Build + ' ready') : 'missing or incomplete; run setup/repair')
 
-    $zlibConfigured = Test-Path -LiteralPath (Join-Path $Root 'eMule-zlib\cmake-build\CMakeCache.txt')
+    $zlibConfigured = Test-GeneratedProjectReady 'zlib'
     $zlibConfigStatus = Get-ConfigureSeverity $Intent $zlibConfigured
-    Add-Check $results $zlibConfigStatus 'zlib-configure' ($zlibConfigured ? 'eMule-zlib\cmake-build\CMakeCache.txt' : 'missing; run setup/repair')
+    Add-Check $results $zlibConfigStatus 'zlib-configure' ($zlibConfigured ? ((Get-GeneratedProjectProfile 'zlib').ConfigureReady -join ', ') : 'missing; run setup/repair')
     @($results)
 }
 
@@ -519,12 +588,13 @@ function Get-PackageArchiveCheck([string]$Configuration, [switch]$Optional) {
     try {
         $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
         $entries = @($archive.Entries | Select-Object -ExpandProperty FullName)
-        $requiredEntry = (Get-PackageProfile $Configuration).Entry
-        if ($requiredEntry -notin $entries) {
+        $requiredEntries = @(Get-PackageEntryList $Configuration)
+        $missingEntries = @($requiredEntries | Where-Object { $_ -notin $entries })
+        if ($missingEntries.Count -gt 0) {
             return [pscustomobject]@{
                 Status = 'fail'
                 Name = 'package-archive'
-                Detail = "missing entry $requiredEntry in $zip"
+                Detail = "missing entries $($missingEntries -join ', ') in $zip"
             }
         }
         [pscustomobject]@{
@@ -621,8 +691,8 @@ function Invoke-WithWorkspaceLock([string]$Label, [scriptblock]$Action) {
 }
 
 function Install-WorkspaceFile([string]$TemplateRelativePath, [string]$DestinationRelativePath) {
-    $source = Join-Path $Root $TemplateRelativePath
-    $destination = Join-Path $Root $DestinationRelativePath
+    $source = Get-WorkspacePath $TemplateRelativePath
+    $destination = Get-WorkspacePath $DestinationRelativePath
     $parent = Split-Path -Parent $destination
     if (-not (Test-Path -LiteralPath $parent)) {
         $null = New-Item -ItemType Directory -Path $parent -Force
@@ -631,15 +701,17 @@ function Install-WorkspaceFile([string]$TemplateRelativePath, [string]$Destinati
 }
 
 function Install-MbedTlsWrapper {
-    Install-WorkspaceFile 'templates\mbedtls\mbedTLS.vcxproj' 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'
+    $template = $Workspace.Templates.mbedtls
+    Install-WorkspaceFile $template.Source $template.Destination
 }
 
 function Install-ZlibWrapper {
-    Install-WorkspaceFile 'templates\zlib\zlib.vcxproj' 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
+    $template = $Workspace.Templates.zlib
+    Install-WorkspaceFile $template.Source $template.Destination
 }
 
 function Set-MbedTlsStaticRuntime([string]$BuildDir) {
-    foreach ($rel in @('library\mbedtls.vcxproj','library\mbedx509.vcxproj','tf-psa-crypto\core\tfpsacrypto.vcxproj','tf-psa-crypto\drivers\builtin\builtin.vcxproj','tf-psa-crypto\drivers\everest\everest.vcxproj','tf-psa-crypto\drivers\p256-m\p256m.vcxproj')) {
+    foreach ($rel in @((Get-GeneratedProjectProfile 'mbedtls').StaticRuntimeProjects)) {
         $path = Join-Path $BuildDir $rel
         $content = [IO.File]::ReadAllText($path)
         $updated = $content.Replace('<RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>', '<RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>').Replace('<RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>', '<RuntimeLibrary>MultiThreaded</RuntimeLibrary>')
@@ -647,20 +719,21 @@ function Set-MbedTlsStaticRuntime([string]$BuildDir) {
     }
 }
 
-function Test-MbedTlsConfigureReady {
-    $dir = Join-Path $Root 'eMule-mbedtls\visualc\VS2017'
-    foreach ($rel in @(
-        'CMakeCache.txt',
-        'library\mbedtls.vcxproj',
-        'library\mbedx509.vcxproj',
-        'tf-psa-crypto\core\tfpsacrypto.vcxproj',
-        'tf-psa-crypto\drivers\builtin\builtin.vcxproj',
-        'tf-psa-crypto\drivers\everest\everest.vcxproj',
-        'tf-psa-crypto\drivers\p256-m\p256m.vcxproj'
-    )) {
-        if (-not (Test-Path -LiteralPath (Join-Path $dir $rel))) { return $false }
+function Invoke-GeneratedProjectConfigure([string]$Name, $EnvReport) {
+    $profile = Get-GeneratedProjectProfile $Name
+    $configure = $profile.Configure
+    $args = @(
+        '-S', (Get-GeneratedProjectSourceDir $Name),
+        '-B', (Get-GeneratedProjectBuildDir $Name),
+        '-G', $configure.Generator,
+        '-A', $configure.Platform
+    ) + @($configure.Arguments)
+
+    if ($Name -eq 'mbedtls' -and $EnvReport.Tools.Perl) {
+        $args += "-DPERL_EXECUTABLE=$($EnvReport.Tools.Perl)"
     }
-    return $true
+
+    Invoke-Native -Exe $EnvReport.Tools.CMake -ArgumentList $args -Label "cmake configure $Name" -WorkDir $null
 }
 
 function Run-Setup {
@@ -673,19 +746,16 @@ function Run-Setup {
     }
     Sync-NestedBuildSubmodule
 
-    $mbedBuild = Join-Path $Root 'eMule-mbedtls\visualc\VS2017'
-    if (-not (Test-MbedTlsConfigureReady)) {
+    $mbedBuild = Get-GeneratedProjectBuildDir 'mbedtls'
+    if (-not (Test-GeneratedProjectReady 'mbedtls')) {
         Clean-MbedTlsGenerated
-        $mbedtlsArgs = @('-S', (Join-Path $Root 'eMule-mbedtls'), '-B', $mbedBuild, '-G', 'Visual Studio 17 2022', '-A', 'x64', '-DENABLE_PROGRAMS=OFF', '-DENABLE_TESTING=OFF', '-DGEN_FILES=ON', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>')
-        if ($envReport.Tools.Perl) { $mbedtlsArgs += "-DPERL_EXECUTABLE=$($envReport.Tools.Perl)" }
-        Invoke-Native -Exe $envReport.Tools.CMake -ArgumentList $mbedtlsArgs -Label 'cmake configure mbedtls' -WorkDir $null
+        Invoke-GeneratedProjectConfigure 'mbedtls' $envReport
     }
     Install-MbedTlsWrapper
     Set-MbedTlsStaticRuntime $mbedBuild
 
-    $zlibBuild = Join-Path $Root 'eMule-zlib\cmake-build'
-    if (-not (Test-Path -LiteralPath (Join-Path $zlibBuild 'CMakeCache.txt'))) {
-        Invoke-Native -Exe $envReport.Tools.CMake -ArgumentList @('-S', (Join-Path $Root 'eMule-zlib'), '-B', $zlibBuild, '-G', 'Visual Studio 17 2022', '-A', 'x64', '-DZLIB_BUILD_SHARED=OFF', '-DZLIB_BUILD_TESTING=OFF', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>') -Label 'cmake configure zlib' -WorkDir $null
+    if (-not (Test-GeneratedProjectReady 'zlib')) {
+        Invoke-GeneratedProjectConfigure 'zlib' $envReport
     }
     Install-ZlibWrapper
 }
@@ -701,27 +771,19 @@ function Get-LogPath([string]$Name, [string]$Configuration) {
 }
 
 function Remove-GeneratedTarget([string]$RelativePath) {
-    $path = Join-Path $Root $RelativePath
+    $path = Get-WorkspacePath $RelativePath
     if (-not (Test-Path -LiteralPath $path)) { return }
     Remove-Item -LiteralPath $path -Recurse -Force
 }
 
 function Clean-MbedTlsGenerated {
-    $dir = Join-Path $Root 'eMule-mbedtls\visualc\VS2017'
-    if (-not (Test-Path -LiteralPath $dir)) { return }
-    Remove-Item -LiteralPath $dir -Recurse -Force
+    foreach ($path in @((Get-GeneratedProjectProfile 'mbedtls').Cleanup)) {
+        Remove-GeneratedTarget $path
+    }
 }
 
 function Clean-Generated {
-    foreach ($path in @(
-        $Workspace.LogsRoot,
-        (Get-PackageProfile 'Release').OutputDir,
-        'tmp',
-        'eMule\srchybrid\x64',
-        'eMule-zlib\cmake-build',
-        'eMule-zlib\contrib\vstudio\vc\x64',
-        'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
-    )) {
+    foreach ($path in @($Workspace.Cleanup) + @((Get-GeneratedProjectProfile 'zlib').Cleanup)) {
         Remove-GeneratedTarget $path
     }
     Clean-MbedTlsGenerated
@@ -731,10 +793,10 @@ function Build-ProjectInternal($EnvReport, [string]$Name, [string]$Configuration
     $info = $Projects[$Name]
     $log = Get-LogPath $Name $Configuration
     if ($info.Kind -eq 'cmake') {
-        $buildDir = Join-Path $Root $info.Build
+        $buildDir = Get-GeneratedProjectBuildDir $Name
         & $EnvReport.Tools.CMake --build $buildDir --config $Configuration --target zlibstatic *> $log
         if ($LASTEXITCODE -ne 0) { throw "$Name build failed. See $log" }
-        $srcName = if ($Configuration -eq 'Debug') { 'zsd.lib' } else { 'zs.lib' }
+        $srcName = Get-GeneratedProjectArtifactName $Name $Configuration
         $src = Join-Path $buildDir "$Configuration\$srcName"
         $destDir = Split-Path -Parent (Get-OutputPath $Name $Configuration)
         if (-not (Test-Path -LiteralPath $destDir)) { $null = New-Item -ItemType Directory -Path $destDir -Force }
@@ -760,8 +822,9 @@ function Build-Libs {
             Name = $_
             Kind = $info.Kind
             Path = Join-Path $Root $info.Path
-            Build = if ($info.Contains('Build')) { Join-Path $Root $info.Build } else { $null }
+            Build = if ($info.Contains('Build')) { Get-GeneratedProjectBuildDir $_ } else { $null }
             Out = Split-Path -Parent (Get-OutputPath $_ $Config)
+            Artifact = if ($info.Kind -eq 'cmake') { Get-GeneratedProjectArtifactName $_ $Config } else { $null }
         }
     }
     $results = $defs | ForEach-Object -Parallel {
@@ -773,7 +836,7 @@ function Build-Libs {
                 $code = $LASTEXITCODE
                 if ($code -eq 0) {
                     if (-not (Test-Path -LiteralPath $def.Out)) { $null = New-Item -ItemType Directory -Path $def.Out -Force }
-                    $src = Join-Path $def.Build ($using:Config + '\' + $(if ($using:Config -eq 'Debug') { 'zsd.lib' } else { 'zs.lib' }))
+                    $src = Join-Path $def.Build ($using:Config + '\' + $def.Artifact)
                     Copy-Item -LiteralPath $src -Destination (Join-Path $def.Out 'zlib.lib') -Force
                 }
             } else {
@@ -800,6 +863,77 @@ function Repair-Workspace {
     $r = Get-EnvReport 'build-app' $Config 'eMule'
     Show-Report $r
     Build-ProjectInternal $r 'eMule' $Config
+}
+
+function Get-PackageStageDir([string]$Configuration = 'Release') {
+    Join-Path $RunLogs "package-$Configuration"
+}
+
+function Get-PackageEntryList([string]$Configuration = 'Release') {
+    $profile = Get-PackageProfile $Configuration
+    $entries = [System.Collections.Generic.List[string]]::new()
+    $entries.Add((Get-PackageEntryPath $Configuration $profile.Entry)) | Out-Null
+    if ($profile.BuildInfoName) {
+        $entries.Add((Get-PackageEntryPath $Configuration $profile.BuildInfoName)) | Out-Null
+    }
+    foreach ($item in @($profile.Include)) {
+        if ($item.Destination) {
+            $entries.Add((Get-PackageEntryPath $Configuration $item.Destination)) | Out-Null
+        }
+    }
+    @($entries)
+}
+
+function New-PackageBuildInfo([string]$Configuration = 'Release') {
+    $toolsContext = Get-ToolsContext
+    $workspaceBranch = Get-RepoBranch $Root
+    $workspaceCommit = Get-GitText $Root @('rev-parse', 'HEAD') 'git rev-parse HEAD'
+    $sourceProject = (Get-PackageProfile $Configuration).SourceProject
+    $sourceRepoPath = Split-Path -Parent (Get-OutputPath $sourceProject $Configuration)
+    @(
+        "PackageRoot: $(Get-PackageRootDir $Configuration)"
+        "SourceProject: $sourceProject"
+        "Configuration: $Configuration"
+        "BuiltUtc: $(Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')"
+        "WorkspaceBranch: $workspaceBranch"
+        "WorkspaceCommit: $workspaceCommit"
+        "eMuleCommit: $(Get-RepoHeadShort (Get-WorkspacePath 'eMule'))"
+        "Binary: $(Split-Path -Leaf (Get-OutputPath $sourceProject $Configuration))"
+        "BinarySourceDir: $sourceRepoPath"
+        "PowerShell: $($PSVersionTable.PSVersion)"
+        "MSBuild: $($toolsContext.Vs.MSBuild)"
+        "VisualStudio: $($toolsContext.Vs.Root)"
+        "WindowsSdk: $($toolsContext.Sdk.Version)"
+    ) -join [Environment]::NewLine
+}
+
+function New-PackageStage([string]$Configuration = 'Release') {
+    Ensure-Logs
+    $profile = Get-PackageProfile $Configuration
+    $stageDir = Get-PackageStageDir $Configuration
+    if (Test-Path -LiteralPath $stageDir) {
+        Remove-Item -LiteralPath $stageDir -Recurse -Force
+    }
+    $packageRoot = Join-Path $stageDir $profile.RootDir
+    $null = New-Item -ItemType Directory -Path $packageRoot -Force
+
+    $sourceProject = $profile.SourceProject
+    Copy-Item -LiteralPath (Get-OutputPath $sourceProject $Configuration) -Destination (Join-Path $packageRoot $profile.Entry) -Force
+
+    foreach ($item in @($profile.Include)) {
+        $destination = Join-Path $packageRoot $item.Destination
+        $parent = Split-Path -Parent $destination
+        if (-not (Test-Path -LiteralPath $parent)) {
+            $null = New-Item -ItemType Directory -Path $parent -Force
+        }
+        Copy-Item -LiteralPath (Get-WorkspacePath $item.Source) -Destination $destination -Force
+    }
+
+    if ($profile.BuildInfoName) {
+        [IO.File]::WriteAllText((Join-Path $packageRoot $profile.BuildInfoName), (New-PackageBuildInfo $Configuration))
+    }
+
+    $stageDir
 }
 
 function New-PackageZip([string]$SourceFile, [string]$DestinationZip) {
@@ -923,7 +1057,8 @@ switch ($Command) {
             $r = Get-EnvReport 'package' 'Release' 'eMule'
             Show-Report $r
             $zip = Get-PackagePath 'Release'
-            New-PackageZip -SourceFile (Get-OutputPath 'eMule' 'Release') -DestinationZip $zip
+            $stageDir = New-PackageStage 'Release'
+            New-PackageZip -SourceFile (Join-Path $stageDir (Get-PackageRootDir 'Release')) -DestinationZip $zip
         }
     }
     'clean-config' {

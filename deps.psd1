@@ -2,6 +2,13 @@
     BuildBranch = 'emule-build-v0.72a'
     Workspace = @{
         LogsRoot = 'logs'
+        TempRoot = 'tmp'
+        Cleanup = @(
+            'logs'
+            'dist'
+            'tmp'
+            'eMule\srchybrid\x64'
+        )
         Templates = @{
             zlib = @{
                 Source = 'templates\zlib\zlib.vcxproj'
@@ -17,7 +24,76 @@
                 SourceProject = 'eMule'
                 OutputDir = 'dist'
                 ArchiveName = 'eMule0.72a-broadband_x64-snapshot.zip'
+                RootDir = 'eMule0.72a-broadband_x64'
+                BuildInfoName = 'BUILD-INFO.txt'
                 Entry = 'emule.exe'
+                Include = @(
+                    @{
+                        Source = 'LICENSE'
+                        Destination = 'LICENSE'
+                    }
+                )
+            }
+        }
+        GeneratedProjects = @{
+            zlib = @{
+                ConfigureReady = @(
+                    'eMule-zlib\cmake-build\CMakeCache.txt'
+                )
+                Cleanup = @(
+                    'eMule-zlib\cmake-build'
+                    'eMule-zlib\contrib\vstudio\vc\x64'
+                    'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
+                )
+                Configure = @{
+                    Source = 'eMule-zlib'
+                    Build = 'eMule-zlib\cmake-build'
+                    Generator = 'Visual Studio 17 2022'
+                    Platform = 'x64'
+                    Arguments = @(
+                        '-DZLIB_BUILD_SHARED=OFF'
+                        '-DZLIB_BUILD_TESTING=OFF'
+                        '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>'
+                    )
+                }
+                BuildArtifacts = @{
+                    Release = 'zs.lib'
+                    Debug = 'zsd.lib'
+                }
+            }
+            mbedtls = @{
+                ConfigureReady = @(
+                    'eMule-mbedtls\visualc\VS2017\CMakeCache.txt'
+                    'eMule-mbedtls\visualc\VS2017\library\mbedtls.vcxproj'
+                    'eMule-mbedtls\visualc\VS2017\library\mbedx509.vcxproj'
+                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\core\tfpsacrypto.vcxproj'
+                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\drivers\builtin\builtin.vcxproj'
+                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\drivers\everest\everest.vcxproj'
+                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\drivers\p256-m\p256m.vcxproj'
+                )
+                Cleanup = @(
+                    'eMule-mbedtls\visualc\VS2017'
+                )
+                Configure = @{
+                    Source = 'eMule-mbedtls'
+                    Build = 'eMule-mbedtls\visualc\VS2017'
+                    Generator = 'Visual Studio 17 2022'
+                    Platform = 'x64'
+                    Arguments = @(
+                        '-DENABLE_PROGRAMS=OFF'
+                        '-DENABLE_TESTING=OFF'
+                        '-DGEN_FILES=ON'
+                        '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>'
+                    )
+                }
+                StaticRuntimeProjects = @(
+                    'library\mbedtls.vcxproj'
+                    'library\mbedx509.vcxproj'
+                    'tf-psa-crypto\core\tfpsacrypto.vcxproj'
+                    'tf-psa-crypto\drivers\builtin\builtin.vcxproj'
+                    'tf-psa-crypto\drivers\everest\everest.vcxproj'
+                    'tf-psa-crypto\drivers\p256-m\p256m.vcxproj'
+                )
             }
         }
     }

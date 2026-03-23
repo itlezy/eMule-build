@@ -177,6 +177,16 @@ pwsh -File .\workspace.ps1 package
 
 By default on `v0.72a`, the package zip is written under `dist\`. The location and archive name are workspace variables in `deps.psd1` under `Workspace.Package.Release`.
 
+The zip now contains a top-level release folder plus build metadata:
+
+```
+dist\eMule0.72a-broadband_x64-snapshot.zip
+  eMule0.72a-broadband_x64/
+    emule.exe
+    LICENSE
+    BUILD-INFO.txt
+```
+
 ---
 
 ### 4. Inspect or reset local build state
@@ -192,6 +202,14 @@ pwsh -File .\workspace.ps1 repair
 - `dep-status` shows the current branch, commit, patch state, and cleanliness for `eMule` and each dependency
 - `clean-generated` removes generated build trees, logs, temp files, and app outputs without touching the disposable local build-branch commits
 - `repair` reapplies setup and restores the selected build configuration (`Release` by default) so the workspace is immediately runnable again after `clean-generated`
+
+For a disposable end-to-end regression check of the script surface itself, run:
+
+```
+pwsh -File .\scripts\smoke-test.ps1
+```
+
+That script clones the current repo into a temporary workspace, runs `clean-generated`, `repair`, `validate`, `package`, and a final `validate`, then deletes the disposable clone unless `-KeepWorkspace` is used.
 
 ---
 
@@ -226,6 +244,8 @@ Useful inspection commands:
 - `pwsh -File .\workspace.ps1 repair`
 
 Build and packaging logs are written to timestamped per-run subdirectories under `logs\`, which avoids stale-file ambiguity between successive runs.
+
+Package layout, package destination, generated-project configure readiness, and cleanup targets are all manifest-backed in `deps.psd1` rather than spread across `workspace.ps1`.
 
 ### Dependency branch model
 
