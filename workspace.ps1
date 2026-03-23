@@ -904,7 +904,7 @@ function New-PackageBuildInfo([string]$Configuration = 'Release') {
         "PackageRoot: $(Get-PackageRootDir $Configuration)"
         "SourceProject: $sourceProject"
         "Configuration: $Configuration"
-        "BuiltUtc: $(Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')"
+        "BuiltUtc: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
         "WorkspaceBranch: $workspaceBranch"
         "WorkspaceCommit: $workspaceCommit"
         "eMuleCommit: $(Get-RepoHeadShort (Get-WorkspacePath 'eMule'))"
