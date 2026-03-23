@@ -5,18 +5,24 @@
 [submodule "eMule-cryptopp"]
 	path = eMule-cryptopp
 	url = https://github.com/weidai11/cryptopp.git
+	shallow = true
 [submodule "eMule-id3lib"]
 	path = eMule-id3lib
 	url = https://github.com/itlezy/eMule-id3lib.git
+	shallow = true
 [submodule "eMule-miniupnp"]
 	path = eMule-miniupnp
 	url = https://github.com/miniupnp/miniupnp.git
+	shallow = true
 [submodule "eMule-ResizableLib"]
 	path = eMule-ResizableLib
 	url = https://github.com/ppescher/resizablelib.git
+	shallow = true
 [submodule "eMule-zlib"]
 	path = eMule-zlib
 	url = https://github.com/madler/zlib.git
+	shallow = true
 [submodule "eMule-mbedtls"]
 	path = eMule-mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
+	shallow = true

@@ -1,8 +1,4 @@
 @ECHO OFF
 CD /D %~dp0
-START "" %ComSpec% /C build_MSBuild_eMule-cryptopp.cmd
-START "" %ComSpec% /C build_MSBuild_eMule-id3lib.cmd
-START "" %ComSpec% /C build_MSBuild_eMule-miniupnp.cmd
-START "" %ComSpec% /C build_MSBuild_eMule-ResizableLib.cmd
-START "" %ComSpec% /C build_MSBuild_eMule-zlib.cmd
-START "" %ComSpec% /C build_MSBuild_eMule-mbedtls.cmd
+powershell -ExecutionPolicy Bypass -File 003_build_MSBuild_ALL_libs.ps1 -Config Release
+IF %ERRORLEVEL% NEQ 0 PAUSE

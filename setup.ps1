@@ -21,11 +21,23 @@ function Apply-Patch {
     param([string]$SubmoduleDir, [string]$PatchFile)
     $patchPath = Join-Path $root "patches\$PatchFile"
     if (-not (Test-Path $patchPath)) { throw "Patch not found: $patchPath" }
-    Write-Host "  Applying $PatchFile ..."
     Push-Location (Join-Path $root $SubmoduleDir)
     try {
-        git apply --3way $patchPath 2>&1 | ForEach-Object { "    $_" } | Write-Host
-        if ($LASTEXITCODE -ne 0) { throw "git apply failed for $PatchFile" }
+        # Check if patch applies cleanly
+        git apply --check $patchPath 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Applying $PatchFile ..."
+            git apply --3way $patchPath 2>&1 | ForEach-Object { "    $_" } | Write-Host
+            if ($LASTEXITCODE -ne 0) { throw "git apply failed for $PatchFile" }
+        } else {
+            # Check if it is already applied (reverse applies cleanly)
+            git apply --check --reverse $patchPath 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "  Skipping $PatchFile (already applied)" -ForegroundColor DarkGray
+            } else {
+                throw "Patch $PatchFile cannot be applied and is not already applied — check for conflicts"
+            }
+        }
     } finally { Pop-Location }
 }
 
