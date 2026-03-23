@@ -1,6 +1,6 @@
 [submodule "eMule"]
 	path = eMule
-	url = https://github.com/Threepwood-7/eMule.git
+	url = https://github.com/itlezy/eMule.git
 	branch = build-v0.72a
 [submodule "eMule-cryptopp"]
 	path = eMule-cryptopp
