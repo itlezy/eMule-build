@@ -3,6 +3,10 @@
 
 # Patch files must be LF — git apply requires it
 *.patch text eol=lf
+*.md    text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+.gitmodules    text eol=lf
 
 # Windows project and script files use CRLF on checkout
 *.vcxproj text eol=crlf

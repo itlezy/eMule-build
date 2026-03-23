@@ -191,7 +191,7 @@ MbedTLS 4.0 removed the pre-built VS project files and restructured into 6 separ
 
 ### zlib 1.3.2
 
-zlib 1.3.2 removed `contrib/vstudio/` entirely. The patch adds a Utility vcxproj wrapper that invokes cmake to build `zlibstatic` and copies the output (`zs.lib` → `zlib.lib`). cmake must be on `PATH` — `setup.ps1` handles the one-time configure step.
+zlib 1.3.2 removed `contrib/vstudio/` entirely. The patch adds a Utility vcxproj wrapper that invokes cmake to build `zlibstatic` and copies the output (`zs.lib` → `zlib.lib`). cmake must be on `PATH` — `workspace.ps1 setup` handles the one-time configure step.
 
 ### WebSocket.cpp (Unicode-safe cert/key loading)
 
