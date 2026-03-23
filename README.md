@@ -119,6 +119,14 @@ The setup flow does five things:
 
 `env-check` now also verifies that `git user.name` and `git user.email` are configured, because setup records local build commits in dependency branches.
 
+For a single consolidated health check after setup or after a build, use:
+
+```
+pwsh -File .\workspace.ps1 validate
+```
+
+`validate` runs the same environment and workspace checks, shows dependency state, verifies expected outputs for the selected configuration, and for `Release` also inspects the package zip when present.
+
 Patches applied per dep:
 
 | Dep | Patch | What it fixes |
@@ -159,18 +167,28 @@ Or open `eMule\srchybrid\emule.sln` in Visual Studio 2022 and build from the IDE
 - Release: `eMule\srchybrid\x64\Release\emule.exe` (~8.7 MB, static MFC)
 - Debug: `eMule\srchybrid\x64\Debug\emule.exe` (~35 MB)
 
-Individual dep build scripts are also available: `build_MSBuild_eMule-cryptopp.cmd`, `build_MSBuild_eMule-mbedtls.cmd`, etc.
+Legacy dep build scripts are still present as compatibility wrappers, but `workspace.ps1` is the supported entrypoint.
+
+### 3b. Package the Release build
+
+```
+pwsh -File .\workspace.ps1 package
+```
+
+By default on `v0.72a`, the package zip is written under `dist\`. The location and archive name are workspace variables in `deps.psd1` under `Workspace.Package.Release`.
 
 ---
 
 ### 4. Inspect or reset local build state
 
 ```
+pwsh -File .\workspace.ps1 validate
 pwsh -File .\workspace.ps1 dep-status
 pwsh -File .\workspace.ps1 clean-generated
 pwsh -File .\workspace.ps1 repair
 ```
 
+- `validate` is the canonical one-shot health check for the workspace
 - `dep-status` shows the current branch, commit, patch state, and cleanliness for `eMule` and each dependency
 - `clean-generated` removes generated build trees, logs, temp files, and app outputs without touching the disposable local build-branch commits
 - `repair` reapplies setup and restores the selected build configuration (`Release` by default) so the workspace is immediately runnable again after `clean-generated`
@@ -196,15 +214,18 @@ Deps stay at workspace root and the build files now point there directly. No jun
 
 ### Tooling entrypoint
 
-`workspace.ps1` is the single backend for setup, env preflight, builds, IDE launch, binary launch, and packaging. The existing `.cmd` files remain as compatibility shims that call `workspace.cmd`, which in turn requires `pwsh`.
+`workspace.ps1` is the single supported backend for setup, env preflight, validation, builds, IDE launch, binary launch, and packaging. The existing `.cmd` files remain only as compatibility shims for older habits and should not be treated as separate build implementations.
 
 Mutating commands are serialized with a workspace lock, so concurrent `build-*`, `setup`, `repair`, `package`, and cleanup invocations wait instead of racing each other in the same tree.
 
 Useful inspection commands:
 - `pwsh -File .\workspace.ps1 env-check`
+- `pwsh -File .\workspace.ps1 validate`
 - `pwsh -File .\workspace.ps1 dep-status`
 - `pwsh -File .\workspace.ps1 clean-generated`
 - `pwsh -File .\workspace.ps1 repair`
+
+Build and packaging logs are written to timestamped per-run subdirectories under `logs\`, which avoids stale-file ambiguity between successive runs.
 
 ### Dependency branch model
 

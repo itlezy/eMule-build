@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','setup','repair','build-libs','build-app','build-all','build-project','open-solution','open-project','run-binary','package','clean-config','clean-generated')]
+    [ValidateSet('env-check','dep-status','validate','setup','repair','build-libs','build-app','build-all','build-project','open-solution','open-project','run-binary','package','clean-config','clean-generated')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -19,13 +19,20 @@ $PSNativeCommandUseErrorActionPreference = $false
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $Root = Split-Path -Parent $PSCommandPath
-$Logs = Join-Path $Root 'logs'
 $Manifest = Import-PowerShellDataFile -Path (Join-Path $Root 'deps.psd1')
+$Workspace = $Manifest.Workspace
 $BuildBranch = $Manifest.BuildBranch
 $DependencyPatches = $Manifest.Dependencies
 $DependencyOrder = @($Manifest.DependencyOrder)
 $BuildProjects = @($Manifest.BuildProjects)
 $Projects = $Manifest.Projects
+$LogsRoot = Join-Path $Root $Workspace.LogsRoot
+$RunLogLabel = switch ($Command) {
+    'build-project' { "$Command-$Project-$Config" }
+    { $_ -in @('build-libs','build-app','build-all','setup','repair','package','run-binary','clean-config','validate') } { "$Command-$Config" }
+    default { $Command }
+}
+$RunLogs = Join-Path $LogsRoot ("{0}-{1}" -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $RunLogLabel)
 
 function Resolve-Tool([string[]]$Names) {
     foreach ($name in $Names) {
@@ -288,8 +295,39 @@ function Add-Check($List, [string]$Status, [string]$Name, [string]$Detail) {
     $List.Add([pscustomobject]@{ Status=$Status; Name=$Name; Detail=$Detail }) | Out-Null
 }
 
+function Add-Checks($List, $Checks) {
+    foreach ($check in @($Checks)) {
+        if ($check) { $List.Add($check) | Out-Null }
+    }
+}
+
 function Get-OutputPath([string]$Name, [string]$Configuration) {
     Join-Path $Root $Projects[$Name].Output[$Configuration]
+}
+
+function Get-PackageProfile([string]$Configuration = 'Release') {
+    $profile = $Workspace.Package[$Configuration]
+    if (-not $profile) {
+        throw "No package profile defined for configuration $Configuration."
+    }
+    $profile
+}
+
+function Get-PackageOutputDir([string]$Configuration = 'Release') {
+    $profile = Get-PackageProfile $Configuration
+    if ([string]::IsNullOrWhiteSpace($profile.OutputDir)) {
+        return $Root
+    }
+    Join-Path $Root $profile.OutputDir
+}
+
+function Get-PackagePath([string]$Configuration = 'Release') {
+    $profile = Get-PackageProfile $Configuration
+    $archiveName = if ($profile.Contains('ArchiveName')) { $profile.ArchiveName } else { $profile.Archive }
+    if ([string]::IsNullOrWhiteSpace($archiveName)) {
+        throw "No package archive name defined for configuration $Configuration."
+    }
+    Join-Path (Get-PackageOutputDir $Configuration) $archiveName
 }
 
 function Get-DependencyBranchState([string]$DependencyKey) {
@@ -336,15 +374,38 @@ function Get-DependencyStatusRows {
     }
 }
 
-function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$ProjectName) {
-    $results = [System.Collections.Generic.List[object]]::new()
+function Get-StatusRows {
+    @(
+        [pscustomobject]@{
+            Name = 'eMule'
+            Repo = 'eMule'
+            Branch = Get-RepoBranch (Join-Path $Root 'eMule')
+            Head = Get-RepoHeadShort (Join-Path $Root 'eMule')
+            Patch = 'fork'
+            Worktree = if ((@(Get-RepoStatus (Join-Path $Root 'eMule'))).Count -eq 0) { 'clean' } else { 'dirty' }
+        }
+    ) + @(Get-DependencyStatusRows)
+}
+
+function Get-ToolsContext {
     $git = Get-GitExe
     $perl = Get-PerlExe
     $cmake = Resolve-Tool @('cmake.exe', 'cmake')
     $vs = Get-VsInfo
     $sdk = Get-SdkInfo
     $identity = if ($git) { Get-GitIdentity $Root } else { $null }
-    $required = @(
+    [pscustomobject]@{
+        Git = $git
+        Perl = $perl
+        CMake = $cmake
+        Vs = $vs
+        Sdk = $sdk
+        Identity = $identity
+    }
+}
+
+function Get-ExpectedWorkspacePaths {
+    @(
         'deps.psd1',
         'eMule\srchybrid\emule.vcxproj',
         'eMule\srchybrid\emule.sln',
@@ -361,41 +422,62 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
         'patches\zlib-v1.3.2.patch',
         'patches\mbedtls-mbedtls-4.0.0.patch',
         'patches\mbedtls-tf-psa-crypto-v1.0.0.patch',
-        'templates\zlib\zlib.vcxproj',
-        'templates\mbedtls\mbedTLS.vcxproj'
+        $Workspace.Templates.zlib.Source,
+        $Workspace.Templates.mbedtls.Source
     )
+}
+
+function Get-DependencySeverity([string]$Intent, [bool]$Ready) {
+    if ($Ready) { return 'pass' }
+    if ($Intent -in @('setup','repair','general','package','run-binary','clean-config')) { return 'warn' }
+    return 'fail'
+}
+
+function Get-ConfigureSeverity([string]$Intent, [bool]$Ready) {
+    if ($Ready) { return 'pass' }
+    if ($Intent -in @('setup','repair','general','package','run-binary','clean-config')) { return 'warn' }
+    return 'fail'
+}
+
+function Get-ToolReport([string]$Intent, $ToolsContext) {
+    $results = [System.Collections.Generic.List[object]]::new()
+    $mbedtlsConfigured = Test-MbedTlsConfigureReady
 
     Add-Check $results 'pass' 'pwsh' "PowerShell $($PSVersionTable.PSVersion)"
-    Add-Check $results ($git ? 'pass' : 'fail') 'git' ($git ? $git : 'not found on PATH')
-    $mbedtlsConfigured = Test-MbedTlsConfigureReady
-    $perlStatus = if ($perl) { 'pass' } elseif (-not $mbedtlsConfigured -and $Intent -in @('general','setup','repair')) { 'fail' } else { 'warn' }
-    Add-Check $results $perlStatus 'perl' ($perl ? $perl : 'not found; required to regenerate mbedtls Visual Studio files')
-    Add-Check $results ($cmake ? 'pass' : 'fail') 'cmake' ($cmake ? $cmake : 'not found on PATH')
-    Add-Check $results ($vs.VsWhere ? 'pass' : 'warn') 'vswhere' ($vs.VsWhere ? $vs.VsWhere : 'not found; using install scan')
-    Add-Check $results ($vs.Root ? 'pass' : 'fail') 'visual-studio' ($vs.Root ? $vs.Root : 'Visual Studio 2022 not found')
-    Add-Check $results ($vs.MSBuild ? 'pass' : 'fail') 'msbuild' ($vs.MSBuild ? $vs.MSBuild : 'MSBuild.exe not found')
-    Add-Check $results ($vs.VcVars64 ? 'pass' : 'fail') 'vcvars64' ($vs.VcVars64 ? $vs.VcVars64 : 'vcvars64.bat not found')
-    Add-Check $results (($Intent -like 'open-*' -and -not $vs.DevEnv) ? 'fail' : ($vs.DevEnv ? 'pass' : 'warn')) 'devenv' ($vs.DevEnv ? $vs.DevEnv : 'devenv.exe not found')
-    Add-Check $results ($vs.MfcHeader ? 'pass' : 'fail') 'mfc-atl' ($vs.MfcHeader ? $vs.MfcHeader : 'MFC/ATL headers not found')
-    Add-Check $results ($sdk ? 'pass' : 'fail') 'windows-sdk' ($sdk ? "$($sdk.Version) @ $($sdk.Root)" : 'Windows 10 SDK not found')
-    if ($git) {
-        $hasIdentity = -not [string]::IsNullOrWhiteSpace($identity.Name) -and -not [string]::IsNullOrWhiteSpace($identity.Email)
+    Add-Check $results ($ToolsContext.Git ? 'pass' : 'fail') 'git' ($ToolsContext.Git ? $ToolsContext.Git : 'not found on PATH')
+    $perlStatus = if ($ToolsContext.Perl) { 'pass' } elseif (-not $mbedtlsConfigured -and $Intent -in @('general','setup','repair','validate')) { 'fail' } else { 'warn' }
+    Add-Check $results $perlStatus 'perl' ($ToolsContext.Perl ? $ToolsContext.Perl : 'not found; required to regenerate mbedtls Visual Studio files')
+    Add-Check $results ($ToolsContext.CMake ? 'pass' : 'fail') 'cmake' ($ToolsContext.CMake ? $ToolsContext.CMake : 'not found on PATH')
+    Add-Check $results ($ToolsContext.Vs.VsWhere ? 'pass' : 'warn') 'vswhere' ($ToolsContext.Vs.VsWhere ? $ToolsContext.Vs.VsWhere : 'not found; using install scan')
+    Add-Check $results ($ToolsContext.Vs.Root ? 'pass' : 'fail') 'visual-studio' ($ToolsContext.Vs.Root ? $ToolsContext.Vs.Root : 'Visual Studio 2022 not found')
+    Add-Check $results ($ToolsContext.Vs.MSBuild ? 'pass' : 'fail') 'msbuild' ($ToolsContext.Vs.MSBuild ? $ToolsContext.Vs.MSBuild : 'MSBuild.exe not found')
+    Add-Check $results ($ToolsContext.Vs.VcVars64 ? 'pass' : 'fail') 'vcvars64' ($ToolsContext.Vs.VcVars64 ? $ToolsContext.Vs.VcVars64 : 'vcvars64.bat not found')
+    Add-Check $results (($Intent -like 'open-*' -and -not $ToolsContext.Vs.DevEnv) ? 'fail' : ($ToolsContext.Vs.DevEnv ? 'pass' : 'warn')) 'devenv' ($ToolsContext.Vs.DevEnv ? $ToolsContext.Vs.DevEnv : 'devenv.exe not found')
+    Add-Check $results ($ToolsContext.Vs.MfcHeader ? 'pass' : 'fail') 'mfc-atl' ($ToolsContext.Vs.MfcHeader ? $ToolsContext.Vs.MfcHeader : 'MFC/ATL headers not found')
+    Add-Check $results ($ToolsContext.Sdk ? 'pass' : 'fail') 'windows-sdk' ($ToolsContext.Sdk ? "$($ToolsContext.Sdk.Version) @ $($ToolsContext.Sdk.Root)" : 'Windows 10 SDK not found')
+    if ($ToolsContext.Git) {
+        $hasIdentity = -not [string]::IsNullOrWhiteSpace($ToolsContext.Identity.Name) -and -not [string]::IsNullOrWhiteSpace($ToolsContext.Identity.Email)
         $identityStatus = if ($hasIdentity) {
             'pass'
-        } elseif ($Intent -in @('setup','general')) {
+        } elseif ($Intent -in @('setup','general','validate')) {
             'fail'
         } else {
             'warn'
         }
         $identityDetail = if ($hasIdentity) {
-            "$($identity.Name) <$($identity.Email)>"
+            "$($ToolsContext.Identity.Name) <$($ToolsContext.Identity.Email)>"
         } else {
             'missing git user.name and/or user.email'
         }
         Add-Check $results $identityStatus 'git-identity' $identityDetail
     }
+    @($results)
+}
 
-    $missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })
+function Get-WorkspaceReport([string]$Intent, $ToolsContext) {
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    $missing = @(Get-ExpectedWorkspacePaths | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })
     Add-Check $results (($missing.Count -eq 0) ? 'pass' : 'fail') 'workspace' (($missing.Count -eq 0) ? 'required paths present' : ('missing: ' + ($missing -join ', ')))
 
     foreach ($path in @('eMule\cryptopp','eMule\zlib','eMule\ResizableLib')) {
@@ -405,39 +487,94 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
         }
     }
 
-    if ($git) {
+    if ($ToolsContext.Git) {
         foreach ($key in $DependencyOrder) {
             $state = Get-DependencyBranchState $key
-            $status = if ($state.Ready) { 'pass' } elseif ($Intent -in @('setup','general')) { 'warn' } else { 'fail' }
+            $status = Get-DependencySeverity $Intent $state.Ready
             Add-Check $results $status "$key-branch" $state.Detail
         }
     }
 
     $mbedtlsReady = Test-MbedTlsConfigureReady
-    $mbedtlsConfigStatus = if ($mbedtlsReady) { 'pass' } elseif ($Intent -in @('setup','repair','general')) { 'warn' } else { 'fail' }
+    $mbedtlsConfigStatus = Get-ConfigureSeverity $Intent $mbedtlsReady
     Add-Check $results $mbedtlsConfigStatus 'mbedtls-configure' ($mbedtlsReady ? 'visualc\VS2017 generated project tree ready' : 'missing or incomplete; run setup/repair')
 
     $zlibConfigured = Test-Path -LiteralPath (Join-Path $Root 'eMule-zlib\cmake-build\CMakeCache.txt')
-    $zlibConfigStatus = if ($zlibConfigured) { 'pass' } elseif ($Intent -in @('setup','repair','general')) { 'warn' } else { 'fail' }
+    $zlibConfigStatus = Get-ConfigureSeverity $Intent $zlibConfigured
     Add-Check $results $zlibConfigStatus 'zlib-configure' ($zlibConfigured ? 'eMule-zlib\cmake-build\CMakeCache.txt' : 'missing; run setup/repair')
+    @($results)
+}
 
-    if ($Intent -eq 'build-app' -or ($Intent -eq 'build-project' -and $ProjectName -eq 'eMule')) {
+function Get-PackageArchiveCheck([string]$Configuration, [switch]$Optional) {
+    $zip = Get-PackagePath $Configuration
+    if (-not (Test-Path -LiteralPath $zip)) {
+        return [pscustomobject]@{
+            Status = $(if ($Optional) { 'warn' } else { 'fail' })
+            Name = 'package-archive'
+            Detail = "missing: $zip"
+        }
+    }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = $null
+    try {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
+        $entries = @($archive.Entries | Select-Object -ExpandProperty FullName)
+        $requiredEntry = (Get-PackageProfile $Configuration).Entry
+        if ($requiredEntry -notin $entries) {
+            return [pscustomobject]@{
+                Status = 'fail'
+                Name = 'package-archive'
+                Detail = "missing entry $requiredEntry in $zip"
+            }
+        }
+        [pscustomobject]@{
+            Status = 'pass'
+            Name = 'package-archive'
+            Detail = "$zip => $($entries -join ', ')"
+        }
+    } catch {
+        [pscustomobject]@{
+            Status = 'fail'
+            Name = 'package-archive'
+            Detail = "$zip => $($_.Exception.Message)"
+        }
+    } finally {
+        if ($archive) { $archive.Dispose() }
+    }
+}
+
+function Get-BuildStateReport([string]$Intent, [string]$Configuration, [string]$ProjectName) {
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    if ($Intent -in @('build-app','validate') -or ($Intent -eq 'build-project' -and $ProjectName -eq 'eMule')) {
         foreach ($dep in $BuildProjects) {
             $out = Get-OutputPath $dep $Configuration
             Add-Check $results ((Test-Path -LiteralPath $out) ? 'pass' : 'fail') "$dep-output" ((Test-Path -LiteralPath $out) ? $out : "missing: $out")
         }
     }
 
-    if ($Intent -in @('run-binary','package','clean-config')) {
+    if ($Intent -in @('run-binary','package','clean-config','validate')) {
         $exe = Get-OutputPath 'eMule' $Configuration
         $status = if (Test-Path -LiteralPath $exe) { 'pass' } elseif ($Intent -eq 'clean-config') { 'warn' } else { 'fail' }
         Add-Check $results $status 'emule-output' ((Test-Path -LiteralPath $exe) ? $exe : "missing: $exe")
     }
 
+    if ($Intent -eq 'validate' -and $Configuration -eq 'Release') {
+        Add-Checks $results (Get-PackageArchiveCheck $Configuration -Optional)
+    }
+    @($results)
+}
+
+function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$ProjectName) {
+    $toolsContext = Get-ToolsContext
+    $results = [System.Collections.Generic.List[object]]::new()
+    Add-Checks $results (Get-ToolReport $Intent $toolsContext)
+    Add-Checks $results (Get-WorkspaceReport $Intent $toolsContext)
+    Add-Checks $results (Get-BuildStateReport $Intent $Configuration $ProjectName)
     [pscustomobject]@{
         Results = @($results)
         Failed  = (@($results | Where-Object Status -eq 'fail')).Count
-        Tools   = [pscustomobject]@{ Git=$git; Perl=$perl; CMake=$cmake; MSBuild=$vs.MSBuild; DevEnv=$vs.DevEnv }
+        Tools   = [pscustomobject]@{ Git=$toolsContext.Git; Perl=$toolsContext.Perl; CMake=$toolsContext.CMake; MSBuild=$toolsContext.Vs.MSBuild; DevEnv=$toolsContext.Vs.DevEnv }
     }
 }
 
@@ -554,7 +691,13 @@ function Run-Setup {
 }
 
 function Ensure-Logs {
-    if (-not (Test-Path -LiteralPath $Logs)) { $null = New-Item -ItemType Directory -Path $Logs }
+    if (-not (Test-Path -LiteralPath $LogsRoot)) { $null = New-Item -ItemType Directory -Path $LogsRoot -Force }
+    if (-not (Test-Path -LiteralPath $RunLogs)) { $null = New-Item -ItemType Directory -Path $RunLogs -Force }
+}
+
+function Get-LogPath([string]$Name, [string]$Configuration) {
+    Ensure-Logs
+    Join-Path $RunLogs "$Name-$Configuration.log"
 }
 
 function Remove-GeneratedTarget([string]$RelativePath) {
@@ -571,7 +714,8 @@ function Clean-MbedTlsGenerated {
 
 function Clean-Generated {
     foreach ($path in @(
-        'logs',
+        $Workspace.LogsRoot,
+        (Get-PackageProfile 'Release').OutputDir,
         'tmp',
         'eMule\srchybrid\x64',
         'eMule-zlib\cmake-build',
@@ -584,9 +728,8 @@ function Clean-Generated {
 }
 
 function Build-ProjectInternal($EnvReport, [string]$Name, [string]$Configuration) {
-    Ensure-Logs
     $info = $Projects[$Name]
-    $log = Join-Path $Logs "$Name-$Configuration.log"
+    $log = Get-LogPath $Name $Configuration
     if ($info.Kind -eq 'cmake') {
         $buildDir = Join-Path $Root $info.Build
         & $EnvReport.Tools.CMake --build $buildDir --config $Configuration --target zlibstatic *> $log
@@ -609,6 +752,7 @@ function Build-Libs {
     Ensure-Logs
     $cmake = $envReport.Tools.CMake
     $msbuild = $envReport.Tools.MSBuild
+    $runLogs = $RunLogs
     $skipClean = $NoBuildClean.IsPresent
     $defs = $BuildProjects | ForEach-Object {
         $info = $Projects[$_]
@@ -622,7 +766,7 @@ function Build-Libs {
     }
     $results = $defs | ForEach-Object -Parallel {
         $def = $_
-        $log = Join-Path $using:Logs "$($def.Name)-$using:Config.log"
+        $log = Join-Path $using:runLogs "$($def.Name)-$using:Config.log"
         try {
             if ($def.Kind -eq 'cmake') {
                 & $using:cmake --build $def.Build --config $using:Config --target zlibstatic *> $log
@@ -659,6 +803,10 @@ function Repair-Workspace {
 }
 
 function New-PackageZip([string]$SourceFile, [string]$DestinationZip) {
+    $destinationDir = Split-Path -Parent $DestinationZip
+    if (-not (Test-Path -LiteralPath $destinationDir)) {
+        $null = New-Item -ItemType Directory -Path $destinationDir -Force
+    }
     if (Test-Path -LiteralPath $DestinationZip) {
         Remove-Item -LiteralPath $DestinationZip -Force
     }
@@ -710,27 +858,28 @@ function Show-DependencyStatus {
     $report = Get-EnvReport 'general' $Config $Project
     Show-Report $report
 
-    $rows = @(
-        [pscustomobject]@{
-            Name = 'eMule'
-            Repo = 'eMule'
-            Branch = Get-RepoBranch (Join-Path $Root 'eMule')
-            Head = Get-RepoHeadShort (Join-Path $Root 'eMule')
-            Patch = 'fork'
-            Worktree = if ((@(Get-RepoStatus (Join-Path $Root 'eMule'))).Count -eq 0) { 'clean' } else { 'dirty' }
-        }
-    ) + @(Get-DependencyStatusRows)
-
-    $rows |
+    Get-StatusRows |
         Select-Object Name,Branch,Head,Patch,Worktree,Repo |
         Format-Table -AutoSize |
         Out-String -Width 200 |
         Write-Host
 }
 
+function Run-Validate {
+    $report = Get-EnvReport 'validate' $Config 'eMule'
+    Show-Report $report
+    Get-StatusRows |
+        Select-Object Name,Branch,Head,Patch,Worktree,Repo |
+        Format-Table -AutoSize |
+        Out-String -Width 200 |
+        Write-Host
+    Write-Host "Logs: $RunLogs" -ForegroundColor DarkGray
+}
+
 switch ($Command) {
     'env-check' { Show-Report (Get-EnvReport 'general' $Config $Project) }
     'dep-status' { Show-DependencyStatus }
+    'validate' { Run-Validate }
     'setup' { Invoke-WithWorkspaceLock 'setup' { Run-Setup } }
     'repair' { Invoke-WithWorkspaceLock 'repair' { Repair-Workspace } }
     'build-libs' { Invoke-WithWorkspaceLock 'build-libs' { Build-Libs } }
@@ -773,7 +922,7 @@ switch ($Command) {
         Invoke-WithWorkspaceLock 'package' {
             $r = Get-EnvReport 'package' 'Release' 'eMule'
             Show-Report $r
-            $zip = Join-Path $Root 'eMule0.72a-broadband_x64-snapshot.zip'
+            $zip = Get-PackagePath 'Release'
             New-PackageZip -SourceFile (Get-OutputPath 'eMule' 'Release') -DestinationZip $zip
         }
     }

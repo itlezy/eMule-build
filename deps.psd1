@@ -1,5 +1,26 @@
 @{
     BuildBranch = 'emule-build-v0.72a'
+    Workspace = @{
+        LogsRoot = 'logs'
+        Templates = @{
+            zlib = @{
+                Source = 'templates\zlib\zlib.vcxproj'
+                Destination = 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
+            }
+            mbedtls = @{
+                Source = 'templates\mbedtls\mbedTLS.vcxproj'
+                Destination = 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'
+            }
+        }
+        Package = @{
+            Release = @{
+                SourceProject = 'eMule'
+                OutputDir = 'dist'
+                ArchiveName = 'eMule0.72a-broadband_x64-snapshot.zip'
+                Entry = 'emule.exe'
+            }
+        }
+    }
 
     DependencyOrder = @(
         'cryptopp'
