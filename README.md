@@ -127,8 +127,8 @@ Patches applied per dep:
 | id3lib | `id3lib-v3.9.1.patch` | zlib include path (`../zlib` → `../eMule-zlib`) |
 | miniupnpc | `miniupnpc-miniupnpc_2_3_3.patch` | Full vcxproj rewrite: x64 configs, cscript PreBuildEvent, `/MT`+`/MTd` CRT, `_strnicmp` replacing deprecated `_memicmp` |
 | ResizableLib | `resizablelib-master.patch` | SDK 8.1 → v143; OutDir `bin\` removed; Release\|x64 + Debug\|x64 Unicode+Static+`/MT`+`/MTd` |
-| zlib | `zlib-v1.3.2.patch` | Adds `contrib/vstudio/vc/zlib.vcxproj` cmake wrapper and ignores generated `cmake-build/` noise |
-| mbedtls | `mbedtls-mbedtls-4.0.0.patch` | Adds custom `mbedTLS.vcxproj` wrapper and ignores generated `visualc/VS2017` noise |
+| zlib | `zlib-v1.3.2.patch` | Ignores generated `cmake-build/` noise; `setup` materializes the workspace-owned `contrib/vstudio/vc/zlib.vcxproj` wrapper |
+| mbedtls | `mbedtls-mbedtls-4.0.0.patch` | Ignores generated `visualc/VS2017` noise; `setup` materializes the workspace-owned `mbedTLS.vcxproj` wrapper |
 | tf-psa-crypto | `mbedtls-tf-psa-crypto-v1.0.0.patch` | Adds `threading_alt.h` and enables `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` |
 
 ### 3. Build
@@ -216,13 +216,13 @@ All dependency static libs must be compiled with `RuntimeLibrary=MultiThreaded` 
 
 ### MbedTLS 4.0
 
-MbedTLS 4.0 removed the pre-built VS project files and restructured into 6 separate static libs under `tf-psa-crypto/`. The top-level patch adds `visualc/VS2017/mbedTLS.vcxproj` — a Utility project that builds all 6 components and combines them into a single `mbedtls.lib` via `lib.exe` in a PostBuildEvent. Because cmake generates the component vcxproj files, `workspace.ps1` still rewrites those generated files after configure so they use `/MT` and `/MTd` instead of `/MD` and `/MDd`. The source-tree threading changes now live in the dedicated `tf-psa-crypto` patch/branch rather than ad-hoc `.Replace()` calls. eMule source requires:
+MbedTLS 4.0 removed the pre-built VS project files and restructured into 6 separate static libs under `tf-psa-crypto/`. `workspace.ps1 setup` materializes the workspace-owned `visualc/VS2017/mbedTLS.vcxproj` wrapper, which builds all 6 components and combines them into a single `mbedtls.lib` via `lib.exe` in a PostBuildEvent. Because cmake generates the component vcxproj files, `workspace.ps1` rewrites those generated files after configure so they use `/MT` and `/MTd` instead of `/MD` and `/MDd`. The source-tree threading changes now live in the dedicated `tf-psa-crypto` patch/branch rather than ad-hoc `.Replace()` calls. eMule source requires:
 - `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` enabled in `psa/crypto_config.h` with `threading_alt.h` carried by the local `tf-psa-crypto` patch/branch using Windows `CRITICAL_SECTION`
 - `MBEDTLS_ALLOW_PRIVATE_ACCESS` in `emule.vcxproj` preprocessor defines (for `private/sha1.h` access)
 
 ### zlib 1.3.2
 
-zlib 1.3.2 removed `contrib/vstudio/` entirely. The patch adds a Utility vcxproj wrapper that invokes cmake to build `zlibstatic` and copies the output (`zs.lib` → `zlib.lib`). cmake must be on `PATH` — `workspace.ps1 setup` handles the one-time configure step.
+zlib 1.3.2 removed `contrib/vstudio/` entirely. `workspace.ps1 setup` materializes a workspace-owned Utility vcxproj wrapper that invokes cmake to build `zlibstatic` and copies the output (`zs.lib` → `zlib.lib`). cmake must be on `PATH` — `workspace.ps1 setup` handles the one-time configure step.
 
 ### WebSocket.cpp (Unicode-safe cert/key loading)
 

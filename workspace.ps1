@@ -360,7 +360,9 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
         'patches\resizablelib-master.patch',
         'patches\zlib-v1.3.2.patch',
         'patches\mbedtls-mbedtls-4.0.0.patch',
-        'patches\mbedtls-tf-psa-crypto-v1.0.0.patch'
+        'patches\mbedtls-tf-psa-crypto-v1.0.0.patch',
+        'templates\zlib\zlib.vcxproj',
+        'templates\mbedtls\mbedTLS.vcxproj'
     )
 
     Add-Check $results 'pass' 'pwsh' "PowerShell $($PSVersionTable.PSVersion)"
@@ -481,6 +483,24 @@ function Invoke-WithWorkspaceLock([string]$Label, [scriptblock]$Action) {
     }
 }
 
+function Install-WorkspaceFile([string]$TemplateRelativePath, [string]$DestinationRelativePath) {
+    $source = Join-Path $Root $TemplateRelativePath
+    $destination = Join-Path $Root $DestinationRelativePath
+    $parent = Split-Path -Parent $destination
+    if (-not (Test-Path -LiteralPath $parent)) {
+        $null = New-Item -ItemType Directory -Path $parent -Force
+    }
+    Copy-Item -LiteralPath $source -Destination $destination -Force
+}
+
+function Install-MbedTlsWrapper {
+    Install-WorkspaceFile 'templates\mbedtls\mbedTLS.vcxproj' 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'
+}
+
+function Install-ZlibWrapper {
+    Install-WorkspaceFile 'templates\zlib\zlib.vcxproj' 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
+}
+
 function Set-MbedTlsStaticRuntime([string]$BuildDir) {
     foreach ($rel in @('library\mbedtls.vcxproj','library\mbedx509.vcxproj','tf-psa-crypto\core\tfpsacrypto.vcxproj','tf-psa-crypto\drivers\builtin\builtin.vcxproj','tf-psa-crypto\drivers\everest\everest.vcxproj','tf-psa-crypto\drivers\p256-m\p256m.vcxproj')) {
         $path = Join-Path $BuildDir $rel
@@ -523,12 +543,14 @@ function Run-Setup {
         if ($envReport.Tools.Perl) { $mbedtlsArgs += "-DPERL_EXECUTABLE=$($envReport.Tools.Perl)" }
         Invoke-Native -Exe $envReport.Tools.CMake -ArgumentList $mbedtlsArgs -Label 'cmake configure mbedtls' -WorkDir $null
     }
+    Install-MbedTlsWrapper
     Set-MbedTlsStaticRuntime $mbedBuild
 
     $zlibBuild = Join-Path $Root 'eMule-zlib\cmake-build'
     if (-not (Test-Path -LiteralPath (Join-Path $zlibBuild 'CMakeCache.txt'))) {
         Invoke-Native -Exe $envReport.Tools.CMake -ArgumentList @('-S', (Join-Path $Root 'eMule-zlib'), '-B', $zlibBuild, '-G', 'Visual Studio 17 2022', '-A', 'x64', '-DZLIB_BUILD_SHARED=OFF', '-DZLIB_BUILD_TESTING=OFF', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>') -Label 'cmake configure zlib' -WorkDir $null
     }
+    Install-ZlibWrapper
 }
 
 function Ensure-Logs {
@@ -544,9 +566,7 @@ function Remove-GeneratedTarget([string]$RelativePath) {
 function Clean-MbedTlsGenerated {
     $dir = Join-Path $Root 'eMule-mbedtls\visualc\VS2017'
     if (-not (Test-Path -LiteralPath $dir)) { return }
-    Get-ChildItem -LiteralPath $dir -Force |
-        Where-Object { $_.Name -ne 'mbedTLS.vcxproj' } |
-        ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
+    Remove-Item -LiteralPath $dir -Recurse -Force
 }
 
 function Clean-Generated {
@@ -555,7 +575,8 @@ function Clean-Generated {
         'tmp',
         'eMule\srchybrid\x64',
         'eMule-zlib\cmake-build',
-        'eMule-zlib\contrib\vstudio\vc\x64'
+        'eMule-zlib\contrib\vstudio\vc\x64',
+        'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
     )) {
         Remove-GeneratedTarget $path
     }
