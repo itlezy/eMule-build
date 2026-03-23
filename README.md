@@ -180,7 +180,7 @@ All dependency static libs must be compiled with `RuntimeLibrary=MultiThreaded` 
 ### MbedTLS 4.0
 
 MbedTLS 4.0 removed the pre-built VS project files and restructured into 6 separate static libs under `tf-psa-crypto/`. The top-level patch adds `visualc/VS2017/mbedTLS.vcxproj` — a Utility project that builds all 6 components and combines them into a single `mbedtls.lib` via `lib.exe` in a PostBuildEvent. Because cmake generates the component vcxproj files, `workspace.ps1` still rewrites those generated files after configure so they use `/MT` and `/MTd` instead of `/MD` and `/MDd`. The source-tree threading changes now live in the dedicated `tf-psa-crypto` patch/branch rather than ad-hoc `.Replace()` calls. eMule source requires:
-- `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` enabled in `psa/crypto_config.h` (eMule provides its own `threading_alt.h` using Windows `CRITICAL_SECTION`)
+- `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` enabled in `psa/crypto_config.h` with `threading_alt.h` carried by the local `tf-psa-crypto` patch/branch using Windows `CRITICAL_SECTION`
 - `MBEDTLS_ALLOW_PRIVATE_ACCESS` in `emule.vcxproj` preprocessor defines (for `private/sha1.h` access)
 
 ### zlib 1.3.2
