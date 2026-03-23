@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','setup','build-libs','build-app','build-all','build-project','open-solution','open-project','run-binary','package','clean-config')]
+    [ValidateSet('env-check','dep-status','setup','repair','build-libs','build-app','build-all','build-project','open-solution','open-project','run-binary','package','clean-config','clean-generated')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -20,26 +20,12 @@ $PSNativeCommandUseErrorActionPreference = $false
 
 $Root = Split-Path -Parent $PSCommandPath
 $Logs = Join-Path $Root 'logs'
-$BuildBranch = 'emule-build-v0.72a'
-$DependencyPatches = [ordered]@{
-    cryptopp = @{ Repo='eMule-cryptopp'; Patch='cryptopp-CRYPTOPP_8_9_0.patch'; Commit='Apply eMule build patch: cryptopp-CRYPTOPP_8_9_0.patch' }
-    id3lib = @{ Repo='eMule-id3lib'; Patch='id3lib-v3.9.1.patch'; Commit='Apply eMule build patch: id3lib-v3.9.1.patch' }
-    miniupnp = @{ Repo='eMule-miniupnp'; Patch='miniupnpc-miniupnpc_2_3_3.patch'; Commit='Apply eMule build patch: miniupnpc-miniupnpc_2_3_3.patch' }
-    ResizableLib = @{ Repo='eMule-ResizableLib'; Patch='resizablelib-master.patch'; Commit='Apply eMule build patch: resizablelib-master.patch' }
-    zlib = @{ Repo='eMule-zlib'; Patch='zlib-v1.3.2.patch'; Commit='Apply eMule build patch: zlib-v1.3.2.patch' }
-    'mbedtls-tf-psa-crypto' = @{ Repo='eMule-mbedtls\tf-psa-crypto'; Patch='mbedtls-tf-psa-crypto-v1.0.0.patch'; Commit='Apply eMule build patch: mbedtls-tf-psa-crypto-v1.0.0.patch' }
-    mbedtls = @{ Repo='eMule-mbedtls'; Patch='mbedtls-mbedtls-4.0.0.patch'; Commit='Apply eMule build patch: mbedtls-mbedtls-4.0.0.patch' }
-}
-$DependencyOrder = @('cryptopp','id3lib','miniupnp','ResizableLib','zlib','mbedtls-tf-psa-crypto','mbedtls')
-$Projects = [ordered]@{
-    cryptopp = @{ Kind='msbuild'; Path='eMule-cryptopp\cryptlib.vcxproj'; Output=@{ Release='eMule-cryptopp\x64\Release\cryptlib.lib'; Debug='eMule-cryptopp\x64\Debug\cryptlib.lib' }; Open='eMule-cryptopp\cryptlib.vcxproj' }
-    id3lib = @{ Kind='msbuild'; Path='eMule-id3lib\libprj\id3lib.vcxproj'; Output=@{ Release='eMule-id3lib\libprj\x64\Release\id3lib.lib'; Debug='eMule-id3lib\libprj\x64\Debug\id3lib.lib' }; Open='eMule-id3lib\libprj\id3lib.vcxproj' }
-    miniupnp = @{ Kind='msbuild'; Path='eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj'; Output=@{ Release='eMule-miniupnp\miniupnpc\msvc\x64\Release\miniupnpc.lib'; Debug='eMule-miniupnp\miniupnpc\msvc\x64\Debug\miniupnpc.lib' }; Open='eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj' }
-    ResizableLib = @{ Kind='msbuild'; Path='eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj'; Output=@{ Release='eMule-ResizableLib\ResizableLib\x64\Release\resizablelib.lib'; Debug='eMule-ResizableLib\ResizableLib\x64\Debug\resizablelib.lib' }; Open='eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj' }
-    zlib = @{ Kind='cmake'; Path='eMule-zlib'; Build='eMule-zlib\cmake-build'; Output=@{ Release='eMule-zlib\contrib\vstudio\vc\x64\Release\zlib.lib'; Debug='eMule-zlib\contrib\vstudio\vc\x64\Debug\zlib.lib' }; Open='eMule-zlib\contrib\vstudio\vc\zlib.vcxproj' }
-    mbedtls = @{ Kind='msbuild'; Path='eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'; Output=@{ Release='eMule-mbedtls\visualc\VS2017\x64\Release\mbedtls.lib'; Debug='eMule-mbedtls\visualc\VS2017\x64\Debug\mbedtls.lib' }; Open='eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj' }
-    eMule = @{ Kind='msbuild'; Path='eMule\srchybrid\emule.vcxproj'; Output=@{ Release='eMule\srchybrid\x64\Release\emule.exe'; Debug='eMule\srchybrid\x64\Debug\emule.exe' }; Open='eMule\srchybrid\emule.sln' }
-}
+$Manifest = Import-PowerShellDataFile -Path (Join-Path $Root 'deps.psd1')
+$BuildBranch = $Manifest.BuildBranch
+$DependencyPatches = $Manifest.Dependencies
+$DependencyOrder = @($Manifest.DependencyOrder)
+$BuildProjects = @($Manifest.BuildProjects)
+$Projects = $Manifest.Projects
 
 function Resolve-Tool([string[]]$Names) {
     foreach ($name in $Names) {
@@ -64,6 +50,27 @@ function Get-PatchPath([string]$PatchFile) {
 
 function Get-GitExe {
     Resolve-Tool @('git.exe', 'git')
+}
+
+function Get-PerlExe {
+    $perl = Resolve-Tool @('perl.exe', 'perl')
+    if ($perl) { return $perl }
+
+    $git = Get-GitExe
+    if ($git) {
+        $gitRoot = Split-Path -Parent (Split-Path -Parent $git)
+        $bundled = Join-Path $gitRoot 'usr\bin\perl.exe'
+        if (Test-Path -LiteralPath $bundled) { return $bundled }
+    }
+
+    foreach ($candidate in @(
+        'C:\Program Files\Git\usr\bin\perl.exe',
+        'C:\Strawberry\perl\bin\perl.exe'
+    )) {
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+    }
+
+    $null
 }
 
 function Invoke-Git([string]$Repo, [string[]]$ArgumentList, [string]$Label, [switch]$AllowFailure) {
@@ -332,12 +339,14 @@ function Get-DependencyStatusRows {
 function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$ProjectName) {
     $results = [System.Collections.Generic.List[object]]::new()
     $git = Get-GitExe
+    $perl = Get-PerlExe
     $cmake = Resolve-Tool @('cmake.exe', 'cmake')
     $tar = Resolve-Tool @('tar.exe', 'tar')
     $vs = Get-VsInfo
     $sdk = Get-SdkInfo
     $identity = if ($git) { Get-GitIdentity $Root } else { $null }
     $required = @(
+        'deps.psd1',
         'eMule\srchybrid\emule.vcxproj',
         'eMule\srchybrid\emule.sln',
         'eMule-cryptopp\cryptlib.vcxproj',
@@ -357,6 +366,9 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
 
     Add-Check $results 'pass' 'pwsh' "PowerShell $($PSVersionTable.PSVersion)"
     Add-Check $results ($git ? 'pass' : 'fail') 'git' ($git ? $git : 'not found on PATH')
+    $mbedtlsConfigured = Test-MbedTlsConfigureReady
+    $perlStatus = if ($perl) { 'pass' } elseif (-not $mbedtlsConfigured -and $Intent -in @('general','setup','repair')) { 'fail' } else { 'warn' }
+    Add-Check $results $perlStatus 'perl' ($perl ? $perl : 'not found; required to regenerate mbedtls Visual Studio files')
     Add-Check $results ($cmake ? 'pass' : 'fail') 'cmake' ($cmake ? $cmake : 'not found on PATH')
     $tarStatus = if ($tar) { 'pass' } elseif ($Intent -eq 'package') { 'fail' } else { 'warn' }
     Add-Check $results $tarStatus 'tar' ($tar ? $tar : 'not found on PATH')
@@ -402,14 +414,16 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
         }
     }
 
-    foreach ($pair in @(@('mbedtls-configure','eMule-mbedtls\visualc\VS2017\CMakeCache.txt'), @('zlib-configure','eMule-zlib\cmake-build\CMakeCache.txt'))) {
-        $exists = Test-Path -LiteralPath (Join-Path $Root $pair[1])
-        $status = if ($exists) { 'pass' } elseif ($Intent -eq 'setup' -or $Intent -eq 'general') { 'warn' } else { 'fail' }
-        Add-Check $results $status $pair[0] ($exists ? $pair[1] : 'missing; run setup')
-    }
+    $mbedtlsReady = Test-MbedTlsConfigureReady
+    $mbedtlsConfigStatus = if ($mbedtlsReady) { 'pass' } elseif ($Intent -in @('setup','repair','general')) { 'warn' } else { 'fail' }
+    Add-Check $results $mbedtlsConfigStatus 'mbedtls-configure' ($mbedtlsReady ? 'visualc\VS2017 generated project tree ready' : 'missing or incomplete; run setup/repair')
+
+    $zlibConfigured = Test-Path -LiteralPath (Join-Path $Root 'eMule-zlib\cmake-build\CMakeCache.txt')
+    $zlibConfigStatus = if ($zlibConfigured) { 'pass' } elseif ($Intent -in @('setup','repair','general')) { 'warn' } else { 'fail' }
+    Add-Check $results $zlibConfigStatus 'zlib-configure' ($zlibConfigured ? 'eMule-zlib\cmake-build\CMakeCache.txt' : 'missing; run setup/repair')
 
     if ($Intent -eq 'build-app' -or ($Intent -eq 'build-project' -and $ProjectName -eq 'eMule')) {
-        foreach ($dep in @('cryptopp','id3lib','miniupnp','ResizableLib','zlib','mbedtls')) {
+        foreach ($dep in $BuildProjects) {
             $out = Get-OutputPath $dep $Configuration
             Add-Check $results ((Test-Path -LiteralPath $out) ? 'pass' : 'fail') "$dep-output" ((Test-Path -LiteralPath $out) ? $out : "missing: $out")
         }
@@ -424,7 +438,7 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
     [pscustomobject]@{
         Results = @($results)
         Failed  = (@($results | Where-Object Status -eq 'fail')).Count
-        Tools   = [pscustomobject]@{ Git=$git; CMake=$cmake; Tar=$tar; MSBuild=$vs.MSBuild; DevEnv=$vs.DevEnv }
+        Tools   = [pscustomobject]@{ Git=$git; Perl=$perl; CMake=$cmake; Tar=$tar; MSBuild=$vs.MSBuild; DevEnv=$vs.DevEnv }
     }
 }
 
@@ -456,6 +470,22 @@ function Set-MbedTlsStaticRuntime([string]$BuildDir) {
     }
 }
 
+function Test-MbedTlsConfigureReady {
+    $dir = Join-Path $Root 'eMule-mbedtls\visualc\VS2017'
+    foreach ($rel in @(
+        'CMakeCache.txt',
+        'library\mbedtls.vcxproj',
+        'library\mbedx509.vcxproj',
+        'tf-psa-crypto\core\tfpsacrypto.vcxproj',
+        'tf-psa-crypto\drivers\builtin\builtin.vcxproj',
+        'tf-psa-crypto\drivers\everest\everest.vcxproj',
+        'tf-psa-crypto\drivers\p256-m\p256m.vcxproj'
+    )) {
+        if (-not (Test-Path -LiteralPath (Join-Path $dir $rel))) { return $false }
+    }
+    return $true
+}
+
 function Run-Setup {
     $envReport = Get-EnvReport 'setup' $Config $Project
     Show-Report $envReport
@@ -467,8 +497,11 @@ function Run-Setup {
     Sync-NestedBuildSubmodule
 
     $mbedBuild = Join-Path $Root 'eMule-mbedtls\visualc\VS2017'
-    if (-not (Test-Path -LiteralPath (Join-Path $mbedBuild 'CMakeCache.txt'))) {
-        Invoke-Native -Exe $envReport.Tools.CMake -ArgumentList @('-S', (Join-Path $Root 'eMule-mbedtls'), '-B', $mbedBuild, '-G', 'Visual Studio 17 2022', '-A', 'x64', '-DENABLE_PROGRAMS=OFF', '-DENABLE_TESTING=OFF', '-DGEN_FILES=ON', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>') -Label 'cmake configure mbedtls' -WorkDir $null
+    if (-not (Test-MbedTlsConfigureReady)) {
+        Clean-MbedTlsGenerated
+        $mbedtlsArgs = @('-S', (Join-Path $Root 'eMule-mbedtls'), '-B', $mbedBuild, '-G', 'Visual Studio 17 2022', '-A', 'x64', '-DENABLE_PROGRAMS=OFF', '-DENABLE_TESTING=OFF', '-DGEN_FILES=ON', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>')
+        if ($envReport.Tools.Perl) { $mbedtlsArgs += "-DPERL_EXECUTABLE=$($envReport.Tools.Perl)" }
+        Invoke-Native -Exe $envReport.Tools.CMake -ArgumentList $mbedtlsArgs -Label 'cmake configure mbedtls' -WorkDir $null
     }
     Set-MbedTlsStaticRuntime $mbedBuild
 
@@ -480,6 +513,33 @@ function Run-Setup {
 
 function Ensure-Logs {
     if (-not (Test-Path -LiteralPath $Logs)) { $null = New-Item -ItemType Directory -Path $Logs }
+}
+
+function Remove-GeneratedTarget([string]$RelativePath) {
+    $path = Join-Path $Root $RelativePath
+    if (-not (Test-Path -LiteralPath $path)) { return }
+    Remove-Item -LiteralPath $path -Recurse -Force
+}
+
+function Clean-MbedTlsGenerated {
+    $dir = Join-Path $Root 'eMule-mbedtls\visualc\VS2017'
+    if (-not (Test-Path -LiteralPath $dir)) { return }
+    Get-ChildItem -LiteralPath $dir -Force |
+        Where-Object { $_.Name -ne 'mbedTLS.vcxproj' } |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
+}
+
+function Clean-Generated {
+    foreach ($path in @(
+        'logs',
+        'tmp',
+        'eMule\srchybrid\x64',
+        'eMule-zlib\cmake-build',
+        'eMule-zlib\contrib\vstudio\vc\x64'
+    )) {
+        Remove-GeneratedTarget $path
+    }
+    Clean-MbedTlsGenerated
 }
 
 function Build-ProjectInternal($EnvReport, [string]$Name, [string]$Configuration) {
@@ -509,7 +569,7 @@ function Build-Libs {
     $cmake = $envReport.Tools.CMake
     $msbuild = $envReport.Tools.MSBuild
     $skipClean = $NoBuildClean.IsPresent
-    $defs = @('cryptopp','id3lib','miniupnp','ResizableLib','zlib','mbedtls') | ForEach-Object {
+    $defs = $BuildProjects | ForEach-Object {
         $info = $Projects[$_]
         [pscustomobject]@{
             Name = $_
@@ -609,6 +669,7 @@ switch ($Command) {
     'env-check' { Show-Report (Get-EnvReport 'general' $Config $Project) }
     'dep-status' { Show-DependencyStatus }
     'setup' { Run-Setup }
+    'repair' { Run-Setup }
     'build-libs' { Build-Libs }
     'build-app' {
         $Project = 'eMule'
@@ -652,4 +713,5 @@ switch ($Command) {
         $path = Join-Path $Root "eMule\srchybrid\x64\$Config\config"
         if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
     }
+    'clean-generated' { Clean-Generated }
 }

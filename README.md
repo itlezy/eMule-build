@@ -41,8 +41,9 @@ eMule v0.72a dropped two dependencies (CxImage, libpng) and upgraded several oth
 **Architecture:**
 - Deps are now **git submodules** at fixed tags instead of runtime-cloned directories
 - `emule.sln`, `emule.slnx`, `emule.vcxproj`, and the affected source includes were retargeted to the real workspace-root dependency paths
-- eMule itself is tracked directly in the `eMule` fork; third-party deps use local build branches created by setup
+- eMule itself is tracked directly in the `eMule` fork; third-party deps use disposable local build branches created by setup
 - Dep patches are stored as `git diff` patch files in `patches/` and recorded as local commits on each dep's `emule-build-v0.72a` branch
+- Shared dependency metadata is centralized in `deps.psd1`
 - zlib 1.3.2 removed its VS project files upstream — built via cmake instead
 
 ---
@@ -62,9 +63,12 @@ eMule v0.72a dropped two dependencies (CxImage, libpng) and upgraded several oth
 4. **CMake 3.15+** on `PATH` — required for zlib build
    Download from [cmake.org](https://cmake.org/download/) or install via Visual Studio Installer
 
+5. **Perl** for regenerating the mbedtls Visual Studio tree during fresh setup or `repair`
+   Git for Windows usually already provides this at `C:\Program Files\Git\usr\bin\perl.exe`, and `workspace.ps1` will auto-detect it.
+
 ---
 
-## Setup
+## Daily Workflow
 
 ### 1. Clone the workspace
 
@@ -94,10 +98,11 @@ eMule-build/
   build_MSBuild_eMule-*.cmd
 ```
 
-### 2. Run env-check and setup
+### 2. Preflight and setup
 
 ```
 pwsh -File .\workspace.ps1 env-check
+pwsh -File .\workspace.ps1 dep-status
 pwsh -File .\setup.ps1
 ```
 
@@ -127,9 +132,7 @@ Patches applied per dep:
 | mbedtls | `mbedtls-mbedtls-4.0.0.patch` | Adds custom `mbedTLS.vcxproj` wrapper and ignores generated `visualc/VS2017` noise |
 | tf-psa-crypto | `mbedtls-tf-psa-crypto-v1.0.0.patch` | Adds `threading_alt.h` and enables `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` |
 
----
-
-## Building
+### 3. Build
 
 ### Build all libraries (Release)
 
@@ -161,6 +164,31 @@ Individual dep build scripts are also available: `build_MSBuild_eMule-cryptopp.c
 
 ---
 
+### 4. Inspect or reset local build state
+
+```
+pwsh -File .\workspace.ps1 dep-status
+pwsh -File .\workspace.ps1 clean-generated
+pwsh -File .\workspace.ps1 repair
+```
+
+- `dep-status` shows the current branch, commit, patch state, and cleanliness for `eMule` and each dependency
+- `clean-generated` removes generated build trees, logs, temp files, and app outputs without touching the disposable local build-branch commits
+- `repair` reapplies the standard setup flow to bring a throw-away build tree back to the expected state
+
+---
+
+## Maintenance Workflow
+
+This section is only for maintaining the build workspace itself.
+
+Third-party dependency branches are disposable local build state:
+- they exist only to build eMule
+- they are not treated as long-lived forks
+- if they drift or get messy, prefer `clean-generated`, `repair`, or recreating them from the tracked patch files
+
+---
+
 ## Architecture notes
 
 ### Flat submodule layout without junctions
@@ -174,10 +202,12 @@ Deps stay at workspace root and the build files now point there directly. No jun
 Useful inspection commands:
 - `pwsh -File .\workspace.ps1 env-check`
 - `pwsh -File .\workspace.ps1 dep-status`
+- `pwsh -File .\workspace.ps1 clean-generated`
+- `pwsh -File .\workspace.ps1 repair`
 
 ### Dependency branch model
 
-Third-party deps are not edited on detached HEAD anymore. `setup` switches each dep to a local `emule-build-v0.72a` branch, applies the matching patch if needed, and records it as a local commit. Root `.gitmodules` marks these deps with `ignore = all`, so the local build branches do not spam normal root `git status` output.
+Third-party deps are not edited on detached HEAD anymore. `setup` switches each dep to a local `emule-build-v0.72a` branch, applies the matching patch if needed, and records it as a local commit. Root `.gitmodules` marks these deps with `ignore = all`, so the disposable local build branches do not spam normal root `git status` output.
 
 ### CRT policy
 
