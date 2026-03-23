@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','setup','build-libs','build-app','build-all','build-project','open-solution','open-project','run-binary','package','clean-config')]
+    [ValidateSet('env-check','dep-status','setup','build-libs','build-app','build-all','build-project','open-solution','open-project','run-binary','package','clean-config')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -93,6 +93,17 @@ function Get-RepoStatus([string]$Repo) {
 
 function Get-RepoBranch([string]$Repo) {
     Get-GitText $Repo @('rev-parse','--abbrev-ref','HEAD') 'git rev-parse'
+}
+
+function Get-RepoHeadShort([string]$Repo) {
+    Get-GitText $Repo @('rev-parse','--short','HEAD') 'git rev-parse --short'
+}
+
+function Get-GitIdentity([string]$Repo) {
+    [pscustomobject]@{
+        Name = Get-GitText $Repo @('config','--get','user.name') 'git config user.name' -AllowFailure
+        Email = Get-GitText $Repo @('config','--get','user.email') 'git config user.email' -AllowFailure
+    }
 }
 
 function Get-PatchPaths([string]$PatchFile) {
@@ -290,6 +301,34 @@ function Get-DependencyBranchState([string]$DependencyKey) {
     [pscustomobject]@{ Ready=$ready; Detail=$detail }
 }
 
+function Get-DependencyStatusRows {
+    foreach ($key in $DependencyOrder) {
+        $meta = $DependencyPatches[$key]
+        $repo = Join-Path $Root $meta.Repo
+        if (-not (Test-Path -LiteralPath $repo)) {
+            [pscustomobject]@{
+                Name = $key
+                Repo = $meta.Repo
+                Branch = 'missing'
+                Head = ''
+                Patch = 'missing'
+                Worktree = 'missing'
+            }
+            continue
+        }
+
+        $status = @(Get-RepoStatus $repo)
+        [pscustomobject]@{
+            Name = $key
+            Repo = $meta.Repo
+            Branch = Get-RepoBranch $repo
+            Head = Get-RepoHeadShort $repo
+            Patch = if (Test-PatchApplied $repo $meta.Patch) { 'present' } else { 'missing' }
+            Worktree = if ($status.Count -eq 0) { 'clean' } else { 'dirty' }
+        }
+    }
+}
+
 function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$ProjectName) {
     $results = [System.Collections.Generic.List[object]]::new()
     $git = Get-GitExe
@@ -297,6 +336,7 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
     $tar = Resolve-Tool @('tar.exe', 'tar')
     $vs = Get-VsInfo
     $sdk = Get-SdkInfo
+    $identity = if ($git) { Get-GitIdentity $Root } else { $null }
     $required = @(
         'eMule\srchybrid\emule.vcxproj',
         'eMule\srchybrid\emule.sln',
@@ -327,6 +367,22 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
     Add-Check $results (($Intent -like 'open-*' -and -not $vs.DevEnv) ? 'fail' : ($vs.DevEnv ? 'pass' : 'warn')) 'devenv' ($vs.DevEnv ? $vs.DevEnv : 'devenv.exe not found')
     Add-Check $results ($vs.MfcHeader ? 'pass' : 'fail') 'mfc-atl' ($vs.MfcHeader ? $vs.MfcHeader : 'MFC/ATL headers not found')
     Add-Check $results ($sdk ? 'pass' : 'fail') 'windows-sdk' ($sdk ? "$($sdk.Version) @ $($sdk.Root)" : 'Windows 10 SDK not found')
+    if ($git) {
+        $hasIdentity = -not [string]::IsNullOrWhiteSpace($identity.Name) -and -not [string]::IsNullOrWhiteSpace($identity.Email)
+        $identityStatus = if ($hasIdentity) {
+            'pass'
+        } elseif ($Intent -in @('setup','general')) {
+            'fail'
+        } else {
+            'warn'
+        }
+        $identityDetail = if ($hasIdentity) {
+            "$($identity.Name) <$($identity.Email)>"
+        } else {
+            'missing git user.name and/or user.email'
+        }
+        Add-Check $results $identityStatus 'git-identity' $identityDetail
+    }
 
     $missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })
     Add-Check $results (($missing.Count -eq 0) ? 'pass' : 'fail') 'workspace' (($missing.Count -eq 0) ? 'required paths present' : ('missing: ' + ($missing -join ', ')))
@@ -527,8 +583,31 @@ function Run-Binary {
     }
 }
 
+function Show-DependencyStatus {
+    $report = Get-EnvReport 'general' $Config $Project
+    Show-Report $report
+
+    $rows = @(
+        [pscustomobject]@{
+            Name = 'eMule'
+            Repo = 'eMule'
+            Branch = Get-RepoBranch (Join-Path $Root 'eMule')
+            Head = Get-RepoHeadShort (Join-Path $Root 'eMule')
+            Patch = 'fork'
+            Worktree = if ((@(Get-RepoStatus (Join-Path $Root 'eMule'))).Count -eq 0) { 'clean' } else { 'dirty' }
+        }
+    ) + @(Get-DependencyStatusRows)
+
+    $rows |
+        Select-Object Name,Branch,Head,Patch,Worktree,Repo |
+        Format-Table -AutoSize |
+        Out-String -Width 200 |
+        Write-Host
+}
+
 switch ($Command) {
     'env-check' { Show-Report (Get-EnvReport 'general' $Config $Project) }
+    'dep-status' { Show-DependencyStatus }
     'setup' { Run-Setup }
     'build-libs' { Build-Libs }
     'build-app' {

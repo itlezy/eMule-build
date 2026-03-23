@@ -113,6 +113,8 @@ pwsh -File .\setup.ps1
 
 5. **Configures the zlib cmake build** — runs cmake once with the correct generator and `/MT` runtime library flag. Only needed on first run; idempotent thereafter.
 
+`env-check` now also verifies that `git user.name` and `git user.email` are configured, because setup records local build commits in dependency branches.
+
 Patches applied per dep:
 
 | Dep | Patch | What it fixes |
@@ -168,6 +170,10 @@ Deps stay at workspace root and the build files now point there directly. No jun
 ### Tooling entrypoint
 
 `workspace.ps1` is the single backend for setup, env preflight, builds, IDE launch, binary launch, and packaging. The existing `.cmd` files remain as compatibility shims that call `workspace.cmd`, which in turn requires `pwsh`.
+
+Useful inspection commands:
+- `pwsh -File .\workspace.ps1 env-check`
+- `pwsh -File .\workspace.ps1 dep-status`
 
 ### Dependency branch model
 
