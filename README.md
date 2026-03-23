@@ -37,6 +37,7 @@ eMule v0.72a dropped two dependencies (CxImage, libpng) and upgraded several oth
 **Toolchain:**
 - Visual Studio 2019 (v142) → Visual Studio 2022 (v143)
 - ARM64 configs removed (require VS 2025 toolset v145, not yet released)
+- Supported handwritten VC projects are normalized to `PlatformToolset=v143` and `WindowsTargetPlatformVersion=10.0`
 
 **Architecture:**
 - Deps are now **git submodules** at fixed tags instead of runtime-cloned directories
@@ -65,6 +66,11 @@ eMule v0.72a dropped two dependencies (CxImage, libpng) and upgraded several oth
 
 5. **Perl** for regenerating the mbedtls Visual Studio tree during fresh setup or `repair`
    Git for Windows usually already provides this at `C:\Program Files\Git\usr\bin\perl.exe`, and `workspace.ps1` will auto-detect it.
+
+SDK/toolset policy for this workspace:
+- Use Visual Studio 2022 `v143`
+- Use `WindowsTargetPlatformVersion=10.0` in committed project files
+- Let each machine resolve that to an installed Windows 10/11 SDK instead of pinning an exact SDK build number in source control
 
 ---
 

@@ -1,8 +1,36 @@
 diff --git a/cryptlib.vcxproj b/cryptlib.vcxproj
-index f99661d..fad01ec 100644
+index f99661d0..b54633ef 100644
 --- a/cryptlib.vcxproj
 +++ b/cryptlib.vcxproj
-@@ -75,7 +75,7 @@
+@@ -40,17 +40,18 @@
+   <!-- Microsoft documentation clearly shows the Global property group -->
+   <!-- precedes the import of Cpp.Default.props and Cpp.props -->
+   <!-- https://msdn.microsoft.com/en-us/library/2208a1f2.aspx -->
+-  <PropertyGroup Label="Globals">
+-    <ProjectGuid>{c39f4b46-6e89-4074-902e-ca57073044d2}</ProjectGuid>
+-    <RootNamespace>cryptlib</RootNamespace>
+-    <ConfigurationType>StaticLibrary</ConfigurationType>
+-  </PropertyGroup>
++  <PropertyGroup Label="Globals">
++    <ProjectGuid>{c39f4b46-6e89-4074-902e-ca57073044d2}</ProjectGuid>
++    <RootNamespace>cryptlib</RootNamespace>
++    <ConfigurationType>StaticLibrary</ConfigurationType>
++    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
++  </PropertyGroup>
+   <!-- Use DefaultPlatformToolset after Microsoft.Cpp.Default.props -->
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+-  <!-- Set DefaultPlatformToolset to v100 (VS2010) if not defined -->
+-  <PropertyGroup Label="EmptyDefaultPlatformToolset">
+-    <DefaultPlatformToolset Condition=" '$(DefaultPlatformToolset)' == '' ">v100</DefaultPlatformToolset>
+-  </PropertyGroup>
++  <!-- Set DefaultPlatformToolset to v143 (VS2022) if not defined -->
++  <PropertyGroup Label="EmptyDefaultPlatformToolset">
++    <DefaultPlatformToolset Condition=" '$(DefaultPlatformToolset)' == '' ">v143</DefaultPlatformToolset>
++  </PropertyGroup>
+   <PropertyGroup Label="PlatformToolset">
+     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+   </PropertyGroup>
+@@ -75,7 +76,7 @@
    <!-- Intermediate and Output directories -->
    <!-- Cryptlib and Cryptest need extra care due to Non-DLL/DLL configs -->
    <PropertyGroup Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Release'" Label="Non-DLL Directories">

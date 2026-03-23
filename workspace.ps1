@@ -22,6 +22,7 @@ $Root = Split-Path -Parent $PSCommandPath
 $Manifest = Import-PowerShellDataFile -Path (Join-Path $Root 'deps.psd1')
 $Workspace = $Manifest.Workspace
 $GeneratedProjects = $Workspace.GeneratedProjects
+$Toolchain = $Workspace.Toolchain
 $BuildBranch = $Manifest.BuildBranch
 $DependencyPatches = $Manifest.Dependencies
 $DependencyOrder = @($Manifest.DependencyOrder)
@@ -710,7 +711,16 @@ function Install-ZlibWrapper {
     Install-WorkspaceFile $template.Source $template.Destination
 }
 
-function Set-MbedTlsStaticRuntime([string]$BuildDir) {
+function Normalize-MbedTlsGeneratedProjects([string]$BuildDir) {
+    $sdkVersion = $Toolchain.WindowsTargetPlatformVersion
+    foreach ($path in Get-ChildItem -LiteralPath $BuildDir -Recurse -Filter *.vcxproj -File -ErrorAction SilentlyContinue) {
+        $content = [IO.File]::ReadAllText($path.FullName)
+        $updated = [regex]::Replace($content, '<WindowsTargetPlatformVersion>[^<]+</WindowsTargetPlatformVersion>', "<WindowsTargetPlatformVersion>$sdkVersion</WindowsTargetPlatformVersion>")
+        if ($updated -ne $content) {
+            [IO.File]::WriteAllText($path.FullName, $updated)
+        }
+    }
+
     foreach ($rel in @((Get-GeneratedProjectProfile 'mbedtls').StaticRuntimeProjects)) {
         $path = Join-Path $BuildDir $rel
         $content = [IO.File]::ReadAllText($path)
@@ -752,7 +762,7 @@ function Run-Setup {
         Invoke-GeneratedProjectConfigure 'mbedtls' $envReport
     }
     Install-MbedTlsWrapper
-    Set-MbedTlsStaticRuntime $mbedBuild
+    Normalize-MbedTlsGeneratedProjects $mbedBuild
 
     if (-not (Test-GeneratedProjectReady 'zlib')) {
         Invoke-GeneratedProjectConfigure 'zlib' $envReport

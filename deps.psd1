@@ -1,6 +1,10 @@
 @{
     BuildBranch = 'emule-build-v0.72a'
     Workspace = @{
+        Toolchain = @{
+            PlatformToolset = 'v143'
+            WindowsTargetPlatformVersion = '10.0'
+        }
         LogsRoot = 'logs'
         TempRoot = 'tmp'
         Cleanup = @(

@@ -1,5 +1,5 @@
 diff --git a/miniupnpc/msvc/miniupnpc.vcxproj b/miniupnpc/msvc/miniupnpc.vcxproj
-index c4ff5b6..f1d441d 100644
+index c4ff5b6..a5eebcb 100644
 --- a/miniupnpc/msvc/miniupnpc.vcxproj
 +++ b/miniupnpc/msvc/miniupnpc.vcxproj
 @@ -1,4 +1,16 @@
@@ -31,7 +31,7 @@ index c4ff5b6..f1d441d 100644
      <ProjectConfiguration Include="Release Dll|Win32">
        <Configuration>Release Dll</Configuration>
        <Platform>Win32</Platform>
-@@ -17,6 +33,10 @@
+@@ -17,33 +33,49 @@
        <Configuration>Release</Configuration>
        <Platform>Win32</Platform>
      </ProjectConfiguration>
@@ -42,7 +42,10 @@ index c4ff5b6..f1d441d 100644
    </ItemGroup>
    <PropertyGroup Label="Globals">
      <ProjectGuid>{D28CE435-CB33-4BAE-8A52-C6EF915956F5}</ProjectGuid>
-@@ -26,24 +46,35 @@
+     <RootNamespace>miniupnpc</RootNamespace>
+     <Keyword>Win32Proj</Keyword>
++    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+   </PropertyGroup>
    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
      <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -82,7 +85,7 @@ index c4ff5b6..f1d441d 100644
      <CharacterSet>Unicode</CharacterSet>
    </PropertyGroup>
    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-@@ -61,10 +92,17 @@
+@@ -61,10 +93,17 @@
    <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug Dll|Win32'" Label="PropertySheets">
      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
    </ImportGroup>
@@ -100,7 +103,7 @@ index c4ff5b6..f1d441d 100644
    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
      <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
      <IntDir>$(Configuration)\</IntDir>
-@@ -81,25 +119,36 @@
+@@ -81,25 +120,36 @@
      <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
      <IntDir>$(Configuration)\</IntDir>
    </PropertyGroup>
@@ -140,7 +143,7 @@ index c4ff5b6..f1d441d 100644
    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Dll|Win32'">
      <ClCompile>
        <Optimization>Disabled</Optimization>
-@@ -110,11 +159,11 @@
+@@ -110,11 +160,11 @@
        <PrecompiledHeader>
        </PrecompiledHeader>
        <WarningLevel>Level3</WarningLevel>
@@ -154,7 +157,7 @@ index c4ff5b6..f1d441d 100644
      </PreBuildEvent>
      <Link>
        <AdditionalDependencies>ws2_32.lib;IPHlpApi.Lib;%(AdditionalDependencies)</AdditionalDependencies>
-@@ -123,12 +172,13 @@
+@@ -123,12 +173,13 @@
        <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
      </ResourceCompile>
    </ItemDefinitionGroup>
@@ -169,7 +172,7 @@ index c4ff5b6..f1d441d 100644
        <FunctionLevelLinking>true</FunctionLevelLinking>
        <PrecompiledHeader />
        <WarningLevel>Level3</WarningLevel>
-@@ -136,12 +186,13 @@
+@@ -136,12 +187,13 @@
        <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
      </ClCompile>
      <PreBuildEvent>
@@ -184,7 +187,7 @@ index c4ff5b6..f1d441d 100644
    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Dll|Win32'">
      <ClCompile>
        <Optimization>MaxSpeed</Optimization>
-@@ -156,7 +207,7 @@
+@@ -156,7 +208,7 @@
        <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
      </ClCompile>
      <PreBuildEvent>
@@ -193,7 +196,7 @@ index c4ff5b6..f1d441d 100644
      </PreBuildEvent>
      <Link>
        <AdditionalDependencies>ws2_32.lib;IPHlpApi.Lib;%(AdditionalDependencies)</AdditionalDependencies>
-@@ -165,6 +216,45 @@
+@@ -165,6 +217,45 @@
        <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
      </ResourceCompile>
    </ItemDefinitionGroup>
@@ -239,7 +242,7 @@ index c4ff5b6..f1d441d 100644
    <ItemGroup>
      <ClCompile Include="..\src\addr_is_reserved.c" />
      <ClCompile Include="..\src\connecthostport.c" />
-@@ -212,4 +302,4 @@
+@@ -212,4 +303,4 @@
    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
    <ImportGroup Label="ExtensionTargets">
    </ImportGroup>
