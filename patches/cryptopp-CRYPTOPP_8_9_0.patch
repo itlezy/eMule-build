@@ -1,0 +1,13 @@
+diff --git a/cryptlib.vcxproj b/cryptlib.vcxproj
+index f99661d..fad01ec 100644
+--- a/cryptlib.vcxproj
++++ b/cryptlib.vcxproj
+@@ -75,7 +75,7 @@
+   <!-- Intermediate and Output directories -->
+   <!-- Cryptlib and Cryptest need extra care due to Non-DLL/DLL configs -->
+   <PropertyGroup Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Release'" Label="Non-DLL Directories">
+-    <OutDir>$(Platform)\Output\$(Configuration)\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(Platform)\$(ProjectName)\$(Configuration)\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)'=='DLL-Import Debug'" Label="DLL Directories">

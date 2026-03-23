@@ -1,0 +1,287 @@
+diff --git a/miniupnpc/msvc/miniupnpc.vcxproj b/miniupnpc/msvc/miniupnpc.vcxproj
+index c4ff5b6..f1d441d 100644
+--- a/miniupnpc/msvc/miniupnpc.vcxproj
++++ b/miniupnpc/msvc/miniupnpc.vcxproj
+@@ -1,4 +1,16 @@
+-﻿<?xml version="1.0" encoding="utf-8"?>
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  miniupnpc.vcxproj — patched for eMule-ootb v0.72a / VS 2022 / x64
++  Changes from upstream miniupnpc_2_3_3:
++    - Added Release|x64 and Debug|x64 configurations (upstream had Win32 only)
++    - PlatformToolset: v140 → v143 for all configurations
++    - PreBuildEvent: bare .vbs → cscript //nologo (modern Windows has no .vbs association)
++    - CRT for static configs: MultiThreadedDLL(/MD) → MultiThreaded(/MT) [Release]
++                              MultiThreadedDebugDLL(/MDd) → MultiThreadedDebug(/MTd) [Debug]
++      All static libs must match eMule's /MT static MFC link.
++    - DebugInformationFormat: removed EditAndContinue from Win32 Debug (incompatible with /RTC in x64)
++    - Dll configs (/MD) are intentionally left unchanged.
++-->
+ <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+   <ItemGroup Label="ProjectConfigurations">
+     <ProjectConfiguration Include="Debug Dll|Win32">
+@@ -9,6 +21,10 @@
+       <Configuration>Debug</Configuration>
+       <Platform>Win32</Platform>
+     </ProjectConfiguration>
++    <ProjectConfiguration Include="Debug|x64">
++      <Configuration>Debug</Configuration>
++      <Platform>x64</Platform>
++    </ProjectConfiguration>
+     <ProjectConfiguration Include="Release Dll|Win32">
+       <Configuration>Release Dll</Configuration>
+       <Platform>Win32</Platform>
+@@ -17,6 +33,10 @@
+       <Configuration>Release</Configuration>
+       <Platform>Win32</Platform>
+     </ProjectConfiguration>
++    <ProjectConfiguration Include="Release|x64">
++      <Configuration>Release</Configuration>
++      <Platform>x64</Platform>
++    </ProjectConfiguration>
+   </ItemGroup>
+   <PropertyGroup Label="Globals">
+     <ProjectGuid>{D28CE435-CB33-4BAE-8A52-C6EF915956F5}</ProjectGuid>
+@@ -26,24 +46,35 @@
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v140</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <CharacterSet>Unicode</CharacterSet>
+     <WholeProgramOptimization>true</WholeProgramOptimization>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Dll|Win32'" Label="Configuration">
+     <ConfigurationType>DynamicLibrary</ConfigurationType>
+-    <PlatformToolset>v140</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <CharacterSet>Unicode</CharacterSet>
+     <WholeProgramOptimization>true</WholeProgramOptimization>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v140</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Dll|Win32'" Label="Configuration">
+     <ConfigurationType>DynamicLibrary</ConfigurationType>
+-    <PlatformToolset>v140</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
++    <CharacterSet>Unicode</CharacterSet>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
++    <ConfigurationType>StaticLibrary</ConfigurationType>
++    <PlatformToolset>v143</PlatformToolset>
++    <CharacterSet>Unicode</CharacterSet>
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
++    <ConfigurationType>StaticLibrary</ConfigurationType>
++    <PlatformToolset>v143</PlatformToolset>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+@@ -61,10 +92,17 @@
+   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug Dll|Win32'" Label="PropertySheets">
+     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+   </ImportGroup>
++  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
++    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
++  </ImportGroup>
++  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
++    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
++  </ImportGroup>
+   <PropertyGroup Label="UserMacros" />
+   <PropertyGroup>
+     <_ProjectFileVersion>14.0.25123.0</_ProjectFileVersion>
+   </PropertyGroup>
++  <!-- Win32: keep original SolutionDir-relative OutDir (not used by eMule build) -->
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+     <IntDir>$(Configuration)\</IntDir>
+@@ -81,25 +119,36 @@
+     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+     <IntDir>$(Configuration)\</IntDir>
+   </PropertyGroup>
++  <!-- x64: emule.vcxproj expects ..\miniupnpc\msvc\$(Platform)\$(Configuration)\miniupnpc.lib -->
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
++    <IntDir>$(Platform)\$(Configuration)\tmp\</IntDir>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
++    <IntDir>$(Platform)\$(Configuration)\tmp\</IntDir>
++  </PropertyGroup>
++  <!-- ── Win32 Debug static ── /MTd ── -->
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <ClCompile>
+       <Optimization>Disabled</Optimization>
+       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;MINIUPNP_STATICLIB;DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <MinimalRebuild>true</MinimalRebuild>
+       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+       <PrecompiledHeader />
+       <WarningLevel>Level3</WarningLevel>
+-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
++      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+       <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ClCompile>
+     <PreBuildEvent>
+-      <Command>genminiupnpcstrings.vbs</Command>
++      <Command>cscript //nologo genminiupnpcstrings.vbs</Command>
+     </PreBuildEvent>
+     <ResourceCompile>
+       <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+     </ResourceCompile>
+   </ItemDefinitionGroup>
++  <!-- ── Win32 Debug DLL ── /MDd (left as-is, not used by eMule) ── -->
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Dll|Win32'">
+     <ClCompile>
+       <Optimization>Disabled</Optimization>
+@@ -110,11 +159,11 @@
+       <PrecompiledHeader>
+       </PrecompiledHeader>
+       <WarningLevel>Level3</WarningLevel>
+-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
++      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+       <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ClCompile>
+     <PreBuildEvent>
+-      <Command>genminiupnpcstrings.vbs</Command>
++      <Command>cscript //nologo genminiupnpcstrings.vbs</Command>
+     </PreBuildEvent>
+     <Link>
+       <AdditionalDependencies>ws2_32.lib;IPHlpApi.Lib;%(AdditionalDependencies)</AdditionalDependencies>
+@@ -123,12 +172,13 @@
+       <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+     </ResourceCompile>
+   </ItemDefinitionGroup>
++  <!-- ── Win32 Release static ── /MT ── -->
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+     <ClCompile>
+       <Optimization>MaxSpeed</Optimization>
+       <IntrinsicFunctions>true</IntrinsicFunctions>
+       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;MINIUPNP_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+       <FunctionLevelLinking>true</FunctionLevelLinking>
+       <PrecompiledHeader />
+       <WarningLevel>Level3</WarningLevel>
+@@ -136,12 +186,13 @@
+       <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ClCompile>
+     <PreBuildEvent>
+-      <Command>genminiupnpcstrings.vbs</Command>
++      <Command>cscript //nologo genminiupnpcstrings.vbs</Command>
+     </PreBuildEvent>
+     <ResourceCompile>
+       <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+     </ResourceCompile>
+   </ItemDefinitionGroup>
++  <!-- ── Win32 Release DLL ── /MD (left as-is, not used by eMule) ── -->
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Dll|Win32'">
+     <ClCompile>
+       <Optimization>MaxSpeed</Optimization>
+@@ -156,7 +207,7 @@
+       <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ClCompile>
+     <PreBuildEvent>
+-      <Command>genminiupnpcstrings.vbs</Command>
++      <Command>cscript //nologo genminiupnpcstrings.vbs</Command>
+     </PreBuildEvent>
+     <Link>
+       <AdditionalDependencies>ws2_32.lib;IPHlpApi.Lib;%(AdditionalDependencies)</AdditionalDependencies>
+@@ -165,6 +216,45 @@
+       <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+     </ResourceCompile>
+   </ItemDefinitionGroup>
++  <!-- ── x64 Release static ── /MT ── -->
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
++    <ClCompile>
++      <Optimization>MaxSpeed</Optimization>
++      <IntrinsicFunctions>true</IntrinsicFunctions>
++      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;MINIUPNP_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++      <FunctionLevelLinking>true</FunctionLevelLinking>
++      <PrecompiledHeader />
++      <WarningLevel>Level3</WarningLevel>
++      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
++      <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++    </ClCompile>
++    <PreBuildEvent>
++      <Command>cscript //nologo genminiupnpcstrings.vbs</Command>
++    </PreBuildEvent>
++    <ResourceCompile>
++      <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
++    </ResourceCompile>
++  </ItemDefinitionGroup>
++  <!-- ── x64 Debug static ── /MTd ── -->
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
++    <ClCompile>
++      <Optimization>Disabled</Optimization>
++      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;MINIUPNP_STATICLIB;DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++      <PrecompiledHeader />
++      <WarningLevel>Level3</WarningLevel>
++      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
++      <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++    </ClCompile>
++    <PreBuildEvent>
++      <Command>cscript //nologo genminiupnpcstrings.vbs</Command>
++    </PreBuildEvent>
++    <ResourceCompile>
++      <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
++    </ResourceCompile>
++  </ItemDefinitionGroup>
+   <ItemGroup>
+     <ClCompile Include="..\src\addr_is_reserved.c" />
+     <ClCompile Include="..\src\connecthostport.c" />
+@@ -212,4 +302,4 @@
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+   <ImportGroup Label="ExtensionTargets">
+   </ImportGroup>
+-</Project>
+\ No newline at end of file
++</Project>
+diff --git a/miniupnpc/src/minissdpc.c b/miniupnpc/src/minissdpc.c
+index 82a1106..97a7c80 100644
+--- a/miniupnpc/src/minissdpc.c
++++ b/miniupnpc/src/minissdpc.c
+@@ -29,7 +29,7 @@ typedef unsigned short uint16_t;
+ #endif /* !defined(_MSC_VER) */
+ #ifndef strncasecmp
+ #if defined(_MSC_VER) && (_MSC_VER >= 1400)
+-#define strncasecmp _memicmp
++#define strncasecmp _strnicmp  /* _memicmp deprecated; _strnicmp equivalent for HTTP header comparisons where n <= strlen */
+ #else /* defined(_MSC_VER) && (_MSC_VER >= 1400) */
+ #define strncasecmp memicmp
+ #endif /* defined(_MSC_VER) && (_MSC_VER >= 1400) */
+diff --git a/miniupnpc/src/miniupnpc.c b/miniupnpc/src/miniupnpc.c
+index fd2c896..54024de 100644
+--- a/miniupnpc/src/miniupnpc.c
++++ b/miniupnpc/src/miniupnpc.c
+@@ -20,7 +20,7 @@
+ #define strdup _strdup
+ #ifndef strncasecmp
+ #if defined(_MSC_VER) && (_MSC_VER >= 1400)
+-#define strncasecmp _memicmp
++#define strncasecmp _strnicmp  /* _memicmp deprecated; _strnicmp equivalent for HTTP header comparisons where n <= strlen */
+ #else /* defined(_MSC_VER) && (_MSC_VER >= 1400) */
+ #define strncasecmp memicmp
+ #endif /* defined(_MSC_VER) && (_MSC_VER >= 1400) */
+diff --git a/miniupnpc/src/miniwget.c b/miniupnpc/src/miniwget.c
+index 4f1a55b..eef4bce 100644
+--- a/miniupnpc/src/miniwget.c
++++ b/miniupnpc/src/miniwget.c
+@@ -20,7 +20,7 @@
+ #define socklen_t int
+ #ifndef strncasecmp
+ #if defined(_MSC_VER) && (_MSC_VER >= 1400)
+-#define strncasecmp _memicmp
++#define strncasecmp _strnicmp  /* _memicmp deprecated; _strnicmp equivalent for HTTP header comparisons where n <= strlen */
+ #else /* defined(_MSC_VER) && (_MSC_VER >= 1400) */
+ #define strncasecmp memicmp
+ #endif /* defined(_MSC_VER) && (_MSC_VER >= 1400) */

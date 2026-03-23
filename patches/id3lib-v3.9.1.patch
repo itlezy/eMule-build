@@ -1,0 +1,46 @@
+diff --git a/libprj/id3lib.vcxproj b/libprj/id3lib.vcxproj
+index 9f8dc55..aeae8b5 100644
+--- a/libprj/id3lib.vcxproj
++++ b/libprj/id3lib.vcxproj
+@@ -1,4 +1,4 @@
+-﻿<?xml version="1.0" encoding="utf-8"?>
++<?xml version="1.0" encoding="utf-8"?>
+ <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+   <ItemGroup Label="ProjectConfigurations">
+     <ProjectConfiguration Include="Debug|Win32">
+@@ -87,7 +87,7 @@
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <ClCompile>
+       <Optimization>Disabled</Optimization>
+-      <AdditionalIncludeDirectories>.\;..\;..\include;..\include\id3;..\..\zlib</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\;..\;..\include;..\include\id3;..\..\eMule-zlib</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>_LIB;HAVE_CONFIG_H;ID3LIB_LINKOPTION=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+@@ -100,7 +100,7 @@
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+     <ClCompile>
+       <Optimization>Disabled</Optimization>
+-      <AdditionalIncludeDirectories>.\;..\;..\include;..\include\id3;..\..\zlib</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\;..\;..\include;..\include\id3;..\..\eMule-zlib</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>_LIB;HAVE_CONFIG_H;ID3LIB_LINKOPTION=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+@@ -114,7 +114,7 @@
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+     <ClCompile>
+       <AdditionalOptions>/wd4244 /wd4018 /Zc:throwingNew</AdditionalOptions>
+-      <AdditionalIncludeDirectories>.\;..\;..\include;..\include\id3;..\..\zlib</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\;..\;..\include;..\include\id3;..\..\eMule-zlib</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>_LIB;HAVE_CONFIG_H;ID3LIB_LINKOPTION=1;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+@@ -130,7 +130,7 @@
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+     <ClCompile>
+       <AdditionalOptions>/wd4244 /wd4018 /Zc:throwingNew</AdditionalOptions>
+-      <AdditionalIncludeDirectories>.\;..\;..\include;..\include\id3;..\..\zlib</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\;..\;..\include;..\include\id3;..\..\eMule-zlib</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>_LIB;HAVE_CONFIG_H;ID3LIB_LINKOPTION=1;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>

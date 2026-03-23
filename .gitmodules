@@ -1,0 +1,22 @@
+[submodule "eMule"]
+	path = eMule
+	url = https://github.com/Threepwood-7/eMule.git
+	branch = build-v0.72a
+[submodule "eMule-cryptopp"]
+	path = eMule-cryptopp
+	url = https://github.com/weidai11/cryptopp.git
+[submodule "eMule-id3lib"]
+	path = eMule-id3lib
+	url = https://github.com/itlezy/eMule-id3lib.git
+[submodule "eMule-miniupnp"]
+	path = eMule-miniupnp
+	url = https://github.com/miniupnp/miniupnp.git
+[submodule "eMule-ResizableLib"]
+	path = eMule-ResizableLib
+	url = https://github.com/ppescher/resizablelib.git
+[submodule "eMule-zlib"]
+	path = eMule-zlib
+	url = https://github.com/madler/zlib.git
+[submodule "eMule-mbedtls"]
+	path = eMule-mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
