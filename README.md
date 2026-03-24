@@ -99,13 +99,28 @@ eMule-build/
   eMule-zlib/             ← madler/zlib @ v1.3.2
   eMule-mbedtls/          ← Mbed-TLS/mbedtls @ mbedtls-4.0.0
   patches/                ← VS2022 porting patches for each dep
-  003_build_MSBuild_ALL_libs.cmd
-  003_build_MSBuild_ALL_libs_debug.cmd
-  004_build_MSBuild_eMule.cmd
-  build_MSBuild_eMule-*.cmd
+  00-setup-and-build-release.cmd
+  10-build-libs-release.cmd
+  11-build-libs-debug.cmd
+  20-build-emule-*.cmd
+  30-run-emule-*.cmd
+  40-package-release.cmd
+  41-clean-release-config.cmd
+  scripts\10-open-*.cmd
+  scripts\20-open-project-*.cmd
+  scripts\30-build-*-release.cmd
+  scripts\31-build-*-debug.cmd
 ```
 
 ### 2. Preflight and setup
+
+Fastest path from a fresh clone:
+
+```
+.\00-setup-and-build-release.cmd
+```
+
+That helper initializes submodules, runs `setup`, builds the Release libraries and app, and creates the Release package.
 
 ```
 pwsh -File .\workspace.ps1 env-check
@@ -155,7 +170,7 @@ Patches applied per dep:
 pwsh -File .\workspace.ps1 build-libs -Config Release
 ```
 
-The compatibility wrapper `003_build_MSBuild_ALL_libs.cmd` still exists and delegates to the same backend.
+Convenience wrapper: `.\10-build-libs-release.cmd`
 
 ### Build all libraries (Debug)
 
@@ -169,19 +184,29 @@ pwsh -File .\workspace.ps1 build-libs -Config Debug
 pwsh -File .\workspace.ps1 build-app -Config Release
 ```
 
+Convenience wrappers:
+- `.\20-build-emule-release.cmd`
+- `.\21-build-emule-debug.cmd`
+- `.\22-build-emule-release-incremental.cmd`
+- `.\23-build-emule-debug-incremental.cmd`
+- `.\24-build-emule-release-incremental-run-and-package.cmd`
+- `.\25-build-emule-debug-incremental-and-run.cmd`
+
 Or open `eMule\srchybrid\emule.sln` in Visual Studio 2022 and build from the IDE.
 
 **Output:**
 - Release: `eMule\srchybrid\x64\Release\emule.exe` (~8.7 MB, static MFC)
 - Debug: `eMule\srchybrid\x64\Debug\emule.exe` (~35 MB)
 
-Legacy dep build scripts are still present as compatibility wrappers, but `workspace.ps1` is the supported entrypoint.
+Root `.cmd` files are now limited to the main clone/setup/build/run/package flows. Dependency build wrappers and Visual Studio open helpers live under `scripts\`, but `workspace.ps1` remains the supported backend.
 
 ### 3b. Package the Release build
 
 ```
 pwsh -File .\workspace.ps1 package
 ```
+
+Convenience wrapper: `.\40-package-release.cmd`
 
 By default on `v0.72a`, the package zip is written under `dist\`. The location and archive name are workspace variables in `deps.psd1` under `Workspace.Package.Release`.
 
