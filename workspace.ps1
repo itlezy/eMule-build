@@ -778,12 +778,16 @@ function Run-Setup {
     }
 
     $mbedBuild = Get-GeneratedProjectBuildDir 'mbedtls'
+    $mbedtlsConfiguredNow = $false
     if (-not (Test-GeneratedProjectReady 'mbedtls')) {
         Clean-MbedTlsGenerated
         Invoke-GeneratedProjectConfigure 'mbedtls' $envReport
+        $mbedtlsConfiguredNow = $true
     }
     Install-MbedTlsWrapper
-    Normalize-MbedTlsGeneratedProjects $mbedBuild
+    if ($mbedtlsConfiguredNow) {
+        Normalize-MbedTlsGeneratedProjects $mbedBuild
+    }
 
     if (-not (Test-GeneratedProjectReady 'zlib')) {
         Invoke-GeneratedProjectConfigure 'zlib' $envReport

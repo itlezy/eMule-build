@@ -1,7 +1,0 @@
-# Review Findings
-
-1. Medium: fresh clones still leave the main `eMule` repo on detached `HEAD`, so opening the solution in VS 2022 and editing the app is one mistaken commit away from orphaned work. `Run-Setup` only creates/switches build branches for entries in `DependencyOrder`, and `eMule` is not part of that set, so nothing ever moves the app repo onto a branch after submodule checkout. References: `workspace.ps1:754`, `deps.psd1:105`, `.gitmodules:4`. This was visible in the disposable smoke run, where the workspace built fine but `dep-status` showed `eMule` on `HEAD`, not a branch.
-
-2. Medium: the smoke test can report green while ignoring the code you are actually working on. It clones `$SourceRepo` into a fresh workspace and tests that clone, which means unstaged or staged local edits in the current tree are not exercised at all. That is a real false-confidence trap for maintainers using it as a pre-push check. References: `scripts/smoke-test.ps1:39`, `scripts/smoke-test.ps1:46`.
-
-3. Medium: packaged provenance is still incomplete enough to be misleading for dirty workspaces. `package` succeeds without checking whether the root workspace or the `eMule` fork is dirty, but `BUILD-INFO.txt` only records branch and commit IDs, so a package built from local edits still looks like it came from a clean commit. The workspace report only inspects dependency branch state, not root or `eMule` cleanliness. References: `workspace.ps1:547`, `workspace.ps1:560`, `workspace.ps1:899`, `workspace.ps1:910`.
