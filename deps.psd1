@@ -1,8 +1,8 @@
 @{
     BuildBranch = 'emule-build-v0.72a'
+    AppBuildBranch = 'emule-build-v0.72a-dev'
     Workspace = @{
         Toolchain = @{
-            PlatformToolset = 'v143'
             WindowsTargetPlatformVersion = '10.0'
         }
         LogsRoot = 'logs'
@@ -158,6 +158,13 @@
             Commit = 'Apply eMule build patch: mbedtls-mbedtls-4.0.0.patch'
         }
     }
+
+    NestedSubmodules = @(
+        @{
+            ParentRepo = 'eMule-mbedtls'
+            Path = 'tf-psa-crypto'
+        }
+    )
 
     Projects = @{
         cryptopp = @{

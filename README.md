@@ -72,6 +72,8 @@ SDK/toolset policy for this workspace:
 - Use `WindowsTargetPlatformVersion=10.0` in committed project files
 - Let each machine resolve that to an installed Windows 10/11 SDK instead of pinning an exact SDK build number in source control
 
+This workspace intentionally targets one known-good compiler configuration only: Visual Studio 2022 with the `v143` toolset. `PlatformToolset` is not treated as a user-configurable manifest setting.
+
 ---
 
 ## Daily Workflow

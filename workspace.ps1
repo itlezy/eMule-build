@@ -24,7 +24,9 @@ $Workspace = $Manifest.Workspace
 $GeneratedProjects = $Workspace.GeneratedProjects
 $Toolchain = $Workspace.Toolchain
 $BuildBranch = $Manifest.BuildBranch
+$AppBuildBranch = $Manifest.AppBuildBranch
 $DependencyPatches = $Manifest.Dependencies
+$NestedSubmodules = @($Manifest.NestedSubmodules)
 $DependencyOrder = @($Manifest.DependencyOrder)
 $BuildProjects = @($Manifest.BuildProjects)
 $Projects = $Manifest.Projects
@@ -89,9 +91,25 @@ function Get-PerlExe {
 function Invoke-Git([string]$Repo, [string[]]$ArgumentList, [string]$Label, [switch]$AllowFailure) {
     $git = Get-GitExe
     if (-not $git) { throw 'git not found on PATH.' }
-    $output = & $git -C $Repo @ArgumentList 2>$null
-    if ($LASTEXITCODE -ne 0 -and -not $AllowFailure) {
-        throw "$Label failed with exit code $LASTEXITCODE."
+    $stderrPath = Join-Path ([IO.Path]::GetTempPath()) ("workspace-git-stderr-{0}.log" -f ([guid]::NewGuid().ToString('N')))
+    try {
+        $output = & $git -C $Repo @ArgumentList 2> $stderrPath
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0 -and -not $AllowFailure) {
+            $stderr = if (Test-Path -LiteralPath $stderrPath) {
+                (Get-Content -LiteralPath $stderrPath -Raw).Trim()
+            } else {
+                ''
+            }
+            if ([string]::IsNullOrWhiteSpace($stderr)) {
+                throw "$Label failed with exit code $exitCode."
+            }
+            throw "$Label failed with exit code $exitCode.`n$stderr"
+        }
+    } finally {
+        if (Test-Path -LiteralPath $stderrPath) {
+            Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+        }
     }
     @($output)
 }
@@ -155,19 +173,19 @@ function Get-StagedPaths([string]$Repo) {
     @((Invoke-Git $Repo @('diff','--cached','--name-only') 'git diff --cached') | Where-Object { $_ })
 }
 
-function Ensure-BuildBranch([string]$RepoRelative, [string]$Label) {
+function Ensure-BuildBranch([string]$RepoRelative, [string]$Label, [string]$BranchName = $BuildBranch) {
     $repo = Join-Path $Root $RepoRelative
     $currentBranch = Get-RepoBranch $repo
-    if ($currentBranch -eq $BuildBranch) { return }
+    if ($currentBranch -eq $BranchName) { return }
 
-    $branchExists = Test-GitRef $repo "refs/heads/$BuildBranch"
+    $branchExists = Test-GitRef $repo "refs/heads/$BranchName"
 
     if ($branchExists) {
-        Invoke-Git $repo @('switch', $BuildBranch) "git switch $BuildBranch" | Out-Null
+        Invoke-Git $repo @('switch', $BranchName) "git switch $BranchName" | Out-Null
         return
     }
 
-    Invoke-Git $repo @('switch', '-c', $BuildBranch) "git switch -c $BuildBranch" | Out-Null
+    Invoke-Git $repo @('switch', '-c', $BranchName) "git switch -c $BranchName" | Out-Null
 }
 
 function Ensure-PatchCommit([string]$DependencyKey) {
@@ -208,19 +226,20 @@ function Get-RecordedGitlink([string]$Repo, [string]$SubmodulePath) {
     $null
 }
 
-function Sync-NestedBuildSubmodule {
-    $repo = Join-Path $Root 'eMule-mbedtls'
-    $nestedPath = 'tf-psa-crypto'
+function Sync-NestedBuildSubmodule($Entry) {
+    $repoRelative = $Entry['ParentRepo']
+    $nestedPath = $Entry['Path']
+    $repo = Join-Path $Root $repoRelative
     $nestedRepo = Join-Path $repo $nestedPath
     $recorded = Get-RecordedGitlink $repo $nestedPath
-    $current = Get-GitText $nestedRepo @('rev-parse','HEAD') 'git rev-parse tf-psa-crypto'
+    $current = Get-GitText $nestedRepo @('rev-parse','HEAD') "git rev-parse $nestedPath"
     if ($recorded -and $recorded -eq $current) { return }
 
-    Write-Host '  Recording local tf-psa-crypto pointer in mbedtls build branch' -ForegroundColor Cyan
-    Invoke-Git $repo @('add','--',$nestedPath) 'git add tf-psa-crypto' | Out-Null
+    Write-Host "  Recording local $nestedPath pointer in $(Split-Path -Leaf $repoRelative) build branch" -ForegroundColor Cyan
+    Invoke-Git $repo @('add','--',$nestedPath) "git add $nestedPath" | Out-Null
     $staged = @(Get-StagedPaths $repo)
     if ((@($staged).Count) -eq 0) { return }
-    Invoke-Git $repo @('commit','-m','Record local eMule build submodule: tf-psa-crypto') 'git commit tf-psa-crypto' | Out-Null
+    Invoke-Git $repo @('commit','-m',"Record local eMule build submodule: $nestedPath") "git commit $nestedPath" | Out-Null
 }
 
 function Get-VsWherePath {
@@ -751,10 +770,13 @@ function Run-Setup {
     Show-Report $envReport
     Invoke-Native -Exe $envReport.Tools.Git -ArgumentList @('-C', $Root, 'submodule', 'update', '--init', '--recursive') -Label 'git submodule update' -WorkDir $null
 
+    Ensure-BuildBranch 'eMule' 'eMule' $AppBuildBranch
     foreach ($key in $DependencyOrder) {
         Ensure-PatchCommit $key
     }
-    Sync-NestedBuildSubmodule
+    foreach ($entry in $NestedSubmodules) {
+        Sync-NestedBuildSubmodule $entry
+    }
 
     $mbedBuild = Get-GeneratedProjectBuildDir 'mbedtls'
     if (-not (Test-GeneratedProjectReady 'mbedtls')) {
@@ -837,6 +859,7 @@ function Build-Libs {
             Artifact = if ($info.Kind -eq 'cmake') { Get-GeneratedProjectArtifactName $_ $Config } else { $null }
         }
     }
+    $throttleLimit = [Math]::Min([Math]::Max(1, @($defs).Count), [Math]::Max(1, [Environment]::ProcessorCount - 1))
     $results = $defs | ForEach-Object -Parallel {
         $def = $_
         $log = Join-Path $using:runLogs "$($def.Name)-$using:Config.log"
@@ -859,7 +882,7 @@ function Build-Libs {
             $_ | Out-File -FilePath $log -Append -Encoding utf8
             [pscustomobject]@{ Name=$def.Name; Success=$false; Log=$log; Message=$_.Exception.Message }
         }
-    } -ThrottleLimit 6
+    } -ThrottleLimit $throttleLimit
     $failed = $results | Where-Object { -not $_.Success }
     foreach ($r in $results | Sort-Object Name) {
         Write-Host ("[{0}] {1}{2}" -f ($(if ($r.Success) { 'PASS' } else { 'FAIL' })), $r.Name, $(if ($r.Success) { '' } else { ": $($r.Message). See $($r.Log)" })) -ForegroundColor ($(if ($r.Success) { 'Green' } else { 'Red' }))
