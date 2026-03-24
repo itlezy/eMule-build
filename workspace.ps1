@@ -528,6 +528,12 @@ function Get-ConfigureSeverity([string]$Intent, [bool]$Ready) {
     return 'fail'
 }
 
+function Get-WorkspaceSeverity([string]$Intent, [int]$MissingCount) {
+    if ($MissingCount -eq 0) { return 'pass' }
+    if ($Intent -in @('setup','repair')) { return 'warn' }
+    return 'fail'
+}
+
 function Get-ToolReport([string]$Intent, $ToolsContext) {
     $results = [System.Collections.Generic.List[object]]::new()
     $mbedtlsConfigured = Test-GeneratedProjectReady 'mbedtls'
@@ -567,7 +573,7 @@ function Get-WorkspaceReport([string]$Intent, $ToolsContext) {
     $results = [System.Collections.Generic.List[object]]::new()
 
     $missing = @(Get-ExpectedWorkspacePaths | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })
-    Add-Check $results (($missing.Count -eq 0) ? 'pass' : 'fail') 'workspace' (($missing.Count -eq 0) ? 'required paths present' : ('missing: ' + ($missing -join ', ')))
+    Add-Check $results (Get-WorkspaceSeverity $Intent $missing.Count) 'workspace' (($missing.Count -eq 0) ? 'required paths present' : ('missing: ' + ($missing -join ', ')))
 
     foreach ($path in @('eMule\cryptopp','eMule\zlib','eMule\ResizableLib')) {
         $full = Join-Path $Root $path
