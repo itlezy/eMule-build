@@ -745,13 +745,6 @@ function Normalize-MbedTlsGeneratedProjects([string]$BuildDir) {
             [IO.File]::WriteAllText($path.FullName, $updated)
         }
     }
-
-    foreach ($rel in @((Get-GeneratedProjectProfile 'mbedtls').StaticRuntimeProjects)) {
-        $path = Join-Path $BuildDir $rel
-        $content = [IO.File]::ReadAllText($path)
-        $updated = $content.Replace('<RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>', '<RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>').Replace('<RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>', '<RuntimeLibrary>MultiThreaded</RuntimeLibrary>')
-        if ($updated -ne $content) { [IO.File]::WriteAllText($path, $updated) }
-    }
 }
 
 function Invoke-GeneratedProjectConfigure([string]$Name, $EnvReport) {

@@ -87,17 +87,10 @@
                         '-DENABLE_PROGRAMS=OFF'
                         '-DENABLE_TESTING=OFF'
                         '-DGEN_FILES=ON'
+                        '-DCMAKE_POLICY_DEFAULT_CMP0091=NEW'
                         '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>'
                     )
                 }
-                StaticRuntimeProjects = @(
-                    'library\mbedtls.vcxproj'
-                    'library\mbedx509.vcxproj'
-                    'tf-psa-crypto\core\tfpsacrypto.vcxproj'
-                    'tf-psa-crypto\drivers\builtin\builtin.vcxproj'
-                    'tf-psa-crypto\drivers\everest\everest.vcxproj'
-                    'tf-psa-crypto\drivers\p256-m\p256m.vcxproj'
-                )
             }
         }
     }
