@@ -122,8 +122,6 @@
         }
         id3lib = @{
             Repo   = 'eMule-id3lib'
-            Patch  = 'id3lib-v3.9.1.patch'
-            Commit = 'Apply eMule build patch: id3lib-v3.9.1.patch'
         }
         miniupnp = @{
             Repo   = 'eMule-miniupnp'

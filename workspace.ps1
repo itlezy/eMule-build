@@ -191,9 +191,15 @@ function Ensure-BuildBranch([string]$RepoRelative, [string]$Label, [string]$Bran
 function Ensure-PatchCommit([string]$DependencyKey) {
     $meta = $DependencyPatches[$DependencyKey]
     $repo = Join-Path $Root $meta.Repo
-    $patchAppliedBefore = Test-PatchApplied $repo $meta.Patch
 
     Ensure-BuildBranch $meta.Repo $DependencyKey
+
+    if (-not $meta.Patch) {
+        Write-Host "  $DependencyKey has no patch to apply (baked into branch)" -ForegroundColor DarkGray
+        return
+    }
+
+    $patchAppliedBefore = Test-PatchApplied $repo $meta.Patch
 
     if (-not (Test-PatchApplied $repo $meta.Patch)) {
         if (-not (Test-PatchCanApply $repo $meta.Patch)) {
@@ -418,11 +424,12 @@ function Get-DependencyBranchState([string]$DependencyKey) {
     }
 
     $branch = Get-RepoBranch $repo
-    $patchApplied = Test-PatchApplied $repo $meta.Patch
+    $patchApplied = if ($meta.Patch) { Test-PatchApplied $repo $meta.Patch } else { $true }
+    $patchLabel  = if ($meta.Patch) { if ($patchApplied) { 'present' } else { 'missing' } } else { 'baked-in' }
     $status = @(Get-RepoStatus $repo)
     $clean = (@($status).Count) -eq 0
     $ready = ($branch -eq $BuildBranch) -and $patchApplied -and $clean
-    $detail = '{0}; patch {1}; {2}' -f $branch, $(if ($patchApplied) { 'present' } else { 'missing' }), $(if ($clean) { 'clean' } else { 'dirty' })
+    $detail = '{0}; patch {1}; {2}' -f $branch, $patchLabel, $(if ($clean) { 'clean' } else { 'dirty' })
     [pscustomobject]@{ Ready=$ready; Detail=$detail }
 }
 
@@ -448,7 +455,7 @@ function Get-DependencyStatusRows {
             Repo = $meta.Repo
             Branch = Get-RepoBranch $repo
             Head = Get-RepoHeadShort $repo
-            Patch = if (Test-PatchApplied $repo $meta.Patch) { 'present' } else { 'missing' }
+            Patch = if (-not $meta.Patch) { 'baked-in' } elseif (Test-PatchApplied $repo $meta.Patch) { 'present' } else { 'missing' }
             Worktree = if ($status.Count -eq 0) { 'clean' } else { 'dirty' }
         }
     }
@@ -497,7 +504,7 @@ function Get-ExpectedWorkspacePaths {
         'eMule-zlib',
         'eMule-mbedtls',
         'patches\cryptopp-CRYPTOPP_8_9_0.patch',
-        'patches\id3lib-v3.9.1.patch',
+
         'patches\miniupnpc-miniupnpc_2_3_3.patch',
         'patches\resizablelib-master.patch',
         'patches\zlib-v1.3.2.patch',
