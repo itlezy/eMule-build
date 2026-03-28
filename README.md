@@ -24,15 +24,49 @@ eMule v0.72a dropped two dependencies (CxImage, libpng) and upgraded several oth
 - libpng 1.5.30 — no longer needed without CxImage
 
 **Upgraded deps:**
-| Library | v0.60d | v0.72a |
-|---------|--------|--------|
-| eMule | v0.60d-community | v0.72a-community |
-| cryptopp | 8.4.0 | 8.9.0 |
-| mbedTLS | 2.28 | 4.0.0 |
-| miniupnpc | 2.2.3 | 2.3.3 |
-| zlib | 1.2.12 | 1.3.2 |
-| id3lib | 3.9.1 | 3.9.1 (unchanged) |
-| ResizableLib | — | latest master |
+
+The version columns show the upstream jump from `main` to the `irwir/eMule` v0.72a base; the last column calls out what this fork changes in the build workspace on top of that base.
+
+| Library | v0.60d | v0.72a base | This fork here: workspace delta vs irwir |
+|---------|--------|-------------|------------------------------------------|
+| eMule | v0.60d-community | `irwir/eMule @ eMule_v0.72a-community` | Tracked directly in [`itlezy/eMule`](https://github.com/itlezy/eMule) on `emule-build-v0.72a-dev`; `emule.sln`, `emule.slnx`, `emule.vcxproj`, and source includes were retargeted from the old sibling/junction-style dep paths to the real workspace-root `eMule-*` submodules, with shared `WorkspaceRoot` path variables in the project |
+| cryptopp | 8.4.0 | 8.9.0 | Uses upstream `weidai11/cryptopp` as a pinned submodule plus a local `emule-build-v0.72a` build branch; patch normalizes the library output path and defaults the handwritten vcxproj to `v143`/SDK `10.0` so `emule.vcxproj` can link it without extra path glue |
+| mbedTLS | 2.28 | 4.0.0 | Uses upstream `Mbed-TLS/mbedtls` plus `TF-PSA-Crypto` with workspace-owned wrapper/build logic; `setup` materializes `visualc/VS2017/mbedTLS.vcxproj`, rewrites generated component projects to `/MT`/`/MTd`, and carries the threading patch on local build branches instead of leaving ad-hoc tree edits in place |
+| miniupnpc | 2.2.3 | 2.3.3 | Uses upstream `miniupnp/miniupnp` as a pinned submodule plus local patch branch; patch adds x64 static configs, switches the PreBuild step to `cscript //nologo`, changes static CRT to `/MT`/`/MTd`, and fixes output layout so the workspace can build/link it consistently on VS 2022 |
+| zlib | 1.2.12 | 1.3.2 | Uses upstream `madler/zlib` as a pinned submodule; because upstream 1.3.x dropped `contrib/vstudio`, `setup` materializes a workspace-owned `contrib/vstudio/vc/zlib.vcxproj` cmake wrapper and keeps the generated tree disposable/rebuildable instead of checking in a private project fork |
+| id3lib | 3.9.1 | 3.9.1 (unchanged) | Still the same legacy code level, but this workspace owns it via [`itlezy/eMule-id3lib`](https://github.com/itlezy/eMule-id3lib) rather than relying on `irwir/id3lib`; patch retargets the zlib include path to `eMule-zlib` and updates the vcxproj from `v142` to `v143` |
+| ResizableLib | — | latest master | Pulled from upstream `ppescher/resizablelib` as a pinned submodule and normalized for this workspace; patch moves it off the old `v141_xp`/SDK 8.1 settings, fixes output dirs, and forces the x64 configs eMule actually needs (`Unicode` + static MFC / `v143`) |
+
+**Repository / workspace split:**
+
+This is the higher-level difference between [`irwir/eMule` `v0.72a`](https://github.com/irwir/eMule/commits/v0.72a) and [`itlezy/eMule-build` `v0.72a`](https://github.com/itlezy/eMule-build/tree/v0.72a): the former is the application source branch, the latter is the reproducible build workspace wrapped around that source.
+
+| Aspect | `irwir/eMule` `v0.72a` | `itlezy/eMule-build` `v0.72a` |
+|--------|-------------------------|-------------------------------|
+| Repo role | App-source branch for eMule Community v0.72a; the tree is essentially `srchybrid/` plus the in-tree `mbedtls/` subtree | Full Windows build workspace for that app branch, with root-level tooling, dependency pins, patches, packaging, and validation |
+| What is versioned here | eMule source changes, solution/project files, and app-side fixes like the VS 2022/x64 porting and `WebSocket.cpp` updates | The whole build environment: root scripts, `workspace.ps1`, `deps.psd1`, `patches/`, packaging metadata, smoke-test automation, and submodule refs for `eMule` plus all third-party deps |
+| Dependency ownership model | Not the place where the full dependency fleet is pinned and maintained as separate repos | Deps are pinned as workspace-root git submodules (`eMule-*`), with local `emule-build-v0.72a` build branches used to carry workspace-only changes cleanly |
+| Build-path assumptions | Contains the app-side project changes needed to reference the workspace-root deps | Owns the actual root layout and enforces it: shared manifest paths, submodule locations, generated wrapper projects, and the commands that prepare the tree into a buildable state |
+| Setup work | You still need an external workspace around the app repo to fetch, patch, configure, and build every dependency consistently | `workspace.ps1 setup`/`repair` create or reuse dep build branches, apply recorded patches, configure generated trees, and restore a known-good state from a fresh clone |
+| Dependency patching | App repo contains only the eMule-side adjustments that must live with the application sources | Third-party dep changes are kept as explicit patch files in `patches/` and recorded as local commits on the dep build branches instead of being hidden as manual edits inside each checkout |
+| Build orchestration | No root manifest-backed orchestration layer for env checks, dep status, cleanup, validation, or packaging | `workspace.ps1` is the supported backend for `env-check`, `dep-status`, `validate`, `setup`, `repair`, `build-*`, `run-binary`, `package`, and cleanup |
+| Reproducibility | Source branch only | Reproducible workspace state: pinned submodule SHAs, centralized metadata in `deps.psd1`, serialized mutating commands via a workspace lock, and smoke-test coverage for clone -> repair -> validate -> package |
+| Deliverable | Source tree / Visual Studio project side of the port | Source tree plus a documented path to built artifacts and the packaged Release zip under `dist\` |
+
+**Dependency handling vs app repo:**
+
+This table answers a narrower question than the one above: for each dependency used by the v0.72a build, what does the plain app repo carry, and what does this workspace add on top?
+
+| Dependency | `irwir/eMule` `v0.72a` | `itlezy/eMule-build` `v0.72a` |
+|------------|-------------------------|-------------------------------|
+| Crypto++ | Not versioned in the repo; `emule.sln` / `emule.vcxproj` expect an external sibling checkout at `..\eMule-cryptopp\` | Pinned as root submodule `eMule-cryptopp/` from `weidai11/cryptopp` at `CRYPTOPP_8_9_0`, with a local build-branch patch for VS 2022 output/toolset normalization |
+| id3lib | Not versioned in the repo; build files expect `..\eMule-id3lib\` beside the app tree | Pinned as root submodule `eMule-id3lib/` from [`itlezy/eMule-id3lib`](https://github.com/itlezy/eMule-id3lib) at `v3.9.1`, with the workspace patch carrying the zlib include-path retarget and `v143` update |
+| miniupnpc | Not versioned in the repo; build files expect `..\eMule-miniupnp\` | Pinned as root submodule `eMule-miniupnp/` from `miniupnp/miniupnp` at `miniupnpc_2_3_3`, with a workspace patch adding x64 static configs, `cscript` prebuild handling, `/MT`/`/MTd`, and stable output paths |
+| ResizableLib | Not versioned in the repo; build files expect `..\eMule-ResizableLib\` | Pinned as root submodule `eMule-ResizableLib/` from `ppescher/resizablelib` on `master`, with a workspace patch moving the project to `v143` / SDK `10.0` and the x64 static-MFC settings eMule actually links against |
+| zlib | Not versioned in the repo; build files expect `..\eMule-zlib\contrib\vstudio\vc\zlib.vcxproj` to already exist | Pinned as root submodule `eMule-zlib/` from `madler/zlib` at `v1.3.2`; because upstream no longer ships `contrib/vstudio`, `setup` materializes the workspace-owned wrapper project and generated build tree |
+| Mbed TLS / TF-PSA-Crypto | The repo only carries the eMule-side helper file `mbedtls/tf-psa-crypto/include/mbedtls/threading_alt.h`; the actual build still points at an external sibling `..\eMule-mbedtls\` tree | Pinned as root submodule `eMule-mbedtls/` from `Mbed-TLS/mbedtls` at `mbedtls-4.0.0`; `setup` configures the generated VS tree, applies the TF-PSA threading patch on local build branches, and materializes the wrapper that combines the split 4.x libraries into `mbedtls.lib` |
+| CxImage | Removed from the v0.72a app line; not present in the repo | Not present in the workspace either; the dependency is intentionally gone on `v0.72a` |
+| libpng | Removed from the v0.72a app line; not present in the repo | Not present in the workspace either; no separate pin is needed once CxImage is gone |
 
 **Toolchain:**
 - Visual Studio 2019 (v142) → Visual Studio 2022 (v143)

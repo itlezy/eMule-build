@@ -191,33 +191,34 @@ function Ensure-BuildBranch([string]$RepoRelative, [string]$Label, [string]$Bran
 function Ensure-PatchCommit([string]$DependencyKey) {
     $meta = $DependencyPatches[$DependencyKey]
     $repo = Join-Path $Root $meta.Repo
+    $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
 
     Ensure-BuildBranch $meta.Repo $DependencyKey
 
-    if (-not $meta.Patch) {
+    if (-not $patch) {
         Write-Host "  $DependencyKey has no patch to apply (baked into branch)" -ForegroundColor DarkGray
         return
     }
 
-    $patchAppliedBefore = Test-PatchApplied $repo $meta.Patch
+    $patchAppliedBefore = Test-PatchApplied $repo $patch
 
-    if (-not (Test-PatchApplied $repo $meta.Patch)) {
-        if (-not (Test-PatchCanApply $repo $meta.Patch)) {
-            throw "$DependencyKey patch $($meta.Patch) cannot be applied cleanly."
+    if (-not (Test-PatchApplied $repo $patch)) {
+        if (-not (Test-PatchCanApply $repo $patch)) {
+            throw "$DependencyKey patch $patch cannot be applied cleanly."
         }
-        Write-Host "  Applying $($meta.Patch)" -ForegroundColor Cyan
-        Invoke-Git $repo @('apply','--3way','--ignore-whitespace',(Get-PatchPath $meta.Patch)) "git apply $($meta.Patch)" | Out-Null
+        Write-Host "  Applying $patch" -ForegroundColor Cyan
+        Invoke-Git $repo @('apply','--3way','--ignore-whitespace',(Get-PatchPath $patch)) "git apply $patch" | Out-Null
     } elseif (-not $patchAppliedBefore) {
         Write-Host "  Reusing existing patch state for $DependencyKey on $BuildBranch" -ForegroundColor DarkGray
     } else {
-        Write-Host "  $DependencyKey already carries $($meta.Patch)" -ForegroundColor DarkGray
+        Write-Host "  $DependencyKey already carries $patch" -ForegroundColor DarkGray
     }
 
-    $paths = Get-PatchPaths $meta.Patch
+    $paths = Get-PatchPaths $patch
     if ((@($paths).Count) -eq 0) {
-        throw "Patch $($meta.Patch) does not declare any file paths."
+        throw "Patch $patch does not declare any file paths."
     }
-    Invoke-Git $repo (@('add','-A','--') + $paths) "git add $($meta.Patch)" | Out-Null
+    Invoke-Git $repo (@('add','-A','--') + $paths) "git add $patch" | Out-Null
 
     $staged = @(Get-StagedPaths $repo)
     if ((@($staged).Count) -eq 0) { return }
@@ -419,13 +420,14 @@ function Get-PackageEntryPath([string]$Configuration = 'Release', [string]$Entry
 function Get-DependencyBranchState([string]$DependencyKey) {
     $meta = $DependencyPatches[$DependencyKey]
     $repo = Join-Path $Root $meta.Repo
+    $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
     if (-not (Test-Path -LiteralPath $repo)) {
         return [pscustomobject]@{ Ready=$false; Detail='repo missing' }
     }
 
     $branch = Get-RepoBranch $repo
-    $patchApplied = if ($meta.Patch) { Test-PatchApplied $repo $meta.Patch } else { $true }
-    $patchLabel  = if ($meta.Patch) { if ($patchApplied) { 'present' } else { 'missing' } } else { 'baked-in' }
+    $patchApplied = if ($patch) { Test-PatchApplied $repo $patch } else { $true }
+    $patchLabel  = if ($patch) { if ($patchApplied) { 'present' } else { 'missing' } } else { 'baked-in' }
     $status = @(Get-RepoStatus $repo)
     $clean = (@($status).Count) -eq 0
     $ready = ($branch -eq $BuildBranch) -and $patchApplied -and $clean
@@ -437,6 +439,7 @@ function Get-DependencyStatusRows {
     foreach ($key in $DependencyOrder) {
         $meta = $DependencyPatches[$key]
         $repo = Join-Path $Root $meta.Repo
+        $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
         if (-not (Test-Path -LiteralPath $repo)) {
             [pscustomobject]@{
                 Name = $key
@@ -455,7 +458,7 @@ function Get-DependencyStatusRows {
             Repo = $meta.Repo
             Branch = Get-RepoBranch $repo
             Head = Get-RepoHeadShort $repo
-            Patch = if (-not $meta.Patch) { 'baked-in' } elseif (Test-PatchApplied $repo $meta.Patch) { 'present' } else { 'missing' }
+            Patch = if (-not $patch) { 'baked-in' } elseif (Test-PatchApplied $repo $patch) { 'present' } else { 'missing' }
             Worktree = if ($status.Count -eq 0) { 'clean' } else { 'dirty' }
         }
     }
