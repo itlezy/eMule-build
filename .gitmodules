@@ -7,11 +7,6 @@
 	url = https://github.com/weidai11/cryptopp.git
 	ignore = all
 	shallow = true
-[submodule "eMule-id3lib"]
-	path = eMule-id3lib
-	url = https://github.com/itlezy/eMule-id3lib.git
-	ignore = all
-	shallow = true
 [submodule "eMule-miniupnp"]
 	path = eMule-miniupnp
 	url = https://github.com/miniupnp/miniupnp.git

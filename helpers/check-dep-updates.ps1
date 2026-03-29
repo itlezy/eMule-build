@@ -73,12 +73,6 @@ $Deps = @(
         Pattern    = '^CRYPTOPP_(\d+)_(\d+)_(\d+)$'
     }
     [pscustomobject]@{
-        Name       = 'id3lib'
-        Kind       = 'custom'
-        BaseTag    = 'v3.9.1'
-        Note       = 'Patch baked into itlezy/eMule-id3lib branch — no external upstream'
-    }
-    [pscustomobject]@{
         Name       = 'miniupnp'
         Kind       = 'tagged'
         Remote     = 'https://github.com/miniupnp/miniupnp.git'

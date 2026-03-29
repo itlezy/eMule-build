@@ -97,7 +97,6 @@
 
     DependencyOrder = @(
         'cryptopp'
-        'id3lib'
         'miniupnp'
         'ResizableLib'
         'zlib'
@@ -107,7 +106,6 @@
 
     BuildProjects = @(
         'cryptopp'
-        'id3lib'
         'miniupnp'
         'ResizableLib'
         'zlib'
@@ -119,9 +117,6 @@
             Repo   = 'eMule-cryptopp'
             Patch  = 'cryptopp-CRYPTOPP_8_9_0.patch'
             Commit = 'Apply eMule build patch: cryptopp-CRYPTOPP_8_9_0.patch'
-        }
-        id3lib = @{
-            Repo   = 'eMule-id3lib'
         }
         miniupnp = @{
             Repo   = 'eMule-miniupnp'
@@ -166,15 +161,6 @@
                 Debug   = 'eMule-cryptopp\x64\Debug\cryptlib.lib'
             }
             Open = 'eMule-cryptopp\cryptlib.vcxproj'
-        }
-        id3lib = @{
-            Kind   = 'msbuild'
-            Path   = 'eMule-id3lib\libprj\id3lib.vcxproj'
-            Output = @{
-                Release = 'eMule-id3lib\libprj\x64\Release\id3lib.lib'
-                Debug   = 'eMule-id3lib\libprj\x64\Debug\id3lib.lib'
-            }
-            Open = 'eMule-id3lib\libprj\id3lib.vcxproj'
         }
         miniupnp = @{
             Kind   = 'msbuild'

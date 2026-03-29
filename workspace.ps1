@@ -6,7 +6,7 @@ param(
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
-    [ValidateSet('cryptopp', 'id3lib', 'miniupnp', 'ResizableLib', 'zlib', 'mbedtls', 'eMule')]
+    [ValidateSet('cryptopp', 'miniupnp', 'ResizableLib', 'zlib', 'mbedtls', 'eMule')]
     [string]$Project = 'eMule',
     [ValidateSet('default', 'local', 'both')]
     [string]$Dirs = 'default',
@@ -501,7 +501,6 @@ function Get-ExpectedWorkspacePaths {
         'eMule\srchybrid\emule.vcxproj',
         'eMule\srchybrid\emule.sln',
         'eMule-cryptopp\cryptlib.vcxproj',
-        'eMule-id3lib\libprj\id3lib.vcxproj',
         'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj',
         'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj',
         'eMule-zlib',

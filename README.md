@@ -34,7 +34,6 @@ The version columns show the upstream jump from `main` to the `irwir/eMule` v0.7
 | mbedTLS | 2.28 | 4.0.0 | Uses upstream `Mbed-TLS/mbedtls` plus `TF-PSA-Crypto` with workspace-owned wrapper/build logic; `setup` materializes `visualc/VS2017/mbedTLS.vcxproj`, rewrites generated component projects to `/MT`/`/MTd`, and carries the threading patch on local build branches instead of leaving ad-hoc tree edits in place |
 | miniupnpc | 2.2.3 | 2.3.3 | Uses upstream `miniupnp/miniupnp` as a pinned submodule plus local patch branch; patch adds x64 static configs, switches the PreBuild step to `cscript //nologo`, changes static CRT to `/MT`/`/MTd`, and fixes output layout so the workspace can build/link it consistently on VS 2022 |
 | zlib | 1.2.12 | 1.3.2 | Uses upstream `madler/zlib` as a pinned submodule; because upstream 1.3.x dropped `contrib/vstudio`, `setup` materializes a workspace-owned `contrib/vstudio/vc/zlib.vcxproj` cmake wrapper and keeps the generated tree disposable/rebuildable instead of checking in a private project fork |
-| id3lib | 3.9.1 | 3.9.1 (unchanged) | Still the same legacy code level, but this workspace owns it via [`itlezy/eMule-id3lib`](https://github.com/itlezy/eMule-id3lib) rather than relying on `irwir/id3lib`; patch retargets the zlib include path to `eMule-zlib` and updates the vcxproj from `v142` to `v143` |
 | ResizableLib | — | latest master | Pulled from upstream `ppescher/resizablelib` as a pinned submodule and normalized for this workspace; patch moves it off the old `v141_xp`/SDK 8.1 settings, fixes output dirs, forces the x64 configs eMule actually needs (`Unicode` + static MFC / `v143`), and cleans stale layout anchors to avoid leaked entries after child windows are destroyed |
 
 **Repository / workspace split:**
@@ -60,7 +59,6 @@ This table answers a narrower question than the one above: for each dependency u
 | Dependency | `irwir/eMule` `v0.72a` | `itlezy/eMule-build` `v0.72a` |
 |------------|-------------------------|-------------------------------|
 | Crypto++ | Not versioned in the repo; `emule.sln` / `emule.vcxproj` expect an external sibling checkout at `..\eMule-cryptopp\` | Pinned as root submodule `eMule-cryptopp/` from `weidai11/cryptopp` at `CRYPTOPP_8_9_0`, with a local build-branch patch for VS 2022 output/toolset normalization |
-| id3lib | Not versioned in the repo; build files expect `..\eMule-id3lib\` beside the app tree | Pinned as root submodule `eMule-id3lib/` from [`itlezy/eMule-id3lib`](https://github.com/itlezy/eMule-id3lib) at `v3.9.1`, with the workspace patch carrying the zlib include-path retarget and `v143` update |
 | miniupnpc | Not versioned in the repo; build files expect `..\eMule-miniupnp\` | Pinned as root submodule `eMule-miniupnp/` from `miniupnp/miniupnp` at `miniupnpc_2_3_3`, with a workspace patch adding x64 static configs, `cscript` prebuild handling, `/MT`/`/MTd`, and stable output paths |
 | ResizableLib | Not versioned in the repo; build files expect `..\eMule-ResizableLib\` | Pinned as root submodule `eMule-ResizableLib/` from `ppescher/resizablelib` on `master`, with a workspace patch moving the project to `v143` / SDK `10.0`, forcing the x64 static-MFC settings eMule actually links against, and pruning stale layout anchors before duplicate state accumulates |
 | zlib | Not versioned in the repo; build files expect `..\eMule-zlib\contrib\vstudio\vc\zlib.vcxproj` to already exist | Pinned as root submodule `eMule-zlib/` from `madler/zlib` at `v1.3.2`; because upstream no longer ships `contrib/vstudio`, `setup` materializes the workspace-owned wrapper project and generated build tree |
@@ -127,7 +125,6 @@ This gives you the following layout:
 eMule-build/
   eMule/                  ← eMule source (itlezy/eMule @ v0.72a)
   eMule-cryptopp/         ← weidai11/cryptopp @ CRYPTOPP_8_9_0
-  eMule-id3lib/           ← itlezy/eMule-id3lib @ v3.9.1
   eMule-miniupnp/         ← miniupnp/miniupnp @ miniupnpc_2_3_3
   eMule-ResizableLib/     ← ppescher/resizablelib @ master
   eMule-zlib/             ← madler/zlib @ v1.3.2
@@ -189,7 +186,6 @@ Patches applied per dep:
 | Dep | Patch | What it fixes |
 |-----|-------|---------------|
 | cryptopp | `cryptopp-CRYPTOPP_8_9_0.patch` | OutDir `Output\` subdir mismatch |
-| id3lib | `id3lib-v3.9.1.patch` | zlib include path (`../zlib` → `../eMule-zlib`) |
 | miniupnpc | `miniupnpc-miniupnpc_2_3_3.patch` | Full vcxproj rewrite: x64 configs, cscript PreBuildEvent, `/MT`+`/MTd` CRT, `_strnicmp` replacing deprecated `_memicmp` |
 | ResizableLib | `resizablelib-master.patch` | SDK 8.1 → v143; OutDir `bin\` removed; Release\|x64 + Debug\|x64 Unicode+Static+`/MT`+`/MTd`; stale `CResizableLayout` anchors are purged before reinsertion |
 | zlib | `zlib-v1.3.2.patch` | Ignores generated `cmake-build/` noise; `setup` materializes the workspace-owned `contrib/vstudio/vc/zlib.vcxproj` wrapper |
