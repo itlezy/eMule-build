@@ -1,3 +1,79 @@
+diff --git a/ResizableLib/ResizableLayout.cpp b/ResizableLib/ResizableLayout.cpp
+index 80ec8ef..57fcd40 100644
+--- a/ResizableLib/ResizableLayout.cpp
++++ b/ResizableLib/ResizableLayout.cpp
+@@ -72,6 +72,8 @@ void CResizableLayout::AddAnchor(HWND hWnd, ANCHOR anchorTopLeft, ANCHOR anchorB
+ {
+ 	CWnd* pParent = GetResizableWnd();
+ 
++	CleanupInvalidAnchors();
++
+ 	// child window must be valid
+ 	ASSERT(::IsWindow(hWnd));
+ 	// must be child of parent window
+@@ -116,6 +118,35 @@ void CResizableLayout::AddAnchor(HWND hWnd, ANCHOR anchorTopLeft, ANCHOR anchorB
+ 	m_mapLayout.SetAt(hWnd, pos);
+ }
+ 
++/*!
++ *  Remove anchors with invalid HWNDs to avoid stale entries in the layout cache.
++ */
++void CResizableLayout::CleanupInvalidAnchors() const
++{
++	CArray<HWND, HWND> deadKeys;
++	CArray<POSITION, POSITION> deadPositions;
++
++	for (POSITION posMap = m_mapLayout.GetStartPosition(); posMap != NULL; )
++	{
++		HWND hWnd = NULL;
++		POSITION posList = NULL;
++		m_mapLayout.GetNextAssoc(posMap, hWnd, posList);
++		if (!::IsWindow(hWnd))
++		{
++			deadKeys.Add(hWnd);
++			deadPositions.Add(posList);
++		}
++	}
++
++	for (INT_PTR i = 0; i < deadKeys.GetCount(); ++i)
++	{
++		POSITION posList = deadPositions[i];
++		if (posList != NULL)
++			m_listLayout.RemoveAt(posList);
++		m_mapLayout.RemoveKey(deadKeys[i]);
++	}
++}
++
+ /*!
+  *  This function adds all the controls not yet added to the layout manager
+  *  and sets anchor points for its top-left and bottom-right corners.
+diff --git a/ResizableLib/ResizableLayout.h b/ResizableLib/ResizableLayout.h
+index a5473b7..bc6d17f 100644
+--- a/ResizableLib/ResizableLayout.h
++++ b/ResizableLib/ResizableLayout.h
+@@ -138,9 +138,9 @@ class CResizableLayout
+ private:
+ 	//@{
+ 	//! @brief Collection of layout settings for each control
+-	CMap<HWND, HWND, POSITION, POSITION> m_mapLayout;
+-	CList<LAYOUTINFO, LAYOUTINFO&> m_listLayout;
+-	CList<LAYOUTINFO, LAYOUTINFO&> m_listLayoutCB;
++	mutable CMap<HWND, HWND, POSITION, POSITION> m_mapLayout;
++	mutable CList<LAYOUTINFO, LAYOUTINFO&> m_listLayout;
++	mutable CList<LAYOUTINFO, LAYOUTINFO&> m_listLayoutCB;
+ 	//@}
+ 
+ 	//@{
+@@ -162,6 +162,9 @@ private:
+ 	void CalcNewChildPosition(const LAYOUTINFO &layout,
+ 		const CRect &rectParent, CRect &rectChild, UINT *lpFlags) const;
+ 
++	//! @brief Remove anchors whose HWND is no longer valid
++	void CleanupInvalidAnchors() const;
++
+ protected:
+ 	//! @brief Override to initialize resize properties (clipping, refresh)
+ 	virtual void InitResizeProperties(LAYOUTINFO& layout) const;
 diff --git a/ResizableLib/ResizableLib.vcxproj b/ResizableLib/ResizableLib.vcxproj
 index 524afc1..948077d 100644
 --- a/ResizableLib/ResizableLib.vcxproj
