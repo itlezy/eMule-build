@@ -60,47 +60,32 @@ index 44b57c4d..3a2d24ff 100644
  	g_hasSHA1 = CPU_QuerySHA1() || CPU_ProbeSHA1();
  	g_hasSHA2 = CPU_QuerySHA256() || CPU_ProbeSHA256();
 diff --git a/cryptlib.vcxproj b/cryptlib.vcxproj
-index f99661d0..b25821ca 100644
+index f99661d0..45e97106 100644
 --- a/cryptlib.vcxproj
 +++ b/cryptlib.vcxproj
-@@ -8,17 +8,17 @@
+@@ -12,6 +12,10 @@
        <Configuration>Debug</Configuration>
-       <Platform>Win32</Platform>
+       <Platform>x64</Platform>
      </ProjectConfiguration>
--    <ProjectConfiguration Include="Debug|x64">
 +    <ProjectConfiguration Include="Debug|ARM64">
-       <Configuration>Debug</Configuration>
--      <Platform>x64</Platform>
++      <Configuration>Debug</Configuration>
 +      <Platform>ARM64</Platform>
-     </ProjectConfiguration>
++    </ProjectConfiguration>
      <ProjectConfiguration Include="Release|Win32">
        <Configuration>Release</Configuration>
        <Platform>Win32</Platform>
-     </ProjectConfiguration>
--    <ProjectConfiguration Include="Release|x64">
-+    <ProjectConfiguration Include="Release|ARM64">
+@@ -20,6 +24,10 @@
        <Configuration>Release</Configuration>
--      <Platform>x64</Platform>
-+      <Platform>ARM64</Platform>
-     </ProjectConfiguration>
-     <ProjectConfiguration Include="DLL-Import Debug|Win32">
-       <Configuration>DLL-Import Debug</Configuration>
-@@ -36,7 +36,13 @@
-       <Configuration>DLL-Import Release</Configuration>
        <Platform>x64</Platform>
      </ProjectConfiguration>
--  </ItemGroup>
-+  <ProjectConfiguration Include="Debug|x64">
-+      <Configuration>Debug</Configuration>
-+      <Platform>x64</Platform>
-+    </ProjectConfiguration><ProjectConfiguration Include="Release|x64">
++    <ProjectConfiguration Include="Release|ARM64">
 +      <Configuration>Release</Configuration>
-+      <Platform>x64</Platform>
-+    </ProjectConfiguration></ItemGroup>
-   <!-- Microsoft documentation clearly shows the Global property group -->
-   <!-- precedes the import of Cpp.Default.props and Cpp.props -->
-   <!-- https://msdn.microsoft.com/en-us/library/2208a1f2.aspx -->
-@@ -44,12 +50,13 @@
++      <Platform>ARM64</Platform>
++    </ProjectConfiguration>
+     <ProjectConfiguration Include="DLL-Import Debug|Win32">
+       <Configuration>DLL-Import Debug</Configuration>
+       <Platform>Win32</Platform>
+@@ -44,12 +52,13 @@
      <ProjectGuid>{c39f4b46-6e89-4074-902e-ca57073044d2}</ProjectGuid>
      <RootNamespace>cryptlib</RootNamespace>
      <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -116,7 +101,7 @@ index f99661d0..b25821ca 100644
    </PropertyGroup>
    <PropertyGroup Label="PlatformToolset">
      <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
-@@ -75,7 +82,7 @@
+@@ -75,7 +84,7 @@
    <!-- Intermediate and Output directories -->
    <!-- Cryptlib and Cryptest need extra care due to Non-DLL/DLL configs -->
    <PropertyGroup Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Release'" Label="Non-DLL Directories">
@@ -125,36 +110,22 @@ index f99661d0..b25821ca 100644
      <IntDir>$(Platform)\$(ProjectName)\$(Configuration)\</IntDir>
    </PropertyGroup>
    <PropertyGroup Condition="'$(Configuration)'=='DLL-Import Debug'" Label="DLL Directories">
-@@ -157,7 +164,7 @@
-   <!-- X64 Configurations -->
-   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'" Label="X64 Configuration">
-     <Lib>
--      <TargetMachine>MachineX64</TargetMachine>
-+      <TargetMachine>MachineARM64</TargetMachine>
+@@ -160,6 +169,11 @@
+       <TargetMachine>MachineX64</TargetMachine>
      </Lib>
    </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Platform)'=='ARM64'" Label="ARM64 Configuration">
++    <Lib>
++      <TargetMachine>MachineARM64</TargetMachine>
++    </Lib>
++  </ItemDefinitionGroup>
    <!-- Original File with special treatment -->
-@@ -373,21 +380,13 @@
-       <Command>ml.exe /c /nologo /D_M_X86 /W3 /Cx /Zi /safeseh /Fo"$(IntDir)rdrand-x86.obj" "%(FullPath)"</Command>
-       <Outputs>$(IntDir)\rdrand-x86.obj;%(Outputs)</Outputs>
-     </CustomBuild>
--    <CustomBuild Condition="'$(Platform)'=='x64'" Include="rdrand.asm">
--      <Message>Building and assembling rdrand.asm</Message>
--      <Command>ml64.exe /c /nologo /D_M_X64 /W3 /Cx /Zi /Fo"$(IntDir)rdrand-x64.obj" "%(FullPath)"</Command>
--      <Outputs>$(IntDir)\rdrand-x64.obj;%(Outputs)</Outputs>
--    </CustomBuild>
-+    
-     <CustomBuild Condition="'$(Platform)'=='Win32'" Include="rdseed.asm">
-       <Message>Building and assembling rdseed.asm</Message>
-       <Command>ml.exe /c /nologo /D_M_X86 /W3 /Cx /Zi /safeseh /Fo"$(IntDir)rdseed-x86.obj" "%(FullPath)"</Command>
-       <Outputs>$(IntDir)\rdseed-x86.obj;%(Outputs)</Outputs>
-     </CustomBuild>
--    <CustomBuild Condition="'$(Platform)'=='x64'" Include="rdseed.asm">
--      <Message>Building and assembling rdseed.asm</Message>
--      <Command>ml64.exe /c /nologo /D_M_X64 /W3 /Cx /Zi /Fo"$(IntDir)rdseed-x64.obj" "%(FullPath)"</Command>
--      <Outputs>$(IntDir)\rdseed-x64.obj;%(Outputs)</Outputs>
--    </CustomBuild>
-+    
-     <CustomBuild Condition="'$(Platform)'=='x64' AND ('$(Configuration)'=='Debug' Or '$(Configuration)'=='Release')" Include="x64dll.asm">
-       <Message>Building and assembling x64dll.asm</Message>
-       <Command>ml64.exe /c /nologo /D_M_X64 /W3 /Zi /Fo"$(IntDir)x64dll.obj" "%(FullPath)"</Command>
+   <!-- Source Files -->
+   <!-- The order of the first three matters -->
+@@ -582,4 +596,4 @@
+   <ImportGroup Label="ExtensionTargets">
+     <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
+   </ImportGroup>
+-</Project>
++</Project>
+\ No newline at end of file
