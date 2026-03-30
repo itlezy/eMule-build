@@ -1,14 +1,22 @@
 diff --git a/.gitignore b/.gitignore
-index 573b41f..8ec15eb 100644
+index ed264b0..55ef75f 100644
 --- a/.gitignore
 +++ b/.gitignore
-@@ -30,6 +30,9 @@
+@@ -25,6 +25,7 @@
+ /zlib.pc
+ /configure.log
+ /build
++/cmake-build-*/
+ 
+ .DS_Store
  .vs
- *.user
+@@ -32,7 +33,9 @@
  *.nupkg
-+/cmake-build/
-+/contrib/vstudio/vc/zlib.vcxproj
-+/contrib/vstudio/vc/x64/
+ /cmake-build/
+ /contrib/vstudio/vc/zlib.vcxproj
++/contrib/vstudio/vc/
+ /contrib/vstudio/vc/x64/
++/contrib/vstudio/vc/ARM64/
  contrib/vstudio/vc143/x86
  contrib/vstudio/vc143/x64
  contrib/vstudio/vc143/arm

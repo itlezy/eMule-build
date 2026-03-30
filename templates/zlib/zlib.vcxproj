@@ -6,9 +6,17 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
@@ -24,7 +32,15 @@
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <ConfigurationType>Utility</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
@@ -37,31 +53,57 @@
   <ImportGroup Label="ExtensionSettings" />
   <ImportGroup Label="PropertySheets" />
 
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <PreBuildEvent>
-      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)\..\..\..\cmake-build\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\..\..\" -B "$(MSBuildProjectDirectory)\..\..\..\cmake-build" -G "Visual Studio 17 2022" -A x64 -DZLIB_BUILD_SHARED=OFF -DZLIB_BUILD_TESTING=OFF "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;"</Command>
+      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\..\..\" -B "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)" -G "Visual Studio 17 2022" -A $(Platform) -DZLIB_BUILD_SHARED=OFF -DZLIB_BUILD_TESTING=OFF "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;"</Command>
       <Message>Configuring zlib 1.3.2 with cmake (if not already configured)</Message>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>cmake --build "$(MSBuildProjectDirectory)\..\..\..\cmake-build" --config Release --target zlibstatic
+      <Command>cmake --build "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)" --config Release --target zlibstatic
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
-IF NOT EXIST "$(MSBuildProjectDirectory)\x64\Release" MD "$(MSBuildProjectDirectory)\x64\Release"
-COPY /Y "$(MSBuildProjectDirectory)\..\..\..\cmake-build\Release\zs.lib" "$(MSBuildProjectDirectory)\x64\Release\zlib.lib"</Command>
-      <Message>Building zlib Release and copying zs.lib -&gt; x64\Release\zlib.lib</Message>
+IF NOT EXIST "$(MSBuildProjectDirectory)\$(Platform)\Release" MD "$(MSBuildProjectDirectory)\$(Platform)\Release"
+COPY /Y "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)\Release\zs.lib" "$(MSBuildProjectDirectory)\$(Platform)\Release\zlib.lib"</Command>
+      <Message>Building zlib Release and copying zs.lib -&gt; $(Platform)\Release\zlib.lib</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <PreBuildEvent>
+      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\..\..\" -B "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)" -G "Visual Studio 17 2022" -A $(Platform) -DZLIB_BUILD_SHARED=OFF -DZLIB_BUILD_TESTING=OFF "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;"</Command>
+      <Message>Configuring zlib 1.3.2 with cmake (if not already configured)</Message>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>cmake --build "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)" --config Release --target zlibstatic
+IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
+IF NOT EXIST "$(MSBuildProjectDirectory)\$(Platform)\Release" MD "$(MSBuildProjectDirectory)\$(Platform)\Release"
+COPY /Y "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)\Release\zs.lib" "$(MSBuildProjectDirectory)\$(Platform)\Release\zlib.lib"</Command>
+      <Message>Building zlib Release and copying zs.lib -&gt; $(Platform)\Release\zlib.lib</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
 
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <PreBuildEvent>
-      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)\..\..\..\cmake-build\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\..\..\" -B "$(MSBuildProjectDirectory)\..\..\..\cmake-build" -G "Visual Studio 17 2022" -A x64 -DZLIB_BUILD_SHARED=OFF -DZLIB_BUILD_TESTING=OFF "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;"</Command>
+      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\..\..\" -B "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)" -G "Visual Studio 17 2022" -A $(Platform) -DZLIB_BUILD_SHARED=OFF -DZLIB_BUILD_TESTING=OFF "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;"</Command>
       <Message>Configuring zlib 1.3.2 with cmake (if not already configured)</Message>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>cmake --build "$(MSBuildProjectDirectory)\..\..\..\cmake-build" --config Debug --target zlibstatic
+      <Command>cmake --build "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)" --config Debug --target zlibstatic
 IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
-IF NOT EXIST "$(MSBuildProjectDirectory)\x64\Debug" MD "$(MSBuildProjectDirectory)\x64\Debug"
-COPY /Y "$(MSBuildProjectDirectory)\..\..\..\cmake-build\Debug\zsd.lib" "$(MSBuildProjectDirectory)\x64\Debug\zlib.lib"</Command>
-      <Message>Building zlib Debug and copying zsd.lib -&gt; x64\Debug\zlib.lib</Message>
+IF NOT EXIST "$(MSBuildProjectDirectory)\$(Platform)\Debug" MD "$(MSBuildProjectDirectory)\$(Platform)\Debug"
+COPY /Y "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)\Debug\zsd.lib" "$(MSBuildProjectDirectory)\$(Platform)\Debug\zlib.lib"</Command>
+      <Message>Building zlib Debug and copying zsd.lib -&gt; $(Platform)\Debug\zlib.lib</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PreBuildEvent>
+      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\..\..\" -B "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)" -G "Visual Studio 17 2022" -A $(Platform) -DZLIB_BUILD_SHARED=OFF -DZLIB_BUILD_TESTING=OFF "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;"</Command>
+      <Message>Configuring zlib 1.3.2 with cmake (if not already configured)</Message>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>cmake --build "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)" --config Debug --target zlibstatic
+IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
+IF NOT EXIST "$(MSBuildProjectDirectory)\$(Platform)\Debug" MD "$(MSBuildProjectDirectory)\$(Platform)\Debug"
+COPY /Y "$(MSBuildProjectDirectory)\..\..\..\cmake-build-$(Platform)\Debug\zsd.lib" "$(MSBuildProjectDirectory)\$(Platform)\Debug\zlib.lib"</Command>
+      <Message>Building zlib Debug and copying zsd.lib -&gt; $(Platform)\Debug\zlib.lib</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
 

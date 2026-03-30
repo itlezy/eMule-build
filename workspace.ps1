@@ -6,6 +6,8 @@ param(
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
+    [ValidateSet('x64', 'ARM64')]
+    [string]$Platform = 'x64',
     [ValidateSet('cryptopp', 'miniupnp', 'ResizableLib', 'zlib', 'eMule')]
     [string]$Project = 'eMule',
     [ValidateSet('default', 'local', 'both')]
@@ -31,9 +33,11 @@ $DependencyOrder = @($Manifest.DependencyOrder)
 $BuildProjects = @($Manifest.BuildProjects)
 $Projects = $Manifest.Projects
 $LogsRoot = Join-Path $Root $Workspace.LogsRoot
+$PlatformArchiveToken = if ($Platform -eq 'ARM64') { 'arm64' } else { $Platform.ToLowerInvariant() }
+$SdkPlatform = if ($Platform -eq 'ARM64') { 'arm64' } else { 'x64' }
 $RunLogLabel = switch ($Command) {
-    'build-project' { "$Command-$Project-$Config" }
-    { $_ -in @('build-libs','build-app','build-all','setup','repair','package','run-binary','clean-config','validate') } { "$Command-$Config" }
+    'build-project' { "$Command-$Project-$Config-$Platform" }
+    { $_ -in @('build-libs','build-app','build-all','setup','repair','package','run-binary','clean-config','validate') } { "$Command-$Config-$Platform" }
     default { $Command }
 }
 $RunLogs = Join-Path $LogsRoot ("{0}-{1}" -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $RunLogLabel)
@@ -61,6 +65,16 @@ function Get-WorkspacePath([string]$RelativePath) {
 
 function Get-PatchPath([string]$PatchFile) {
     Join-Path $Root "patches\$PatchFile"
+}
+
+function Convert-PlatformRelativePath([string]$RelativePath) {
+    $converted = $RelativePath.Replace('\cmake-build', "\cmake-build-$Platform")
+    $converted = $converted.Replace('/cmake-build', "/cmake-build-$Platform")
+    $converted = $converted.Replace('\x64\', "\$Platform\").Replace('/x64/', "/$Platform/")
+    if ($Platform -eq 'ARM64') {
+        $converted = $converted.Replace('_x64', '_arm64').Replace('-x64', '-arm64')
+    }
+    $converted
 }
 
 function Get-GitExe {
@@ -315,7 +329,7 @@ function Get-SdkInfo {
             ForEach-Object { $_.Name } |
             Where-Object {
                 (Test-Path -LiteralPath (Join-Path $include "$_\um\Windows.h")) -and
-                (Test-Path -LiteralPath (Join-Path $lib "$_\um\x64\kernel32.lib"))
+                (Test-Path -LiteralPath (Join-Path $lib "$_\um\$SdkPlatform\kernel32.lib"))
             } |
             Select-Object -First 1
         if ($version) { return [pscustomobject]@{ Root=$root; Version=$version } }
@@ -334,7 +348,7 @@ function Add-Checks($List, $Checks) {
 }
 
 function Get-OutputPath([string]$Name, [string]$Configuration) {
-    Join-Path $Root $Projects[$Name].Output[$Configuration]
+    Join-Path $Root (Convert-PlatformRelativePath $Projects[$Name].Output[$Configuration])
 }
 
 function Get-GeneratedProjectProfile([string]$Name) {
@@ -355,11 +369,12 @@ function Test-WorkspacePaths([string[]]$RelativePaths) {
 }
 
 function Test-GeneratedProjectReady([string]$Name) {
-    Test-WorkspacePaths (Get-GeneratedProjectProfile $Name).ConfigureReady
+    $paths = @((Get-GeneratedProjectProfile $Name).ConfigureReady | ForEach-Object { Convert-PlatformRelativePath $_ })
+    Test-WorkspacePaths $paths
 }
 
 function Get-GeneratedProjectBuildDir([string]$Name) {
-    Get-WorkspacePath (Get-GeneratedProjectProfile $Name).Configure.Build
+    Get-WorkspacePath (Convert-PlatformRelativePath (Get-GeneratedProjectProfile $Name).Configure.Build)
 }
 
 function Get-GeneratedProjectSourceDir([string]$Name) {
@@ -383,7 +398,15 @@ function Get-PackageProfile([string]$Configuration = 'Release') {
     if (-not $profile) {
         throw "No package profile defined for configuration $Configuration."
     }
-    $profile
+    [pscustomobject]@{
+        SourceProject = $profile.SourceProject
+        OutputDir = $profile.OutputDir
+        ArchiveName = Convert-PlatformRelativePath $profile.ArchiveName
+        RootDir = Convert-PlatformRelativePath $profile.RootDir
+        BuildInfoName = $profile.BuildInfoName
+        Entry = $profile.Entry
+        Include = @($profile.Include)
+    }
 }
 
 function Get-PackageOutputDir([string]$Configuration = 'Release') {
@@ -737,7 +760,7 @@ function Invoke-GeneratedProjectConfigure([string]$Name, $EnvReport) {
         '-S', (Get-GeneratedProjectSourceDir $Name),
         '-B', (Get-GeneratedProjectBuildDir $Name),
         '-G', $configure.Generator,
-        '-A', $configure.Platform
+        '-A', $Platform
     ) + @($configure.Arguments)
 
     Invoke-Native -Exe $EnvReport.Tools.CMake -ArgumentList $args -Label "cmake configure $Name" -WorkDir $null
@@ -779,7 +802,9 @@ function Remove-GeneratedTarget([string]$RelativePath) {
 }
 
 function Clean-Generated {
-    foreach ($path in @($Workspace.Cleanup) + @((Get-GeneratedProjectProfile 'zlib').Cleanup)) {
+    $cleanup = @($Workspace.Cleanup | ForEach-Object { Convert-PlatformRelativePath $_ })
+    $cleanup += @((Get-GeneratedProjectProfile 'zlib').Cleanup | ForEach-Object { Convert-PlatformRelativePath $_ })
+    foreach ($path in $cleanup) {
         Remove-GeneratedTarget $path
     }
 }
@@ -799,7 +824,7 @@ function Build-ProjectInternal($EnvReport, [string]$Name, [string]$Configuration
         return
     }
     $target = if ($NoBuildClean) { 'Build' } else { 'Clean,Build' }
-    & $EnvReport.Tools.MSBuild (Join-Path $Root $info.Path) "-target:$target" "/property:Configuration=$Configuration" /property:Platform=x64 /nologo /verbosity:minimal *> $log
+    & $EnvReport.Tools.MSBuild (Join-Path $Root $info.Path) "-target:$target" "/property:Configuration=$Configuration" "/property:Platform=$Platform" /nologo /verbosity:minimal *> $log
     if ($LASTEXITCODE -ne 0) { throw "$Name build failed. See $log" }
 }
 
@@ -837,7 +862,7 @@ function Build-Libs {
                 }
             } else {
                 $target = if ($using:skipClean) { 'Build' } else { 'Clean,Build' }
-                & $using:msbuild $def.Path "-target:$target" "/property:Configuration=$using:Config" /property:Platform=x64 /nologo /verbosity:minimal *> $log
+                & $using:msbuild $def.Path "-target:$target" "/property:Configuration=$using:Config" "/property:Platform=$using:Platform" /nologo /verbosity:minimal *> $log
                 $code = $LASTEXITCODE
             }
             [pscustomobject]@{ Name=$def.Name; Success=($code -eq 0); Log=$log; Message=if ($code -eq 0) { '' } else { "exit code $code" } }
@@ -888,6 +913,7 @@ function New-PackageBuildInfo([string]$Configuration = 'Release') {
     $sourceRepoPath = Split-Path -Parent (Get-OutputPath $sourceProject $Configuration)
     @(
         "PackageRoot: $(Get-PackageRootDir $Configuration)"
+        "Platform: $Platform"
         "SourceProject: $sourceProject"
         "Configuration: $Configuration"
         "BuiltUtc: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
@@ -953,7 +979,7 @@ function New-PackageZip([string]$SourceFile, [string]$DestinationZip) {
 function Run-Binary {
     $envReport = Get-EnvReport 'run-binary' $Config 'eMule'
     Show-Report $envReport
-    $dir = Join-Path $Root "eMule\srchybrid\x64\$Config"
+    $dir = Join-Path $Root ("eMule\srchybrid\{0}\{1}" -f $Platform, $Config)
     $source = Join-Path $dir 'emule.exe'
     $launch = {
         param([string]$Suffix, [bool]$Local)
@@ -1061,7 +1087,7 @@ switch ($Command) {
         Invoke-WithWorkspaceLock 'clean-config' {
             $r = Get-EnvReport 'clean-config' $Config 'eMule'
             Show-Report $r
-            $path = Join-Path $Root "eMule\srchybrid\x64\$Config\config"
+            $path = Join-Path $Root ("eMule\srchybrid\{0}\{1}\config" -f $Platform, $Config)
             if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
         }
     }
