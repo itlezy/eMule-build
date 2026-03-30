@@ -17,11 +17,13 @@ This branch upgrades the build workspace to target [irwir/eMule](https://github.
 
 ### What changed from v0.60d
 
-eMule v0.72a dropped two dependencies (CxImage, libpng) and upgraded several others. The full list of changes in this workspace versus the `main` branch:
+eMule v0.72a dropped four dependencies (CxImage, libpng, id3lib, mbedtls) and upgraded several others. The full list of changes in this workspace versus the `main` branch:
 
 **Removed deps (dropped in v0.72a):**
 - CxImage 7.02 — image handling replaced in eMule source
 - libpng 1.5.30 — no longer needed without CxImage
+- id3lib — initially ported, then dropped from the eMule source (MP3 tag handling removed)
+- mbedtls — initially ported for TLS support, then dropped after SMTP and web services were removed from the eMule source
 
 **Upgraded deps:**
 
@@ -63,6 +65,8 @@ This table answers a narrower question than the one above: for each dependency u
 | zlib | Not versioned in the repo; build files expect `..\eMule-zlib\contrib\vstudio\vc\zlib.vcxproj` to already exist | Pinned as root submodule `eMule-zlib/` from `madler/zlib` at `v1.3.2`; because upstream no longer ships `contrib/vstudio`, `setup` materializes the workspace-owned wrapper project and generated build tree |
 | CxImage | Removed from the v0.72a app line; not present in the repo | Not present in the workspace either; the dependency is intentionally gone on `v0.72a` |
 | libpng | Removed from the v0.72a app line; not present in the repo | Not present in the workspace either; no separate pin is needed once CxImage is gone |
+| id3lib | Initially present in the v0.72a source for MP3 tag parsing | Dropped from both the eMule source and workspace after the feature was removed |
+| mbedtls | Initially present in the v0.72a source for TLS (SMTP, web services) | Dropped from both the eMule source and workspace after SMTP and web services were removed |
 
 **Toolchain:**
 - Visual Studio 2019 (v142) → Visual Studio 2022 (v143)
@@ -123,18 +127,23 @@ eMule-build/
   eMule-miniupnp/         ← miniupnp/miniupnp @ miniupnpc_2_3_3
   eMule-ResizableLib/     ← ppescher/resizablelib @ master
   eMule-zlib/             ← madler/zlib @ v1.3.2
+  tests/                  ← shared test submodule (doctest-based)
   patches/                ← VS2022 porting patches for each dep
   00-setup-and-build-release.cmd
   10-build-libs-release.cmd
   11-build-libs-debug.cmd
   20-build-emule-*.cmd
+  26-build-emule-tests-debug.cmd
   30-run-emule-*.cmd
+  36-run-emule-tests-debug.cmd
+  37-run-emule-tests-live-diff.cmd
   40-package-release.cmd
   41-clean-release-config.cmd
   scripts\10-open-*.cmd
   scripts\20-open-project-*.cmd
   scripts\30-build-*-release.cmd
   scripts\31-build-*-debug.cmd
+  scripts\check-dep-updates.ps1
 ```
 
 ### 2. Preflight and setup
@@ -238,6 +247,46 @@ dist\eMule0.72a-broadband_x64-snapshot.zip
 
 ---
 
+### 3c. Testing
+
+The workspace includes a shared test submodule (`tests/`) with a standalone doctest-based test project that builds against the local `eMule` checkout.
+
+#### Build and run tests
+
+```
+.\26-build-emule-tests-debug.cmd
+.\36-run-emule-tests-debug.cmd
+```
+
+The test project (`tests\emule-tests.vcxproj`) is a console application that uses the [doctest](https://github.com/doctest/doctest) single-header framework and links against eMule source directly. It is built and run independently from the main `emule.sln`.
+
+#### Test suites
+
+Tests are organized into two suites:
+
+| Suite | Purpose |
+|-------|---------|
+| `parity` | Cases that must pass in both the dev and oracle (pre-refactor) workspaces |
+| `divergence` | Cases that are expected to pass on dev and fail on the pre-refactor oracle |
+
+Current coverage includes protocol guard validation and circular buffer (`CRing`) behavior.
+
+#### Live dev-vs-oracle comparison
+
+The live-diff harness builds and runs the test suites in two side-by-side workspaces (dev and oracle), then compares the results:
+
+```
+.\37-run-emule-tests-live-diff.cmd
+```
+
+This runs `tests\scripts\run-live-diff.ps1`, which:
+1. Builds the test project in both the dev (`eMulebb`) and oracle (`eMulebb-oracle`) workspaces
+2. Runs parity and divergence suites in each, capturing doctest XML output
+3. Compares pass/fail results and writes a summary to `tests\reports\live-diff-summary.txt`
+4. Validates that parity cases pass in both, and divergence cases show the expected dev-pass / oracle-fail pattern
+
+---
+
 ### 4. Inspect or reset local build state
 
 ```
@@ -299,6 +348,16 @@ Package layout, package destination, generated-project configure readiness, and 
 ### Dependency branch model
 
 Third-party deps are not edited on detached HEAD anymore. `setup` switches each dep to a local `emule-build-v0.72a` branch, applies the matching patch if needed, and records it as a local commit. Root `.gitmodules` marks these deps with `ignore = all`, so the disposable local build branches do not spam normal root `git status` output.
+
+### Test submodule
+
+The `tests/` directory is a git submodule containing the shared test project. Unlike the `eMule-*` third-party dependency submodules, it is not a build dependency — it is a workspace-level test asset that compiles against the local `eMule` checkout.
+
+The test project uses C++17 and the doctest single-header framework. Tests are organized into parity and divergence suites to support live comparison against the oracle (pre-refactor) workspace. Test scripts, XML reports, and the live-diff summary are all kept inside the submodule.
+
+### Upstream dependency tracking
+
+`scripts\check-dep-updates.ps1` queries upstream repositories for each pinned dependency and reports whether newer versions are available. This is an informational check only — it does not modify the workspace.
 
 ### CRT policy
 
