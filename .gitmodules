@@ -22,8 +22,3 @@
 	url = https://github.com/madler/zlib.git
 	ignore = all
 	shallow = true
-[submodule "eMule-mbedtls"]
-	path = eMule-mbedtls
-	url = https://github.com/Mbed-TLS/mbedtls.git
-	ignore = all
-	shallow = true
