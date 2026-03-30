@@ -8,5 +8,5 @@ IF ERRORLEVEL 1 (
   EXIT /B 1
 )
 
-PWSH -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0eMule\helpers\helper-tests-build.ps1" -Configuration Debug -Platform x64 -Run %*
+PWSH -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0tests\scripts\build-emule-tests.ps1" -WorkspaceRoot "%~dp0" -Configuration Debug -Platform x64 -Run %*
 EXIT /B %ERRORLEVEL%

@@ -8,5 +8,5 @@ IF ERRORLEVEL 1 (
   EXIT /B 1
 )
 
-PWSH -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0tests\scripts\build-emule-tests.ps1" -WorkspaceRoot "%~dp0" -Configuration Debug -Platform x64 %*
+PWSH -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0tests\scripts\run-live-diff.ps1" -DevWorkspaceRoot "%~dp0" -OracleWorkspaceRoot "C:\prj\p2p\eMulebb-oracle" %*
 EXIT /B %ERRORLEVEL%

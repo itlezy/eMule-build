@@ -22,3 +22,6 @@
 	url = https://github.com/madler/zlib.git
 	ignore = all
 	shallow = true
+[submodule "tests"]
+	path = tests
+	url = ../eMulebb-tests
