@@ -2,6 +2,7 @@
 SETLOCAL
 CD /D %~dp0
 SET "WORKSPACE_ROOT=%~dp0."
+SET "TESTS_ROOT=%~dp0..\eMule-build-tests"
 
 WHERE pwsh >NUL 2>NUL
 IF ERRORLEVEL 1 (
@@ -9,5 +10,5 @@ IF ERRORLEVEL 1 (
   EXIT /B 1
 )
 
-PWSH -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0tests\scripts\run-live-diff.ps1" -DevWorkspaceRoot "C:\prj\p2p\eMule\eMulebb\eMule-build" -OracleWorkspaceRoot "%WORKSPACE_ROOT%" %*
+PWSH -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%TESTS_ROOT%\scripts\run-live-diff.ps1" -TestRepoRoot "%TESTS_ROOT%" -DevWorkspaceRoot "C:\prj\p2p\eMule\eMulebb\eMule-build" -OracleWorkspaceRoot "%WORKSPACE_ROOT%" %*
 EXIT /B %ERRORLEVEL%

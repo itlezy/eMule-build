@@ -32,6 +32,3 @@
 	url = https://github.com/Mbed-TLS/mbedtls.git
 	ignore = all
 	shallow = true
-[submodule "tests"]
-	path = tests
-	url = https://github.com/itlezy/eMule-build-tests.git
