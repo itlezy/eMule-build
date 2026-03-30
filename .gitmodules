@@ -1,24 +1,28 @@
 [submodule "eMule"]
 	path = eMule
 	url = https://github.com/itlezy/eMule.git
-	branch = v0.72a
+	branch = v0.72a-broadband-dev
 [submodule "eMule-cryptopp"]
 	path = eMule-cryptopp
-	url = https://github.com/weidai11/cryptopp.git
+	url = https://github.com/itlezy/eMule-cryptopp.git
+	branch = emule-build-v0.72a
 	ignore = all
 	shallow = true
 [submodule "eMule-miniupnp"]
 	path = eMule-miniupnp
-	url = https://github.com/miniupnp/miniupnp.git
+	url = https://github.com/itlezy/eMule-miniupnp.git
+	branch = emule-build-v0.72a
 	ignore = all
 	shallow = true
 [submodule "eMule-ResizableLib"]
 	path = eMule-ResizableLib
-	url = https://github.com/ppescher/resizablelib.git
+	url = https://github.com/itlezy/eMule-ResizableLib.git
+	branch = emule-build-v0.72a
 	ignore = all
 	shallow = true
 [submodule "eMule-zlib"]
 	path = eMule-zlib
-	url = https://github.com/madler/zlib.git
+	url = https://github.com/itlezy/eMule-zlib.git
+	branch = emule-build-v0.72a
 	ignore = all
 	shallow = true

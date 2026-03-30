@@ -27,7 +27,7 @@ $GeneratedProjects = $Workspace.GeneratedProjects
 $Toolchain = $Workspace.Toolchain
 $BuildBranch = $Manifest.BuildBranch
 $AppBuildBranch = $Manifest.AppBuildBranch
-$DependencyPatches = $Manifest.Dependencies
+$Dependencies = $Manifest.Dependencies
 $NestedSubmodules = @($Manifest.NestedSubmodules)
 $DependencyOrder = @($Manifest.DependencyOrder)
 $BuildProjects = @($Manifest.BuildProjects)
@@ -61,10 +61,6 @@ function Resolve-FirstExisting([string[]]$Paths) {
 
 function Get-WorkspacePath([string]$RelativePath) {
     Join-Path $Root $RelativePath
-}
-
-function Get-PatchPath([string]$PatchFile) {
-    Join-Path $Root "patches\$PatchFile"
 }
 
 function Convert-PlatformRelativePath([string]$RelativePath) {
@@ -158,31 +154,6 @@ function Get-GitIdentity([string]$Repo) {
     }
 }
 
-function Get-PatchPaths([string]$PatchFile) {
-    $path = Get-PatchPath $PatchFile
-    $paths = [System.Collections.Generic.List[string]]::new()
-    foreach ($line in [IO.File]::ReadLines($path)) {
-        if ($line -match '^diff --git a/(.+?) b/(.+)$') {
-            $paths.Add($Matches[2]) | Out-Null
-        }
-    }
-    @($paths | Select-Object -Unique)
-}
-
-function Test-PatchApplied([string]$Repo, [string]$PatchFile) {
-    $git = Get-GitExe
-    if (-not $git) { return $false }
-    & $git -C $Repo apply --reverse --check --ignore-whitespace (Get-PatchPath $PatchFile) 2>$null
-    $LASTEXITCODE -eq 0
-}
-
-function Test-PatchCanApply([string]$Repo, [string]$PatchFile) {
-    $git = Get-GitExe
-    if (-not $git) { return $false }
-    & $git -C $Repo apply --check --ignore-whitespace (Get-PatchPath $PatchFile) 2>$null
-    $LASTEXITCODE -eq 0
-}
-
 function Get-StagedPaths([string]$Repo) {
     @((Invoke-Git $Repo @('diff','--cached','--name-only') 'git diff --cached') | Where-Object { $_ })
 }
@@ -193,52 +164,30 @@ function Ensure-BuildBranch([string]$RepoRelative, [string]$Label, [string]$Bran
     if ($currentBranch -eq $BranchName) { return }
 
     $branchExists = Test-GitRef $repo "refs/heads/$BranchName"
+    $originBranchExists = Test-GitRef $repo "refs/remotes/origin/$BranchName"
 
     if ($branchExists) {
         Invoke-Git $repo @('switch', $BranchName) "git switch $BranchName" | Out-Null
         return
     }
 
-    Invoke-Git $repo @('switch', '-c', $BranchName) "git switch -c $BranchName" | Out-Null
-}
-
-function Ensure-PatchCommit([string]$DependencyKey) {
-    $meta = $DependencyPatches[$DependencyKey]
-    $repo = Join-Path $Root $meta.Repo
-    $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
-
-    Ensure-BuildBranch $meta.Repo $DependencyKey
-
-    if (-not $patch) {
-        Write-Host "  $DependencyKey has no patch to apply (baked into branch)" -ForegroundColor DarkGray
+    if ($originBranchExists) {
+        Invoke-Git $repo @('switch', '-c', $BranchName, '--track', "origin/$BranchName") "git switch -c $BranchName --track origin/$BranchName" | Out-Null
         return
     }
 
-    $patchAppliedBefore = Test-PatchApplied $repo $patch
+    Invoke-Git $repo @('switch', '-c', $BranchName) "git switch -c $BranchName" | Out-Null
+}
 
-    if (-not (Test-PatchApplied $repo $patch)) {
-        if (-not (Test-PatchCanApply $repo $patch)) {
-            throw "$DependencyKey patch $patch cannot be applied cleanly."
-        }
-        Write-Host "  Applying $patch" -ForegroundColor Cyan
-        Invoke-Git $repo @('apply','--3way','--ignore-whitespace',(Get-PatchPath $patch)) "git apply $patch" | Out-Null
-    } elseif (-not $patchAppliedBefore) {
-        Write-Host "  Reusing existing patch state for $DependencyKey on $BuildBranch" -ForegroundColor DarkGray
-    } else {
-        Write-Host "  $DependencyKey already carries $patch" -ForegroundColor DarkGray
+function Ensure-DependencyReady([string]$DependencyKey) {
+    $meta = $Dependencies[$DependencyKey]
+    $repo = Join-Path $Root $meta.Repo
+
+    Ensure-BuildBranch $meta.Repo $DependencyKey
+    $status = @(Get-RepoStatus $repo)
+    if ((@($status).Count) -ne 0) {
+        throw "$DependencyKey worktree is dirty on $BuildBranch."
     }
-
-    $paths = Get-PatchPaths $patch
-    if ((@($paths).Count) -eq 0) {
-        throw "Patch $patch does not declare any file paths."
-    }
-    Invoke-Git $repo (@('add','-A','--') + $paths) "git add $patch" | Out-Null
-
-    $staged = @(Get-StagedPaths $repo)
-    if ((@($staged).Count) -eq 0) { return }
-
-    Write-Host "  Recording local build commit on $BuildBranch for $DependencyKey" -ForegroundColor Cyan
-    Invoke-Git $repo @('commit','-m',$meta.Commit) "git commit $($meta.Commit)" | Out-Null
 }
 
 function Get-RecordedGitlink([string]$Repo, [string]$SubmodulePath) {
@@ -441,35 +390,30 @@ function Get-PackageEntryPath([string]$Configuration = 'Release', [string]$Entry
 }
 
 function Get-DependencyBranchState([string]$DependencyKey) {
-    $meta = $DependencyPatches[$DependencyKey]
+    $meta = $Dependencies[$DependencyKey]
     $repo = Join-Path $Root $meta.Repo
-    $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
     if (-not (Test-Path -LiteralPath $repo)) {
         return [pscustomobject]@{ Ready=$false; Detail='repo missing' }
     }
 
     $branch = Get-RepoBranch $repo
-    $patchApplied = if ($patch) { Test-PatchApplied $repo $patch } else { $true }
-    $patchLabel  = if ($patch) { if ($patchApplied) { 'present' } else { 'missing' } } else { 'baked-in' }
     $status = @(Get-RepoStatus $repo)
     $clean = (@($status).Count) -eq 0
-    $ready = ($branch -eq $BuildBranch) -and $patchApplied -and $clean
-    $detail = '{0}; patch {1}; {2}' -f $branch, $patchLabel, $(if ($clean) { 'clean' } else { 'dirty' })
+    $ready = ($branch -eq $BuildBranch) -and $clean
+    $detail = '{0}; {1}' -f $branch, $(if ($clean) { 'clean' } else { 'dirty' })
     [pscustomobject]@{ Ready=$ready; Detail=$detail }
 }
 
 function Get-DependencyStatusRows {
     foreach ($key in $DependencyOrder) {
-        $meta = $DependencyPatches[$key]
+        $meta = $Dependencies[$key]
         $repo = Join-Path $Root $meta.Repo
-        $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
         if (-not (Test-Path -LiteralPath $repo)) {
             [pscustomobject]@{
                 Name = $key
                 Repo = $meta.Repo
                 Branch = 'missing'
                 Head = ''
-                Patch = 'missing'
                 Worktree = 'missing'
             }
             continue
@@ -481,7 +425,6 @@ function Get-DependencyStatusRows {
             Repo = $meta.Repo
             Branch = Get-RepoBranch $repo
             Head = Get-RepoHeadShort $repo
-            Patch = if (-not $patch) { 'baked-in' } elseif (Test-PatchApplied $repo $patch) { 'present' } else { 'missing' }
             Worktree = if ($status.Count -eq 0) { 'clean' } else { 'dirty' }
         }
     }
@@ -494,7 +437,6 @@ function Get-StatusRows {
             Repo = 'eMule'
             Branch = Get-RepoBranch (Join-Path $Root 'eMule')
             Head = Get-RepoHeadShort (Join-Path $Root 'eMule')
-            Patch = 'fork'
             Worktree = if ((@(Get-RepoStatus (Join-Path $Root 'eMule'))).Count -eq 0) { 'clean' } else { 'dirty' }
         }
     ) + @(Get-DependencyStatusRows)
@@ -527,11 +469,6 @@ function Get-ExpectedWorkspacePaths {
         'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj',
         'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj',
         'eMule-zlib',
-        'patches\cryptopp-CRYPTOPP_8_9_0.patch',
-
-        'patches\miniupnpc-miniupnpc_2_3_3.patch',
-        'patches\resizablelib-master.patch',
-        'patches\zlib-v1.3.2.patch',
         $Workspace.Templates.zlib.Source
     )) {
         $paths.Add($path) | Out-Null
@@ -773,7 +710,7 @@ function Run-Setup {
 
     Ensure-BuildBranch 'eMule' 'eMule' $AppBuildBranch
     foreach ($key in $DependencyOrder) {
-        Ensure-PatchCommit $key
+        Ensure-DependencyReady $key
     }
     foreach ($entry in $NestedSubmodules) {
         Sync-NestedBuildSubmodule $entry
@@ -1015,7 +952,7 @@ function Show-DependencyStatus {
     Show-Report $report
 
     Get-StatusRows |
-        Select-Object Name,Branch,Head,Patch,Worktree,Repo |
+        Select-Object Name,Branch,Head,Worktree,Repo |
         Format-Table -AutoSize |
         Out-String -Width 200 |
         Write-Host
@@ -1025,7 +962,7 @@ function Run-Validate {
     $report = Get-EnvReport 'validate' $Config 'eMule'
     Show-Report $report
     Get-StatusRows |
-        Select-Object Name,Branch,Head,Patch,Worktree,Repo |
+        Select-Object Name,Branch,Head,Worktree,Repo |
         Format-Table -AutoSize |
         Out-String -Width 200 |
         Write-Host
