@@ -32,3 +32,9 @@
 	url = https://github.com/Mbed-TLS/mbedtls.git
 	ignore = all
 	shallow = true
+[submodule "tests"]
+	path = tests
+	url = ../eMulebb-tests
+[submodule "tests"]
+	path = tests
+	url = C:/prj/p2p/eMulebb-tests
