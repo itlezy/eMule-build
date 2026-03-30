@@ -280,7 +280,7 @@ The live-diff harness builds and runs the test suites in two side-by-side worksp
 ```
 
 This runs `tests\scripts\run-live-diff.ps1`, which:
-1. Builds the test project in both the dev (`eMulebb`) and oracle (`eMulebb-oracle`) workspaces
+1. Builds the test project in both the dev (`eMule-build`) and oracle (`eMule-build-oracle`) workspaces
 2. Runs parity and divergence suites in each, capturing doctest XML output
 3. Compares pass/fail results and writes a summary to `tests\reports\live-diff-summary.txt`
 4. Validates that parity cases pass in both, and divergence cases show the expected dev-pass / oracle-fail pattern
