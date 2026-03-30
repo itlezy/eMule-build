@@ -34,7 +34,7 @@ The version columns show the upstream jump from `main` to the `irwir/eMule` v0.7
 | eMule | v0.60d-community | `irwir/eMule @ eMule_v0.72a-community` | Tracked directly in [`itlezy/eMule`](https://github.com/itlezy/eMule) on `v0.72a-broadband-dev`; `emule.sln`, `emule.slnx`, `emule.vcxproj`, and source includes were retargeted from the old sibling/junction-style dep paths to the real workspace-root `eMule-*` submodules, with shared `WorkspaceRoot` path variables in the project |
 | cryptopp | 8.4.0 | 8.9.0 | Tracked as forked submodule [`itlezy/eMule-cryptopp`](https://github.com/itlezy/eMule-cryptopp) on `emule-build-v0.72a`; the branch carries the VS 2022 + ARM64 project normalization needed by this workspace |
 | miniupnpc | 2.2.3 | 2.3.3 | Tracked as forked submodule [`itlezy/eMule-miniupnp`](https://github.com/itlezy/eMule-miniupnp) on `emule-build-v0.72a`; the branch carries the static CRT, `cscript //nologo`, x64, and ARM64 project fixes needed by the app |
-| zlib | 1.2.12 | 1.3.2 | Tracked as forked submodule [`itlezy/eMule-zlib`](https://github.com/itlezy/eMule-zlib) on `emule-build-v0.72a`; `setup` still materializes the workspace-owned `contrib/vstudio/vc/zlib.vcxproj` cmake wrapper because upstream 1.3.x dropped `contrib/vstudio` |
+| zlib | 1.2.12 | 1.3.2 | Tracked as forked submodule [`itlezy/eMule-zlib`](https://github.com/itlezy/eMule-zlib) on `emule-build-v0.72a`; the fork carries the committed `contrib/vstudio/vc/zlib.vcxproj` cmake wrapper because upstream 1.3.x dropped `contrib/vstudio` |
 | ResizableLib | — | latest master | Tracked as forked submodule [`itlezy/eMule-ResizableLib`](https://github.com/itlezy/eMule-ResizableLib) on `emule-build-v0.72a`; the branch carries the `v143`/SDK `10.0`, x64, and ARM64 MFC project fixes required by the workspace |
 
 **Repository / workspace split:**
@@ -46,7 +46,7 @@ This is the higher-level difference between [`irwir/eMule` `v0.72a`](https://git
 | Repo role | App-source branch for eMule Community v0.72a; the tree is essentially `srchybrid/` plus the project/solution files needed for this fork | Full Windows build workspace for that app branch, with root-level tooling, dependency pins, packaging, and validation |
 | What is versioned here | eMule source changes, solution/project files, and app-side fixes like the VS 2022/x64/ARM64 porting and feature removals | The whole build environment: root scripts, `workspace.ps1`, `deps.psd1`, packaging metadata, smoke-test automation, and submodule refs for `eMule` plus the remaining third-party deps |
 | Dependency ownership model | Not the place where the full dependency fleet is pinned and maintained as separate repos | Deps are pinned as workspace-root git submodules (`eMule-*`), and their workspace-specific changes live in the fork branches that are pinned by gitlink |
-| Build-path assumptions | Contains the app-side project changes needed to reference the workspace-root deps | Owns the actual root layout and enforces it: shared manifest paths, submodule locations, generated wrapper projects, and the commands that prepare the tree into a buildable state |
+| Build-path assumptions | Contains the app-side project changes needed to reference the workspace-root deps | Owns the actual root layout and enforces it: shared manifest paths, submodule locations, dependency build conventions, and the commands that prepare the tree into a buildable state |
 | Setup work | You still need an external workspace around the app repo to fetch, configure, and build every dependency consistently | `workspace.ps1 setup`/`repair` sync submodules, ensure the published dependency branches are checked out, configure generated trees, and restore a known-good state from a fresh clone |
 | Dependency patching | App repo contains only the eMule-side adjustments that must live with the application sources | Third-party dep changes are versioned directly in the dependency forks and pinned by submodule commit instead of replayed from patch files |
 | Build orchestration | No root manifest-backed orchestration layer for env checks, dep status, cleanup, validation, or packaging | `workspace.ps1` is the supported backend for `env-check`, `dep-status`, `validate`, `setup`, `repair`, `build-*`, `run-binary`, `package`, and cleanup |
@@ -62,7 +62,7 @@ This table answers a narrower question than the one above: for each dependency u
 | Crypto++ | Not versioned in the repo; `emule.sln` / `emule.vcxproj` expect an external sibling checkout at `..\eMule-cryptopp\` | Pinned as root submodule `eMule-cryptopp/` from `itlezy/eMule-cryptopp` on `emule-build-v0.72a`, with the VS 2022/x64/ARM64 project fixes versioned in the fork |
 | miniupnpc | Not versioned in the repo; build files expect `..\eMule-miniupnp\` | Pinned as root submodule `eMule-miniupnp/` from `itlezy/eMule-miniupnp` on `emule-build-v0.72a`, with the static CRT, `cscript`, x64, and ARM64 fixes versioned in the fork |
 | ResizableLib | Not versioned in the repo; build files expect `..\eMule-ResizableLib\` | Pinned as root submodule `eMule-ResizableLib/` from `itlezy/eMule-ResizableLib` on `emule-build-v0.72a`, with the `v143`/SDK `10.0`, x64, and ARM64 MFC fixes versioned in the fork |
-| zlib | Not versioned in the repo; build files expect `..\eMule-zlib\contrib\vstudio\vc\zlib.vcxproj` to already exist | Pinned as root submodule `eMule-zlib/` from `itlezy/eMule-zlib` on `emule-build-v0.72a`; `setup` materializes the workspace-owned wrapper project and generated build tree |
+| zlib | Not versioned in the repo; build files expect `..\eMule-zlib\contrib\vstudio\vc\zlib.vcxproj` to already exist | Pinned as root submodule `eMule-zlib/` from `itlezy/eMule-zlib` on `emule-build-v0.72a`; the fork commits the compatibility wrapper project and `setup` configures the generated build tree |
 | CxImage | Removed from the v0.72a app line; not present in the repo | Not present in the workspace either; the dependency is intentionally gone on `v0.72a` |
 | libpng | Removed from the v0.72a app line; not present in the repo | Not present in the workspace either; no separate pin is needed once CxImage is gone |
 | id3lib | Initially present in the v0.72a source for MP3 tag parsing | Dropped from both the eMule source and workspace after the feature was removed |
@@ -128,7 +128,6 @@ eMule-build/
   eMule-ResizableLib/     ← ppescher/resizablelib @ master
   eMule-zlib/             ← madler/zlib @ v1.3.2
   ../eMule-build-tests/   ← shared optional test repo (doctest-based)
-  patches/                ← VS2022 porting patches for each dep
   00-setup-and-build-release.cmd
   10-build-libs-release.cmd
   11-build-libs-debug.cmd
@@ -367,7 +366,7 @@ All dependency static libs must be compiled with `RuntimeLibrary=MultiThreaded` 
 
 ### zlib 1.3.2
 
-zlib 1.3.2 removed `contrib/vstudio/` entirely. `workspace.ps1 setup` materializes a workspace-owned Utility vcxproj wrapper that invokes cmake to build `zlibstatic` and copies the output (`zs.lib` → `zlib.lib`). cmake must be on `PATH` — `workspace.ps1 setup` handles the one-time configure step.
+zlib 1.3.2 removed `contrib/vstudio/` entirely. The `eMule-zlib` fork therefore commits a Utility vcxproj wrapper at `contrib\vstudio\vc\zlib.vcxproj` that invokes cmake to build `zlibstatic` and copies the output (`zs.lib` → `zlib.lib`). cmake must be on `PATH` — `workspace.ps1 setup` handles the one-time configure step.
 
 ---
 

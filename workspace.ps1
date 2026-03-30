@@ -496,7 +496,7 @@ function Get-ExpectedWorkspacePaths {
         'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj',
         'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj',
         'eMule-zlib',
-        $Workspace.Templates.zlib.Source
+        'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
     )) {
         $paths.Add($path) | Out-Null
     }
@@ -702,21 +702,6 @@ function Invoke-WithWorkspaceLock([string]$Label, [scriptblock]$Action) {
     }
 }
 
-function Install-WorkspaceFile([string]$TemplateRelativePath, [string]$DestinationRelativePath) {
-    $source = Get-WorkspacePath $TemplateRelativePath
-    $destination = Get-WorkspacePath $DestinationRelativePath
-    $parent = Split-Path -Parent $destination
-    if (-not (Test-Path -LiteralPath $parent)) {
-        $null = New-Item -ItemType Directory -Path $parent -Force
-    }
-    Copy-Item -LiteralPath $source -Destination $destination -Force
-}
-
-function Install-ZlibWrapper {
-    $template = $Workspace.Templates.zlib
-    Install-WorkspaceFile $template.Source $template.Destination
-}
-
 function Invoke-GeneratedProjectConfigure([string]$Name, $EnvReport) {
     $profile = Get-GeneratedProjectProfile $Name
     $configure = $profile.Configure
@@ -746,7 +731,6 @@ function Run-Setup {
     if (-not (Test-GeneratedProjectReady 'zlib')) {
         Invoke-GeneratedProjectConfigure 'zlib' $envReport
     }
-    Install-ZlibWrapper
 }
 
 function Ensure-Logs {

@@ -13,12 +13,6 @@
             'tmp'
             'eMule\srchybrid\x64'
         )
-        Templates = @{
-            zlib = @{
-                Source = 'templates\zlib\zlib.vcxproj'
-                Destination = 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
-            }
-        }
         Package = @{
             Release = @{
                 SourceProject = 'eMule'
