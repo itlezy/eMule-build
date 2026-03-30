@@ -127,7 +127,7 @@ eMule-build/
   eMule-miniupnp/         ← miniupnp/miniupnp @ miniupnpc_2_3_3
   eMule-ResizableLib/     ← ppescher/resizablelib @ master
   eMule-zlib/             ← madler/zlib @ v1.3.2
-  tests/                  ← shared test submodule (doctest-based)
+  ../eMule-build-tests/   ← shared optional test repo (doctest-based)
   patches/                ← VS2022 porting patches for each dep
   00-setup-and-build-release.cmd
   10-build-libs-release.cmd
@@ -249,7 +249,7 @@ dist\eMule0.72a-broadband_x64-snapshot.zip
 
 ### 3c. Testing
 
-The workspace includes a shared test submodule (`tests/`) with a standalone doctest-based test project that builds against the local `eMule` checkout.
+The workspace uses the shared sibling repo `..\eMule-build-tests` for the standalone doctest-based test project that builds against the local `eMule` checkout.
 
 #### Build and run tests
 
@@ -258,7 +258,7 @@ The workspace includes a shared test submodule (`tests/`) with a standalone doct
 .\36-run-emule-tests-debug.cmd
 ```
 
-The test project (`tests\emule-tests.vcxproj`) is a console application that uses the [doctest](https://github.com/doctest/doctest) single-header framework and links against eMule source directly. It is built and run independently from the main `emule.sln`.
+The test project (`..\eMule-build-tests\emule-tests.vcxproj`) is a console application that uses the [doctest](https://github.com/doctest/doctest) single-header framework and links against the selected workspace's `eMule` source directly. It is built and run independently from the main `emule.sln`.
 
 #### Test suites
 
@@ -279,10 +279,10 @@ The live-diff harness builds and runs the test suites in two side-by-side worksp
 .\37-run-emule-tests-live-diff.cmd
 ```
 
-This runs `tests\scripts\run-live-diff.ps1`, which:
+This runs `..\eMule-build-tests\scripts\run-live-diff.ps1`, which:
 1. Builds the test project in both the dev (`eMule-build`) and oracle (`eMule-build-oracle`) workspaces
 2. Runs parity and divergence suites in each, capturing doctest XML output
-3. Compares pass/fail results and writes a summary to `tests\reports\live-diff-summary.txt`
+3. Compares pass/fail results and writes a summary to `..\eMule-build-tests\reports\live-diff-summary.txt`
 4. Validates that parity cases pass in both, and divergence cases show the expected dev-pass / oracle-fail pattern
 
 ---
@@ -349,11 +349,11 @@ Package layout, package destination, generated-project configure readiness, and 
 
 Third-party deps are not edited on detached HEAD anymore. `setup` switches each dep to a local `emule-build-v0.72a` branch, applies the matching patch if needed, and records it as a local commit. Root `.gitmodules` marks these deps with `ignore = all`, so the disposable local build branches do not spam normal root `git status` output.
 
-### Test submodule
+### Shared Test Repo
 
-The `tests/` directory is a git submodule containing the shared test project. Unlike the `eMule-*` third-party dependency submodules, it is not a build dependency — it is a workspace-level test asset that compiles against the local `eMule` checkout.
+The `..\eMule-build-tests` sibling repository contains the shared test project. Unlike the `eMule-*` third-party dependency submodules, it is not a build dependency and is not embedded inside each workspace anymore. It is a workspace-level test asset that compiles against whichever local `eMule` checkout the wrapper scripts target.
 
-The test project uses C++17 and the doctest single-header framework. Tests are organized into parity and divergence suites to support live comparison against the oracle (pre-refactor) workspace. Test scripts, XML reports, and the live-diff summary are all kept inside the submodule.
+The test project uses C++17 and the doctest single-header framework. Tests are organized into parity and divergence suites to support live comparison against the oracle workspace. Test scripts, XML reports, and the live-diff summary all live in the shared `eMule-build-tests` repo.
 
 ### Upstream dependency tracking
 
