@@ -68,10 +68,10 @@ function Get-PatchPath([string]$PatchFile) {
 }
 
 function Convert-PlatformRelativePath([string]$RelativePath) {
-    $converted = $RelativePath.Replace('\cmake-build', "\cmake-build-$Platform")
-    $converted = $converted.Replace('/cmake-build', "/cmake-build-$Platform")
-    $converted = $converted.Replace('\x64\', "\$Platform\").Replace('/x64/', "/$Platform/")
+    $converted = $RelativePath.Replace('\x64\', "\$Platform\").Replace('/x64/', "/$Platform/")
     if ($Platform -eq 'ARM64') {
+        $converted = $converted.Replace('\cmake-build', "\cmake-build-$Platform")
+        $converted = $converted.Replace('/cmake-build', "/cmake-build-$Platform")
         $converted = $converted.Replace('_x64', '_arm64').Replace('-x64', '-arm64')
     }
     $converted
