@@ -1,5 +1,5 @@
 diff --git a/miniupnpc/msvc/miniupnpc.vcxproj b/miniupnpc/msvc/miniupnpc.vcxproj
-index c4ff5b6..dc49a5b 100644
+index c4ff5b6..e2bd7b4 100644
 --- a/miniupnpc/msvc/miniupnpc.vcxproj
 +++ b/miniupnpc/msvc/miniupnpc.vcxproj
 @@ -1,4 +1,16 @@
@@ -20,10 +20,14 @@ index c4ff5b6..dc49a5b 100644
  <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
    <ItemGroup Label="ProjectConfigurations">
      <ProjectConfiguration Include="Debug Dll|Win32">
-@@ -9,6 +21,10 @@
+@@ -9,6 +21,14 @@
        <Configuration>Debug</Configuration>
        <Platform>Win32</Platform>
      </ProjectConfiguration>
++    <ProjectConfiguration Include="Debug|x64">
++      <Configuration>Debug</Configuration>
++      <Platform>x64</Platform>
++    </ProjectConfiguration>
 +    <ProjectConfiguration Include="Debug|ARM64">
 +      <Configuration>Debug</Configuration>
 +      <Platform>ARM64</Platform>
@@ -31,22 +35,19 @@ index c4ff5b6..dc49a5b 100644
      <ProjectConfiguration Include="Release Dll|Win32">
        <Configuration>Release Dll</Configuration>
        <Platform>Win32</Platform>
-@@ -17,33 +33,55 @@
+@@ -17,38 +37,68 @@
        <Configuration>Release</Configuration>
        <Platform>Win32</Platform>
      </ProjectConfiguration>
--  </ItemGroup>
++    <ProjectConfiguration Include="Release|x64">
++      <Configuration>Release</Configuration>
++      <Platform>x64</Platform>
++    </ProjectConfiguration>
 +    <ProjectConfiguration Include="Release|ARM64">
 +      <Configuration>Release</Configuration>
 +      <Platform>ARM64</Platform>
 +    </ProjectConfiguration>
-+  <ProjectConfiguration Include="Debug|x64">
-+      <Configuration>Debug</Configuration>
-+      <Platform>x64</Platform>
-+    </ProjectConfiguration><ProjectConfiguration Include="Release|x64">
-+      <Configuration>Release</Configuration>
-+      <Platform>x64</Platform>
-+    </ProjectConfiguration></ItemGroup>
+   </ItemGroup>
    <PropertyGroup Label="Globals">
      <ProjectGuid>{D28CE435-CB33-4BAE-8A52-C6EF915956F5}</ProjectGuid>
      <RootNamespace>miniupnpc</RootNamespace>
@@ -80,11 +81,22 @@ index c4ff5b6..dc49a5b 100644
 +    <PlatformToolset>v143</PlatformToolset>
 +    <CharacterSet>Unicode</CharacterSet>
 +  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
++    <ConfigurationType>StaticLibrary</ConfigurationType>
++    <PlatformToolset>v143</PlatformToolset>
++    <CharacterSet>Unicode</CharacterSet>
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
 +  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
 +    <ConfigurationType>StaticLibrary</ConfigurationType>
 +    <PlatformToolset>v143</PlatformToolset>
 +    <CharacterSet>Unicode</CharacterSet>
 +    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
++    <ConfigurationType>StaticLibrary</ConfigurationType>
++    <PlatformToolset>v143</PlatformToolset>
++    <CharacterSet>Unicode</CharacterSet>
 +  </PropertyGroup>
 +  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
 +    <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -92,11 +104,23 @@ index c4ff5b6..dc49a5b 100644
      <CharacterSet>Unicode</CharacterSet>
    </PropertyGroup>
    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-@@ -61,45 +99,51 @@
+-  <ImportGroup Label="ExtensionSettings">
+-  </ImportGroup>
++  <ImportGroup Label="ExtensionSettings"></ImportGroup>
+   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+   </ImportGroup>
+@@ -61,10 +111,23 @@
    <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug Dll|Win32'" Label="PropertySheets">
      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
    </ImportGroup>
++  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
++    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
++  </ImportGroup>
 +  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="PropertySheets">
++    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
++  </ImportGroup>
++  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
 +    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
 +  </ImportGroup>
 +  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="PropertySheets">
@@ -106,34 +130,31 @@ index c4ff5b6..dc49a5b 100644
    <PropertyGroup>
      <_ProjectFileVersion>14.0.25123.0</_ProjectFileVersion>
    </PropertyGroup>
--  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
--    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
--    <IntDir>$(Configuration)\</IntDir>
 +  <!-- Win32: keep original SolutionDir-relative OutDir (not used by eMule build) -->
-+  
-+  
-+  
-+  
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+     <IntDir>$(Configuration)\</IntDir>
+@@ -81,25 +144,44 @@
+     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+     <IntDir>$(Configuration)\</IntDir>
+   </PropertyGroup>
 +  <!-- x64: emule.vcxproj expects ..\miniupnpc\msvc\$(Platform)\$(Configuration)\miniupnpc.lib -->
 +  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
 +    <OutDir>$(Platform)\$(Configuration)\</OutDir>
 +    <IntDir>$(Platform)\$(Configuration)\tmp\</IntDir>
-   </PropertyGroup>
--  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Dll|Win32'">
--    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
--    <IntDir>$(Configuration)\</IntDir>
--  </PropertyGroup>
--  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
--    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
--    <IntDir>$(Configuration)\</IntDir>
--  </PropertyGroup>
--  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Dll|Win32'">
--    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
--    <IntDir>$(Configuration)\</IntDir>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
++    <IntDir>$(Platform)\$(Configuration)\tmp\</IntDir>
++  </PropertyGroup>
 +  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
 +    <OutDir>$(Platform)\$(Configuration)\</OutDir>
 +    <IntDir>$(Platform)\$(Configuration)\tmp\</IntDir>
-   </PropertyGroup>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
++    <IntDir>$(Platform)\$(Configuration)\tmp\</IntDir>
++  </PropertyGroup>
 +  <!-- ── Win32 Debug static ── /MTd ── -->
    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
      <ClCompile>
@@ -161,9 +182,13 @@ index c4ff5b6..dc49a5b 100644
    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Dll|Win32'">
      <ClCompile>
        <Optimization>Disabled</Optimization>
-@@ -110,11 +154,11 @@
-       <PrecompiledHeader>
-       </PrecompiledHeader>
+@@ -107,14 +189,13 @@
+       <MinimalRebuild>true</MinimalRebuild>
+       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+-      <PrecompiledHeader>
+-      </PrecompiledHeader>
++      <PrecompiledHeader></PrecompiledHeader>
        <WarningLevel>Level3</WarningLevel>
 -      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
 +      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -175,7 +200,7 @@ index c4ff5b6..dc49a5b 100644
      </PreBuildEvent>
      <Link>
        <AdditionalDependencies>ws2_32.lib;IPHlpApi.Lib;%(AdditionalDependencies)</AdditionalDependencies>
-@@ -123,12 +167,13 @@
+@@ -123,12 +204,13 @@
        <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
      </ResourceCompile>
    </ItemDefinitionGroup>
@@ -190,7 +215,7 @@ index c4ff5b6..dc49a5b 100644
        <FunctionLevelLinking>true</FunctionLevelLinking>
        <PrecompiledHeader />
        <WarningLevel>Level3</WarningLevel>
-@@ -136,12 +181,13 @@
+@@ -136,12 +218,13 @@
        <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
      </ClCompile>
      <PreBuildEvent>
@@ -205,7 +230,15 @@ index c4ff5b6..dc49a5b 100644
    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Dll|Win32'">
      <ClCompile>
        <Optimization>MaxSpeed</Optimization>
-@@ -156,7 +202,7 @@
+@@ -149,14 +232,13 @@
+       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;MINIUPNP_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+       <FunctionLevelLinking>true</FunctionLevelLinking>
+-      <PrecompiledHeader>
+-      </PrecompiledHeader>
++      <PrecompiledHeader></PrecompiledHeader>
+       <WarningLevel>Level3</WarningLevel>
+       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
        <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
      </ClCompile>
      <PreBuildEvent>
@@ -214,11 +247,30 @@ index c4ff5b6..dc49a5b 100644
      </PreBuildEvent>
      <Link>
        <AdditionalDependencies>ws2_32.lib;IPHlpApi.Lib;%(AdditionalDependencies)</AdditionalDependencies>
-@@ -165,6 +211,45 @@
+@@ -165,6 +247,82 @@
        <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
      </ResourceCompile>
    </ItemDefinitionGroup>
 +  <!-- ── x64 Release static ── /MT ── -->
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
++    <ClCompile>
++      <Optimization>MaxSpeed</Optimization>
++      <IntrinsicFunctions>true</IntrinsicFunctions>
++      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;MINIUPNP_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++      <FunctionLevelLinking>true</FunctionLevelLinking>
++      <PrecompiledHeader />
++      <WarningLevel>Level3</WarningLevel>
++      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
++      <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++    </ClCompile>
++    <PreBuildEvent>
++      <Command>cscript //nologo genminiupnpcstrings.vbs</Command>
++    </PreBuildEvent>
++    <ResourceCompile>
++      <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
++    </ResourceCompile>
++  </ItemDefinitionGroup>
 +  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
 +    <ClCompile>
 +      <Optimization>MaxSpeed</Optimization>
@@ -239,6 +291,24 @@ index c4ff5b6..dc49a5b 100644
 +    </ResourceCompile>
 +  </ItemDefinitionGroup>
 +  <!-- ── x64 Debug static ── /MTd ── -->
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
++    <ClCompile>
++      <Optimization>Disabled</Optimization>
++      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;MINIUPNP_STATICLIB;DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++      <PrecompiledHeader />
++      <WarningLevel>Level3</WarningLevel>
++      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
++      <AdditionalIncludeDirectories>..;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++    </ClCompile>
++    <PreBuildEvent>
++      <Command>cscript //nologo genminiupnpcstrings.vbs</Command>
++    </PreBuildEvent>
++    <ResourceCompile>
++      <PreprocessorDefinitions>INTERNAL_NAME="\"miniupnpc.dll\0\"";%(PreprocessorDefinitions)</PreprocessorDefinitions>
++    </ResourceCompile>
++  </ItemDefinitionGroup>
 +  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
 +    <ClCompile>
 +      <Optimization>Disabled</Optimization>
@@ -260,13 +330,15 @@ index c4ff5b6..dc49a5b 100644
    <ItemGroup>
      <ClCompile Include="..\src\addr_is_reserved.c" />
      <ClCompile Include="..\src\connecthostport.c" />
-@@ -212,4 +297,4 @@
+@@ -210,6 +368,5 @@
+     <ResourceCompile Include="../miniupnpc.rc" />
+   </ItemGroup>
    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-   <ImportGroup Label="ExtensionTargets">
-   </ImportGroup>
--</Project>
+-  <ImportGroup Label="ExtensionTargets">
+-  </ImportGroup>
++  <ImportGroup Label="ExtensionTargets"></ImportGroup>
+ </Project>
 \ No newline at end of file
-+</Project>
 diff --git a/miniupnpc/src/minissdpc.c b/miniupnpc/src/minissdpc.c
 index 82a1106..97a7c80 100644
 --- a/miniupnpc/src/minissdpc.c
