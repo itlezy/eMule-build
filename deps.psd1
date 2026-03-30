@@ -27,6 +27,13 @@
                 RootDir = 'eMule0.72a-broadband_x64'
                 BuildInfoName = 'BUILD-INFO.txt'
                 Entry = 'emule.exe'
+                Translations = @{
+                    Solution = 'eMule\srchybrid\lang\lang.sln'
+                    ProjectDir = 'eMule\srchybrid\lang'
+                    OutputDir = 'eMule\srchybrid\x64\lang'
+                    DestinationDir = 'lang'
+                    Configuration = 'Dynamic'
+                }
                 Include = @(
                     @{
                         Source = 'LICENSE'

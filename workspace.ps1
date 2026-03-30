@@ -354,6 +354,17 @@ function Get-PackageProfile([string]$Configuration = 'Release') {
         RootDir = Convert-PlatformRelativePath $profile.RootDir
         BuildInfoName = $profile.BuildInfoName
         Entry = $profile.Entry
+        Translations = if ($profile.Translations) {
+            [pscustomobject]@{
+                Solution = $profile.Translations.Solution
+                ProjectDir = $profile.Translations.ProjectDir
+                OutputDir = Convert-PlatformRelativePath $profile.Translations.OutputDir
+                DestinationDir = $profile.Translations.DestinationDir
+                Configuration = $profile.Translations.Configuration
+            }
+        } else {
+            $null
+        }
         Include = @($profile.Include)
     }
 }
@@ -387,6 +398,22 @@ function Get-PackageEntryPath([string]$Configuration = 'Release', [string]$Entry
     $rootDir = Get-PackageRootDir $Configuration
     $cleanEntry = $Entry -replace '\\','/'
     "$rootDir/$cleanEntry"
+}
+
+function Get-PackageTranslations([string]$Configuration = 'Release') {
+    (Get-PackageProfile $Configuration).Translations
+}
+
+function Get-PackageTranslationProjectNames([string]$Configuration = 'Release') {
+    $translations = Get-PackageTranslations $Configuration
+    if (-not $translations) { return @() }
+
+    $projectDir = Get-WorkspacePath $translations.ProjectDir
+    @(
+        Get-ChildItem -LiteralPath $projectDir -Filter '*.vcxproj' -File |
+            Sort-Object BaseName |
+            Select-Object -ExpandProperty BaseName
+    )
 }
 
 function Get-DependencyBranchState([string]$DependencyKey) {
@@ -839,6 +866,12 @@ function Get-PackageEntryList([string]$Configuration = 'Release') {
             $entries.Add((Get-PackageEntryPath $Configuration $item.Destination)) | Out-Null
         }
     }
+    $translations = Get-PackageTranslations $Configuration
+    if ($translations) {
+        foreach ($name in @(Get-PackageTranslationProjectNames $Configuration)) {
+            $entries.Add((Get-PackageEntryPath $Configuration ("{0}\{1}.dll" -f $translations.DestinationDir, $name))) | Out-Null
+        }
+    }
     @($entries)
 }
 
@@ -866,6 +899,19 @@ function New-PackageBuildInfo([string]$Configuration = 'Release') {
     ) -join [Environment]::NewLine
 }
 
+function Build-PackageTranslations([string]$Configuration = 'Release') {
+    $translations = Get-PackageTranslations $Configuration
+    if (-not $translations) { return }
+
+    $envReport = Get-EnvReport 'package' $Configuration 'eMule'
+    $log = Get-LogPath 'lang' $translations.Configuration
+    $target = if ($NoBuildClean) { 'Build' } else { 'Clean,Build' }
+
+    # Language resources are packaged as sidecar DLLs beside the application.
+    & $envReport.Tools.MSBuild (Join-Path $Root $translations.Solution) "-target:$target" "/property:Configuration=$($translations.Configuration)" "/property:Platform=$Platform" /nologo /verbosity:minimal *> $log
+    if ($LASTEXITCODE -ne 0) { throw "lang build failed. See $log" }
+}
+
 function New-PackageStage([string]$Configuration = 'Release') {
     Ensure-Logs
     $profile = Get-PackageProfile $Configuration
@@ -890,6 +936,25 @@ function New-PackageStage([string]$Configuration = 'Release') {
 
     if ($profile.BuildInfoName) {
         [IO.File]::WriteAllText((Join-Path $packageRoot $profile.BuildInfoName), (New-PackageBuildInfo $Configuration))
+    }
+
+    $translations = Get-PackageTranslations $Configuration
+    if ($translations) {
+        $langSourceDir = Get-WorkspacePath $translations.OutputDir
+        $langDestDir = Join-Path $packageRoot $translations.DestinationDir
+        if (-not (Test-Path -LiteralPath $langSourceDir)) {
+            throw "Missing translation output directory: $langSourceDir"
+        }
+
+        $langDlls = @(Get-ChildItem -LiteralPath $langSourceDir -Filter '*.dll' -File | Sort-Object Name)
+        if ($langDlls.Count -eq 0) {
+            throw "No translation DLLs found in $langSourceDir"
+        }
+
+        $null = New-Item -ItemType Directory -Path $langDestDir -Force
+        foreach ($dll in $langDlls) {
+            Copy-Item -LiteralPath $dll.FullName -Destination (Join-Path $langDestDir $dll.Name) -Force
+        }
     }
 
     $stageDir
@@ -1015,6 +1080,7 @@ switch ($Command) {
         Invoke-WithWorkspaceLock 'package' {
             $r = Get-EnvReport 'package' 'Release' 'eMule'
             Show-Report $r
+            Build-PackageTranslations 'Release'
             $zip = Get-PackagePath 'Release'
             $stageDir = New-PackageStage 'Release'
             New-PackageZip -SourceFile (Join-Path $stageDir (Get-PackageRootDir 'Release')) -DestinationZip $zip
