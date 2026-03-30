@@ -18,10 +18,6 @@
                 Source = 'templates\zlib\zlib.vcxproj'
                 Destination = 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
             }
-            mbedtls = @{
-                Source = 'templates\mbedtls\mbedTLS.vcxproj'
-                Destination = 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'
-            }
         }
         Package = @{
             Release = @{
@@ -65,33 +61,6 @@
                     Debug = 'zsd.lib'
                 }
             }
-            mbedtls = @{
-                ConfigureReady = @(
-                    'eMule-mbedtls\visualc\VS2017\CMakeCache.txt'
-                    'eMule-mbedtls\visualc\VS2017\library\mbedtls.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\library\mbedx509.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\core\tfpsacrypto.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\drivers\builtin\builtin.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\drivers\everest\everest.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\drivers\p256-m\p256m.vcxproj'
-                )
-                Cleanup = @(
-                    'eMule-mbedtls\visualc\VS2017'
-                )
-                Configure = @{
-                    Source = 'eMule-mbedtls'
-                    Build = 'eMule-mbedtls\visualc\VS2017'
-                    Generator = 'Visual Studio 17 2022'
-                    Platform = 'x64'
-                    Arguments = @(
-                        '-DENABLE_PROGRAMS=OFF'
-                        '-DENABLE_TESTING=OFF'
-                        '-DGEN_FILES=ON'
-                        '-DCMAKE_POLICY_DEFAULT_CMP0091=NEW'
-                        '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>'
-                    )
-                }
-            }
         }
     }
 
@@ -100,8 +69,6 @@
         'miniupnp'
         'ResizableLib'
         'zlib'
-        'mbedtls-tf-psa-crypto'
-        'mbedtls'
     )
 
     BuildProjects = @(
@@ -109,7 +76,6 @@
         'miniupnp'
         'ResizableLib'
         'zlib'
-        'mbedtls'
     )
 
     Dependencies = @{
@@ -133,24 +99,9 @@
             Patch  = 'zlib-v1.3.2.patch'
             Commit = 'Apply eMule build patch: zlib-v1.3.2.patch'
         }
-        'mbedtls-tf-psa-crypto' = @{
-            Repo   = 'eMule-mbedtls\tf-psa-crypto'
-            Patch  = 'mbedtls-tf-psa-crypto-v1.0.0.patch'
-            Commit = 'Apply eMule build patch: mbedtls-tf-psa-crypto-v1.0.0.patch'
-        }
-        mbedtls = @{
-            Repo   = 'eMule-mbedtls'
-            Patch  = 'mbedtls-mbedtls-4.0.0.patch'
-            Commit = 'Apply eMule build patch: mbedtls-mbedtls-4.0.0.patch'
-        }
     }
 
-    NestedSubmodules = @(
-        @{
-            ParentRepo = 'eMule-mbedtls'
-            Path = 'tf-psa-crypto'
-        }
-    )
+    NestedSubmodules = @()
 
     Projects = @{
         cryptopp = @{
@@ -189,15 +140,6 @@
                 Debug   = 'eMule-zlib\contrib\vstudio\vc\x64\Debug\zlib.lib'
             }
             Open = 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
-        }
-        mbedtls = @{
-            Kind   = 'msbuild'
-            Path   = 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'
-            Output = @{
-                Release = 'eMule-mbedtls\visualc\VS2017\x64\Release\mbedtls.lib'
-                Debug   = 'eMule-mbedtls\visualc\VS2017\x64\Debug\mbedtls.lib'
-            }
-            Open = 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'
         }
         eMule = @{
             Kind   = 'msbuild'

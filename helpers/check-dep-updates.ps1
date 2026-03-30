@@ -92,20 +92,6 @@ $Deps = @(
         BaseTag    = 'v1.3.2'
         Pattern    = '^v(\d+)\.(\d+)\.(\d+)$'
     }
-    [pscustomobject]@{
-        Name       = 'mbedtls'
-        Kind       = 'tagged'
-        Remote     = 'https://github.com/Mbed-TLS/mbedtls.git'
-        BaseTag    = 'mbedtls-4.0.0'
-        Pattern    = '^mbedtls-(\d+)\.(\d+)\.(\d+)$'
-    }
-    [pscustomobject]@{
-        Name       = 'tf-psa-crypto'
-        Kind       = 'tagged'
-        Remote     = 'https://github.com/Mbed-TLS/TF-PSA-Crypto.git'
-        BaseTag    = 'v1.0.0'
-        Pattern    = '^v(\d+)\.(\d+)\.(\d+)$'
-    }
 )
 
 # ── check each dependency ──────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ param(
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
-    [ValidateSet('cryptopp', 'miniupnp', 'ResizableLib', 'zlib', 'mbedtls', 'eMule')]
+    [ValidateSet('cryptopp', 'miniupnp', 'ResizableLib', 'zlib', 'eMule')]
     [string]$Project = 'eMule',
     [ValidateSet('default', 'local', 'both')]
     [string]$Dirs = 'default',
@@ -504,16 +504,12 @@ function Get-ExpectedWorkspacePaths {
         'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj',
         'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj',
         'eMule-zlib',
-        'eMule-mbedtls',
         'patches\cryptopp-CRYPTOPP_8_9_0.patch',
 
         'patches\miniupnpc-miniupnpc_2_3_3.patch',
         'patches\resizablelib-master.patch',
         'patches\zlib-v1.3.2.patch',
-        'patches\mbedtls-mbedtls-4.0.0.patch',
-        'patches\mbedtls-tf-psa-crypto-v1.0.0.patch',
-        $Workspace.Templates.zlib.Source,
-        $Workspace.Templates.mbedtls.Source
+        $Workspace.Templates.zlib.Source
     )) {
         $paths.Add($path) | Out-Null
     }
@@ -545,12 +541,10 @@ function Get-WorkspaceSeverity([string]$Intent, [int]$MissingCount) {
 
 function Get-ToolReport([string]$Intent, $ToolsContext) {
     $results = [System.Collections.Generic.List[object]]::new()
-    $mbedtlsConfigured = Test-GeneratedProjectReady 'mbedtls'
 
     Add-Check $results 'pass' 'pwsh' "PowerShell $($PSVersionTable.PSVersion)"
     Add-Check $results ($ToolsContext.Git ? 'pass' : 'fail') 'git' ($ToolsContext.Git ? $ToolsContext.Git : 'not found on PATH')
-    $perlStatus = if ($ToolsContext.Perl) { 'pass' } elseif (-not $mbedtlsConfigured -and $Intent -in @('general','setup','repair','validate')) { 'fail' } else { 'warn' }
-    Add-Check $results $perlStatus 'perl' ($ToolsContext.Perl ? $ToolsContext.Perl : 'not found; required to regenerate mbedtls Visual Studio files')
+    Add-Check $results ($ToolsContext.Perl ? 'pass' : 'warn') 'perl' ($ToolsContext.Perl ? $ToolsContext.Perl : 'not found; optional')
     Add-Check $results ($ToolsContext.CMake ? 'pass' : 'fail') 'cmake' ($ToolsContext.CMake ? $ToolsContext.CMake : 'not found on PATH')
     Add-Check $results ($ToolsContext.Vs.VsWhere ? 'pass' : 'warn') 'vswhere' ($ToolsContext.Vs.VsWhere ? $ToolsContext.Vs.VsWhere : 'not found; using install scan')
     Add-Check $results ($ToolsContext.Vs.Root ? 'pass' : 'fail') 'visual-studio' ($ToolsContext.Vs.Root ? $ToolsContext.Vs.Root : 'Visual Studio 2022 not found')
@@ -598,10 +592,6 @@ function Get-WorkspaceReport([string]$Intent, $ToolsContext) {
             Add-Check $results $status "$key-branch" $state.Detail
         }
     }
-
-    $mbedtlsReady = Test-GeneratedProjectReady 'mbedtls'
-    $mbedtlsConfigStatus = Get-ConfigureSeverity $Intent $mbedtlsReady
-    Add-Check $results $mbedtlsConfigStatus 'mbedtls-configure' ($mbedtlsReady ? ((Get-GeneratedProjectProfile 'mbedtls').Configure.Build + ' ready') : 'missing or incomplete; run setup/repair')
 
     $zlibConfigured = Test-GeneratedProjectReady 'zlib'
     $zlibConfigStatus = Get-ConfigureSeverity $Intent $zlibConfigured
@@ -735,25 +725,9 @@ function Install-WorkspaceFile([string]$TemplateRelativePath, [string]$Destinati
     Copy-Item -LiteralPath $source -Destination $destination -Force
 }
 
-function Install-MbedTlsWrapper {
-    $template = $Workspace.Templates.mbedtls
-    Install-WorkspaceFile $template.Source $template.Destination
-}
-
 function Install-ZlibWrapper {
     $template = $Workspace.Templates.zlib
     Install-WorkspaceFile $template.Source $template.Destination
-}
-
-function Normalize-MbedTlsGeneratedProjects([string]$BuildDir) {
-    $sdkVersion = $Toolchain.WindowsTargetPlatformVersion
-    foreach ($path in Get-ChildItem -LiteralPath $BuildDir -Recurse -Filter *.vcxproj -File -ErrorAction SilentlyContinue) {
-        $content = [IO.File]::ReadAllText($path.FullName)
-        $updated = [regex]::Replace($content, '<WindowsTargetPlatformVersion>[^<]+</WindowsTargetPlatformVersion>', "<WindowsTargetPlatformVersion>$sdkVersion</WindowsTargetPlatformVersion>")
-        if ($updated -ne $content) {
-            [IO.File]::WriteAllText($path.FullName, $updated)
-        }
-    }
 }
 
 function Invoke-GeneratedProjectConfigure([string]$Name, $EnvReport) {
@@ -765,10 +739,6 @@ function Invoke-GeneratedProjectConfigure([string]$Name, $EnvReport) {
         '-G', $configure.Generator,
         '-A', $configure.Platform
     ) + @($configure.Arguments)
-
-    if ($Name -eq 'mbedtls' -and $EnvReport.Tools.Perl) {
-        $args += "-DPERL_EXECUTABLE=$($EnvReport.Tools.Perl)"
-    }
 
     Invoke-Native -Exe $EnvReport.Tools.CMake -ArgumentList $args -Label "cmake configure $Name" -WorkDir $null
 }
@@ -784,18 +754,6 @@ function Run-Setup {
     }
     foreach ($entry in $NestedSubmodules) {
         Sync-NestedBuildSubmodule $entry
-    }
-
-    $mbedBuild = Get-GeneratedProjectBuildDir 'mbedtls'
-    $mbedtlsConfiguredNow = $false
-    if (-not (Test-GeneratedProjectReady 'mbedtls')) {
-        Clean-MbedTlsGenerated
-        Invoke-GeneratedProjectConfigure 'mbedtls' $envReport
-        $mbedtlsConfiguredNow = $true
-    }
-    Install-MbedTlsWrapper
-    if ($mbedtlsConfiguredNow) {
-        Normalize-MbedTlsGeneratedProjects $mbedBuild
     }
 
     if (-not (Test-GeneratedProjectReady 'zlib')) {
@@ -820,17 +778,10 @@ function Remove-GeneratedTarget([string]$RelativePath) {
     Remove-Item -LiteralPath $path -Recurse -Force
 }
 
-function Clean-MbedTlsGenerated {
-    foreach ($path in @((Get-GeneratedProjectProfile 'mbedtls').Cleanup)) {
-        Remove-GeneratedTarget $path
-    }
-}
-
 function Clean-Generated {
     foreach ($path in @($Workspace.Cleanup) + @((Get-GeneratedProjectProfile 'zlib').Cleanup)) {
         Remove-GeneratedTarget $path
     }
-    Clean-MbedTlsGenerated
 }
 
 function Build-ProjectInternal($EnvReport, [string]$Name, [string]$Configuration) {
