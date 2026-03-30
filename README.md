@@ -235,6 +235,8 @@ Convenience wrapper: `.\40-package-release.cmd`
 
 By default on `v0.72a`, the package zip is written under `dist\`. The location and archive name are workspace variables in `deps.psd1` under `Workspace.Package.Release`.
 
+The package flow also builds `srchybrid\lang\lang.sln` in `Dynamic|<Platform>` and stages the generated translation DLLs under `lang\` beside `emule.exe` in the final zip.
+
 The zip now contains a top-level release folder plus build metadata:
 
 ```
