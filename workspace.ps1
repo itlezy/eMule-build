@@ -491,7 +491,6 @@ function Get-ExpectedWorkspacePaths {
     foreach ($path in @(
         'deps.psd1',
         'eMule\srchybrid\emule.vcxproj',
-        'eMule\srchybrid\emule.sln',
         'eMule-cryptopp\cryptlib.vcxproj',
         'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj',
         'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj',
