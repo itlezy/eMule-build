@@ -281,10 +281,23 @@ The live-diff harness builds and runs the test suites in two side-by-side worksp
 ```
 
 This runs `..\eMule-build-tests\scripts\run-live-diff.ps1`, which:
-1. Builds the test project in both the dev (`eMule-build`) and oracle (`eMule-build-oracle`) workspaces
+1. Builds the test project in both the dev (`eMule-build`) and the selected oracle workspace. The default oracle is `eMule-build-oracle-v0.72a-oracle`, and `-OracleWorkspaceRoot` may be pointed at `eMule-build-oracle-v0.60d-oracle` or another compatible oracle checkout.
 2. Runs parity and divergence suites in each, capturing doctest XML output
 3. Compares pass/fail results and writes a summary to `..\eMule-build-tests\reports\live-diff-summary.txt`
 4. Validates that parity cases pass in both, and divergence cases show the expected dev-pass / oracle-fail pattern
+
+Oracle workspaces are allowed to carry minimal source changes when those changes are strictly for test seams, logging, tracing, or debugging needed to observe legacy behavior.
+
+#### Oracle build and launch reference
+
+Use the oracle-local docs for the full workflow, but the canonical entrypoints are:
+
+| Oracle workspace | Build flow | GUI launch flow | Test/debug launch flow |
+|-------|---------|---------|---------|
+| `eMule-build-oracle-v0.72a-oracle` | `pwsh -File .\workspace.ps1 validate`, `build-libs`, `build-app` | `pwsh -File .\workspace.ps1 run-binary -Config Debug -Dirs local` or the `30-run-emule-*.cmd` wrappers | use `run-binary -Dirs local` or the GUI wrappers; direct `emule.exe -c <profile-dir>` is not supported in this oracle workspace |
+| `eMule-build-oracle-v0.60d-oracle` | `003_build_MSBuild_ALL_libs*.cmd` followed by `build_MSBuild_eMule*.cmd` | `launch_binary_eMule*.cmd` | use `launch_binary_eMule*.cmd`; direct `emule.exe -c <profile-dir>` is not supported in this oracle workspace |
+
+For parity and regression work against oracle workspaces, prefer the supported local-profile launch flows above and keep profile data isolated per oracle line. The explicit `-c` launch form is only available on the latest dev branch.
 
 ---
 

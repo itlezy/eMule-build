@@ -10,5 +10,5 @@ IF ERRORLEVEL 1 (
   EXIT /B 1
 )
 
-PWSH -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%TESTS_ROOT%\scripts\run-live-diff.ps1" -TestRepoRoot "%TESTS_ROOT%" -DevWorkspaceRoot "%WORKSPACE_ROOT%" -OracleWorkspaceRoot "C:\prj\p2p\eMule\eMulebb\eMule-build-oracle" %*
+PWSH -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%TESTS_ROOT%\scripts\run-live-diff.ps1" -TestRepoRoot "%TESTS_ROOT%" -DevWorkspaceRoot "%WORKSPACE_ROOT%" -OracleWorkspaceRoot "C:\prj\p2p\eMule\eMulebb\eMule-build-oracle-v0.72a-oracle" %*
 EXIT /B %ERRORLEVEL%
