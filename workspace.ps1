@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','setup','repair','build-libs','build-app','build-all','normalize','normalize-check')]
+    [ValidateSet('env-check','dep-status','validate','setup','repair','bootstrap','build-libs','build-app','build-all','normalize','normalize-check')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -19,6 +19,7 @@ $Manifest = Import-PowerShellDataFile -Path (Join-Path $Root 'deps.psd1')
 $Workspace = $Manifest.Workspace
 $Dependencies = @($Workspace.Dependencies)
 $AppRepo = $Workspace.AppRepo
+$SeedRepo = $AppRepo.SeedRepo
 $Toolchain = $Workspace.Toolchain
 $ToolsetOverrideVariable = $Toolchain.ToolsetOverrideVariable
 $KnownAppBranches = @{}
@@ -69,6 +70,15 @@ function Get-RepoBranch([string]$Repo) {
 
 function Get-RepoStatus([string]$Repo) {
     @((Invoke-Git $Repo @('status','--short','--branch') 'git status') | Where-Object { $_ })
+}
+
+function Test-RepoClean([string]$Repo) {
+    $status = Invoke-Git $Repo @('status','--porcelain') 'git status'
+    return @($status | Where-Object { $_ }).Count -eq 0
+}
+
+function Get-RepoHead([string]$Repo) {
+    ((Invoke-Git $Repo @('rev-parse','--short','HEAD') 'git rev-parse') -join "`n").Trim()
 }
 
 function Test-GitRef([string]$Repo, [string]$Ref) {
@@ -122,7 +132,7 @@ function Get-ActiveApps {
     $apps = [System.Collections.Generic.List[object]]::new()
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    $seedRepo = Join-Path $Root $AppRepo.SeedRepo
+    $seedRepo = Join-Path $Root $SeedRepo.Path
     if (Test-Path -LiteralPath $seedRepo) {
         $branch = Get-RepoBranch $seedRepo
         if ($KnownAppBranches.ContainsKey($branch)) {
@@ -162,7 +172,7 @@ function Assert-AppLayout {
 }
 
 function Ensure-AppWorktrees {
-    $seedRepo = Join-Path $Root $AppRepo.SeedRepo
+    $seedRepo = Join-Path $Root $SeedRepo.Path
     if (-not (Test-Path -LiteralPath $seedRepo)) {
         throw "Seed eMule repo missing at '$seedRepo'."
     }
@@ -182,6 +192,79 @@ function Ensure-AppWorktrees {
             & git -C $seedRepo branch --track $variant.Branch "origin/$($variant.Branch)" | Out-Null
         }
         Invoke-Native 'git' @('-C', $seedRepo, 'worktree', 'add', $targetPath, $variant.Branch) "git worktree add $($variant.Branch)"
+    }
+}
+
+function Ensure-Repo([string]$Path, [string]$Url, [string]$Branch, [string]$Label) {
+    if (-not (Test-Path -LiteralPath $Path)) {
+        Write-Host "==> Cloning $Label into $Path" -ForegroundColor Cyan
+        if ($Branch) {
+            Invoke-Native 'git' @('clone', '--branch', $Branch, '--single-branch', $Url, $Path) "git clone $Label"
+        } else {
+            Invoke-Native 'git' @('clone', $Url, $Path) "git clone $Label"
+        }
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath (Join-Path $Path '.git'))) {
+        throw "$Label path '$Path' exists but is not a git repository."
+    }
+
+    Write-Host "==> Refreshing $Label" -ForegroundColor Cyan
+    Invoke-Native 'git' @('-C', $Path, 'fetch', '--all', '--prune') "git fetch $Label"
+
+    if (-not $Branch) {
+        return
+    }
+
+    $currentBranch = Get-RepoBranch $Path
+    if ($currentBranch -eq $Branch) {
+        return
+    }
+
+    if (-not (Test-RepoClean $Path)) {
+        throw "$Label at '$Path' is on branch '$currentBranch' but should be '$Branch', and the repo is dirty."
+    }
+
+    if (-not (Test-GitRef $Path "refs/heads/$Branch")) {
+        if (-not (Test-GitRef $Path "refs/remotes/origin/$Branch")) {
+            throw "$Label is missing branch '$Branch' locally and on origin."
+        }
+        Invoke-Native 'git' @('-C', $Path, 'branch', '--track', $Branch, "origin/$Branch") "git branch --track $Label"
+    }
+
+    Invoke-Native 'git' @('-C', $Path, 'switch', $Branch) "git switch $Label"
+}
+
+function Ensure-DependencyRepos {
+    foreach ($dependency in $Dependencies) {
+        $repo = Join-Path $Root $dependency.Repo
+        Ensure-Repo -Path $repo -Url $dependency.Url -Branch $dependency.Branch -Label "dependency '$($dependency.Name)'"
+    }
+}
+
+function Ensure-AppSeedRepo {
+    $repo = Join-Path $Root $SeedRepo.Path
+    Ensure-Repo -Path $repo -Url $SeedRepo.Url -Branch $SeedRepo.Branch -Label 'seed app repo'
+}
+
+function Repair-AppWorktreeMetadata {
+    $seedRepo = Join-Path $Root $SeedRepo.Path
+    if (-not (Test-Path -LiteralPath $seedRepo)) {
+        return
+    }
+
+    $paths = [System.Collections.Generic.List[string]]::new()
+    $paths.Add([IO.Path]::GetFullPath($seedRepo)) | Out-Null
+    foreach ($variant in $AppRepo.Variants) {
+        $targetPath = Join-Path $Root $variant.Path
+        if (Test-Path -LiteralPath $targetPath) {
+            $paths.Add([IO.Path]::GetFullPath($targetPath)) | Out-Null
+        }
+    }
+
+    if ($paths.Count -gt 0) {
+        Invoke-Native 'git' (@('-C', $seedRepo, 'worktree', 'repair') + $paths.ToArray()) 'git worktree repair' -AllowFailure
     }
 }
 
@@ -256,6 +339,20 @@ function Build-Apps {
     }
 }
 
+function Write-WorkspaceSummary {
+    Write-Host ''
+    Write-Host 'Workspace summary' -ForegroundColor Green
+    foreach ($dependency in $Dependencies) {
+        $repo = Join-Path $Root $dependency.Repo
+        if (-not (Test-Path -LiteralPath $repo)) { continue }
+        Write-Host ("DEP {0,-12} {1} {2}" -f $dependency.Name, (Get-RepoBranch $repo), (Get-RepoHead $repo))
+    }
+    foreach ($app in Get-ActiveApps) {
+        Write-Host ("APP {0,-12} {1} {2}" -f $app.Name, $app.Branch, (Get-RepoHead $app.Path))
+    }
+    Write-Host ("Outputs       libs={0} libs_debug={1}" -f (Join-Path $Root 'libs'), (Join-Path $Root 'libs_debug'))
+}
+
 switch ($Command) {
     'env-check' {
         $vs = Get-VsInfo
@@ -288,13 +385,27 @@ switch ($Command) {
     'setup' {
         New-Item -ItemType Directory -Force -Path (Join-Path $Root 'libs') | Out-Null
         New-Item -ItemType Directory -Force -Path (Join-Path $Root 'libs_debug') | Out-Null
+        Ensure-DependencyRepos
+        Ensure-AppSeedRepo
+        Repair-AppWorktreeMetadata
         Ensure-AppWorktrees
         Ensure-PythonPackages
         Assert-AppLayout
     }
     'repair' {
+        Ensure-DependencyRepos
+        Ensure-AppSeedRepo
+        Repair-AppWorktreeMetadata
+        Ensure-AppWorktrees
         Assert-AppLayout
         Ensure-PythonPackages
+    }
+    'bootstrap' {
+        & $PSCommandPath env-check -Config $Config -Platform $Platform
+        & $PSCommandPath setup -Config $Config -Platform $Platform
+        & $PSCommandPath build-libs -Config $Config -Platform $Platform
+        & $PSCommandPath build-app -Config $Config -Platform $Platform
+        Write-WorkspaceSummary
     }
     'validate' {
         & $PSCommandPath env-check -Config $Config -Platform $Platform

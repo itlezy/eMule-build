@@ -28,33 +28,43 @@ Batch wrapper:
 ```cmd
 workspace.cmd env-check
 workspace.cmd setup
+workspace.cmd bootstrap -Config Release
 workspace.cmd validate
 workspace.cmd build-libs -Config Release
 workspace.cmd build-app -Config Release
 workspace.cmd build-all -Config Release
-workspace.cmd normalize
 ```
 
 Direct PowerShell:
 
 ```powershell
 pwsh -File .\workspace.ps1 env-check
-pwsh -File .\workspace.ps1 setup
+pwsh -File .\workspace.ps1 bootstrap -Config Release
 pwsh -File .\workspace.ps1 build-all -Config Debug
 ```
 
 ## Fresh start
 
 ```cmd
-001_clone_git_repos.cmd
-workspace.cmd setup
-workspace.cmd build-all -Config Release
+workspace.cmd bootstrap -Config Release
 ```
 
-`setup` does the following:
+`bootstrap` does the following:
+- validates Visual Studio, Git, PowerShell, and Python
+- clones or refreshes dependency repos
+- clones or refreshes the oracle seed app repo
+- repairs and creates `eMule-v0.60d-*` worktrees when needed
 - creates `libs` and `libs_debug`
-- ensures Python normalizer dependencies are installed
-- creates additional `eMule-v0.60d-*` worktrees when possible
+- ensures Python helper packages are installed
+- builds shared libraries
+- builds all present valid app variants
+
+`setup` remains available for repo/bootstrap preparation without building. It does the following:
+- creates `libs` and `libs_debug`
+- clones or refreshes dependency repos
+- clones or refreshes the oracle seed app repo
+- repairs and creates additional `eMule-v0.60d-*` worktrees when possible
+- ensures Python helper dependencies are installed
 - validates the known app branch layout
 
 ## Legacy wrappers
@@ -81,13 +91,13 @@ Dependencies are installed from:
 requirements-normalizer.txt
 ```
 
-Run a one-time rewrite:
+Manual rewrite:
 
 ```cmd
 workspace.cmd normalize
 ```
 
-Check only:
+Manual check:
 
 ```cmd
 workspace.cmd normalize-check
@@ -96,5 +106,5 @@ workspace.cmd normalize-check
 ## Notes
 
 - `002_create_symlinks.cmd` is deprecated. The supported path now uses direct dependency paths through `v0.60d-workspace.props`.
-- The active in-tree `eMule` checkout is still supported. Additional variants live as `eMule-v0.60d-build` and `eMule-v0.60d-dev` worktrees under this workspace when created by `setup`.
+- The oracle seed repo lives at `eMule-v0.60d-oracle`. Additional variants live as `eMule-v0.60d-build` and `eMule-v0.60d-dev` worktrees under this workspace when created by `setup` or `bootstrap`.
 - The current build flow is x64-focused. The workspace command surface accepts `ARM64` for project-readiness work, but the dependency/project cleanup is still in progress.

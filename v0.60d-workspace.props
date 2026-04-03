@@ -8,7 +8,7 @@
 
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64' or '$(Platform)'=='ARM64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(WorkspaceRoot)eMule-cryptopp-8.4.0;$(WorkspaceRoot)eMule-CxImage-7.02;$(WorkspaceRoot)eMule-id3lib-3.9.1\include;$(WorkspaceRoot)eMule-mbedtls-2.28\include;$(WorkspaceRoot)eMule-miniupnp-2.2.3\miniupnpc\include;$(WorkspaceRoot)eMule-ResizableLib;$(WorkspaceRoot)eMule-zlib-1.2.12;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(WorkspaceRoot)eMule-zlib-1.2.12;$(WorkspaceRoot)eMule-cryptopp-8.4.0;$(WorkspaceRoot)eMule-CxImage-7.02;$(WorkspaceRoot)eMule-CxImage-7.02\CxImage;$(WorkspaceRoot)eMule-id3lib-3.9.1\include;$(WorkspaceRoot)eMule-mbedtls-2.28\include;$(WorkspaceRoot)eMule-miniupnp-2.2.3\miniupnpc\include;$(WorkspaceRoot)eMule-ResizableLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(EmuleWorkspaceLibDir)cryptlib.lib;$(EmuleWorkspaceLibDir)cximage.lib;$(EmuleWorkspaceLibDir)id3lib.lib;$(EmuleWorkspaceLibDir)libpng15.lib;$(EmuleWorkspaceLibDir)mbedTLS.lib;$(EmuleWorkspaceLibDir)miniupnpc.lib;$(EmuleWorkspaceLibDir)ResizableLib.lib;$(EmuleWorkspaceLibDir)zlibstat.lib;%(AdditionalDependencies)</AdditionalDependencies>
