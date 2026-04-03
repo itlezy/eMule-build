@@ -11,7 +11,7 @@ REM Building the whole solution also pulls pngtest/pngvalid, which expect a
 REM separate zlib.lib name that this workspace does not produce.
 REM Pass SolutionDir explicitly because the vcxproj imports zlib.props via
 REM $(SolutionDir) even when built outside the .sln entrypoint.
-MSBuild libpng\\libpng.vcxproj -target:Clean,Build /property:Configuration="Debug Library" /property:Platform=x64 /property:PlatformToolset=%OVERLORD_PLATFORM_TOOLSET% /property:SolutionDir=%CD%\\
+MSBuild libpng\\libpng.vcxproj -target:Clean,Build /property:Configuration="Debug Library" /property:Platform=x64 /property:PlatformToolset=%EMULE_V060_PLATFORM_TOOLSET% /property:SolutionDir=%CD%\\
 
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B %ERRORLEVEL%

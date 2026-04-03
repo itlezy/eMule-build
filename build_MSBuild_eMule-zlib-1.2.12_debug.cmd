@@ -6,7 +6,7 @@ CALL incl_VCVARS64.cmd
 
 CD eMule-zlib-1.2.12\contrib\vstudio\vc17
 
-MSBuild zlibstat.vcxproj -target:Clean,Build /property:Configuration=Debug /property:Platform=x64 /property:PlatformToolset=%OVERLORD_PLATFORM_TOOLSET%
+MSBuild zlibstat.vcxproj -target:Clean,Build /property:Configuration=Debug /property:Platform=x64 /property:PlatformToolset=%EMULE_V060_PLATFORM_TOOLSET%
 
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B %ERRORLEVEL%

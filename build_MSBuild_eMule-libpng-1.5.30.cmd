@@ -6,10 +6,10 @@ CALL incl_VCVARS64.cmd
 
 CD eMule-libpng-1.5.30\projects\vstudio
 
-MSBuild vstudio.sln -target:Clean,Build /property:Configuration="Release Library" /property:Platform=x64
+MSBuild vstudio.sln -target:Clean,Build /property:Configuration="Release Library" /property:Platform=x64 /property:PlatformToolset=%EMULE_V060_PLATFORM_TOOLSET%
 
 IF %ERRORLEVEL% NEQ 0 (
-  PAUSE
+  EXIT /B %ERRORLEVEL%
 ) ELSE (
   CD /D %~dp0
   DEL /Q libs\libpng15*

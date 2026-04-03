@@ -2,58 +2,25 @@
 
 CD /D %~dp0
 
-git clone https://github.com/itlezy/eMule-libpng.git "eMule-libpng-1.5.30"
-CD "eMule-libpng-1.5.30"
-git switch "1.5.30-eMule"
+CALL :ENSURE_REPO "eMule-libpng-1.5.30" "https://github.com/itlezy/eMule-libpng.git" "1.5.30-eMule" || EXIT /B %ERRORLEVEL%
+CALL :ENSURE_REPO "eMule-mbedtls-2.28" "https://github.com/itlezy/eMule-mbedtls.git" "mbedtls-2.28-eMule" || EXIT /B %ERRORLEVEL%
+CALL :ENSURE_REPO "eMule-cryptopp-8.4.0" "https://github.com/itlezy/eMule-cryptopp.git" "CRYPTOPP_8_4_0-eMule" || EXIT /B %ERRORLEVEL%
+CALL :ENSURE_REPO "eMule-zlib-1.2.12" "https://github.com/itlezy/eMule-zlib.git" "v1.2.12-eMule" || EXIT /B %ERRORLEVEL%
+CALL :ENSURE_REPO "eMule-miniupnp-2.2.3" "https://github.com/itlezy/eMule-miniupnp.git" "miniupnpc_2_2_3-eMule" || EXIT /B %ERRORLEVEL%
+CALL :ENSURE_REPO "eMule-CxImage-7.02" "https://github.com/itlezy/eMule-CxImage.git" "master" || EXIT /B %ERRORLEVEL%
+CALL :ENSURE_REPO "eMule-id3lib-3.9.1" "https://github.com/itlezy/eMule-id3lib.git" "v3.9.1" || EXIT /B %ERRORLEVEL%
+CALL :ENSURE_REPO "eMule-ResizableLib" "https://github.com/itlezy/eMule-ResizableLib.git" "master" || EXIT /B %ERRORLEVEL%
+CALL :ENSURE_REPO "eMule" "https://github.com/itlezy/eMule.git" "" || EXIT /B %ERRORLEVEL%
+ECHO Clone/update pass complete. Run `workspace.cmd setup` next.
+EXIT /B 0
 
-CD /D %~dp0
-
-git clone https://github.com/itlezy/eMule-mbedtls.git "eMule-mbedtls-2.28"
-CD "eMule-mbedtls-2.28"
-git switch "mbedtls-2.28-eMule"
-
-CD /D %~dp0
-
-git clone https://github.com/itlezy/eMule-cryptopp.git "eMule-cryptopp-8.4.0"
-CD "eMule-cryptopp-8.4.0"
-git switch "CRYPTOPP_8_4_0-eMule"
-
-CD /D %~dp0
-
-git clone https://github.com/itlezy/eMule-zlib.git "eMule-zlib-1.2.12"
-CD "eMule-zlib-1.2.12"
-git switch "v1.2.12-eMule"
-
-CD /D %~dp0
-
-REM miniupnpc website http://miniupnp.free.fr/files/download.php?file=miniupnpc-2.2.3.tar.gz
-
-git clone https://github.com/itlezy/eMule-miniupnp.git "eMule-miniupnp-2.2.3"
-CD "eMule-miniupnp-2.2.3"
-git switch "miniupnpc_2_2_3-eMule"
-
-REM Inactive repos
-
-CD /D %~dp0
-
-git clone https://github.com/itlezy/eMule-CxImage.git "eMule-CxImage-7.02"
-CD "eMule-CxImage-7.02"
-
-
-CD /D %~dp0
-
-git clone https://github.com/itlezy/eMule-id3lib.git "eMule-id3lib-3.9.1"
-CD "eMule-id3lib-3.9.1"
-git switch "v3.9.1"
-
-CD /D %~dp0
-
-git clone https://github.com/itlezy/eMule-ResizableLib.git
-CD "eMule-ResizableLib"
-
-
-CD /D %~dp0
-
-git clone https://github.com/itlezy/eMule.git
-CD "eMule"
-git switch "v0.60d-build"
+:ENSURE_REPO
+SET "TARGET=%~1"
+SET "URL=%~2"
+SET "BRANCH=%~3"
+IF NOT EXIST "%TARGET%\.git" (
+  git clone "%URL%" "%TARGET%" || EXIT /B %ERRORLEVEL%
+)
+git -C "%TARGET%" fetch --all --prune || EXIT /B %ERRORLEVEL%
+IF NOT "%BRANCH%"=="" git -C "%TARGET%" switch "%BRANCH%" || EXIT /B %ERRORLEVEL%
+EXIT /B 0

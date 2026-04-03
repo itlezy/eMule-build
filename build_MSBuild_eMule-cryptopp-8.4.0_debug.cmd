@@ -6,7 +6,7 @@ CALL incl_VCVARS64.cmd
 
 CD eMule-cryptopp-8.4.0
 
-MSBuild cryptlib.vcxproj -target:Clean,Build /property:Configuration=Debug /property:Platform=x64 /property:PlatformToolset=%OVERLORD_PLATFORM_TOOLSET%
+MSBuild cryptlib.vcxproj -target:Clean,Build /property:Configuration=Debug /property:Platform=x64 /property:PlatformToolset=%EMULE_V060_PLATFORM_TOOLSET%
 
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B %ERRORLEVEL%

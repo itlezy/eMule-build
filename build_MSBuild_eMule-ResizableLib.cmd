@@ -6,10 +6,10 @@ CALL incl_VCVARS64.cmd
 
 CD eMule-ResizableLib\ResizableLib
 
-MSBuild ResizableLib.vcxproj -target:Clean,Build /property:Configuration="Release Static" /property:Platform=x64
+MSBuild ResizableLib.vcxproj -target:Clean,Build /property:Configuration="Release Static" /property:Platform=x64 /property:PlatformToolset=%EMULE_V060_PLATFORM_TOOLSET%
 
 IF %ERRORLEVEL% NEQ 0 (
-  PAUSE
+  EXIT /B %ERRORLEVEL%
 ) ELSE (
   CD /D %~dp0
   DEL /Q libs\ResizableLib*

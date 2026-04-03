@@ -6,7 +6,7 @@ CALL incl_VCVARS64.cmd
 
 CD eMule-ResizableLib\ResizableLib
 
-MSBuild ResizableLib.vcxproj -target:Clean,Build /property:Configuration="Debug Static" /property:Platform=x64 /property:PlatformToolset=%OVERLORD_PLATFORM_TOOLSET%
+MSBuild ResizableLib.vcxproj -target:Clean,Build /property:Configuration="Debug Static" /property:Platform=x64 /property:PlatformToolset=%EMULE_V060_PLATFORM_TOOLSET%
 
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B %ERRORLEVEL%

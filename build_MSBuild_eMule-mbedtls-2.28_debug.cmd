@@ -6,7 +6,7 @@ CALL incl_VCVARS64.cmd
 
 CD eMule-mbedtls-2.28\visualc\VS2010
 
-MSBuild mbedTLS.vcxproj -target:Clean,Build /property:Configuration=Debug /property:Platform=x64 /property:PlatformToolset=%OVERLORD_PLATFORM_TOOLSET%
+MSBuild mbedTLS.vcxproj -target:Clean,Build /property:Configuration=Debug /property:Platform=x64 /property:PlatformToolset=%EMULE_V060_PLATFORM_TOOLSET%
 
 IF %ERRORLEVEL% NEQ 0 (
   EXIT /B %ERRORLEVEL%

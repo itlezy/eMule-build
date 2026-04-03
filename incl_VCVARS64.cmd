@@ -1,8 +1,19 @@
 @ECHO OFF
 
-REM This ext-deps workspace is built on a VS2022-only machine.
-REM Override the legacy v142 project setting at the MSBuild command line
-REM so we can keep the checked-in oracle project files largely unchanged.
-SET OVERLORD_PLATFORM_TOOLSET=v143
+IF "%EMULE_V060_PLATFORM_TOOLSET%"=="" SET "EMULE_V060_PLATFORM_TOOLSET=v143"
 
-CALL "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat"
+SET "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+IF NOT EXIST "%VSWHERE%" SET "VSWHERE=%ProgramFiles%\Microsoft Visual Studio\Installer\vswhere.exe"
+IF NOT EXIST "%VSWHERE%" (
+  ECHO ERROR: vswhere.exe not found. Install Visual Studio 2022 with C++ build tools.
+  EXIT /B 1
+)
+
+FOR /F "usebackq delims=" %%I IN (`"%VSWHERE%" -latest -products * -requires Microsoft.Component.MSBuild -property installationPath`) DO SET "VSINSTALLDIR=%%I"
+IF "%VSINSTALLDIR%"=="" (
+  ECHO ERROR: Unable to locate a Visual Studio installation with MSBuild.
+  EXIT /B 1
+)
+
+CALL "%VSINSTALLDIR%\VC\Auxiliary\Build\vcvars64.bat"
+EXIT /B %ERRORLEVEL%
