@@ -1,3 +1,0 @@
-@ECHO OFF
-CALL "%~dp0workspace.cmd" build-all -Config Release
-EXIT /B %ERRORLEVEL%

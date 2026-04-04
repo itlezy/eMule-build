@@ -8,5 +8,5 @@ IF ERRORLEVEL 1 (
   EXIT /B 1
 )
 
-pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0workspace.ps1" %*
+PWSH -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0workspace.ps1" %*
 EXIT /B %ERRORLEVEL%

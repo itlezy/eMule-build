@@ -2,19 +2,15 @@ root = true
 
 [*]
 charset = utf-8
-end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
-indent_style = space
-indent_size = 4
-
-[*.{cmd,bat}]
-end_of_line = crlf
-indent_style = tab
-trim_trailing_whitespace = false
-
-[*.{sln,vcxproj,vcproj,vcxproj.filters,props,targets,rc}]
-end_of_line = crlf
 
 [*.md]
+end_of_line = lf
 trim_trailing_whitespace = false
+
+[*.patch]
+end_of_line = lf
+
+[*.{ps1,cmd,bat,sln,vcxproj,props}]
+end_of_line = crlf

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Workspace-owned compatibility wrapper for building zlib 1.3.2 via cmake.
+  setup/repair copies this file into eMule-zlib\contrib\vstudio\vc\zlib.vcxproj.
+-->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{745DEC58-EBB3-47A9-A9B8-4C6627C01BF8}</ProjectGuid>
+    <ProjectName>zlib</ProjectName>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="PropertySheets" />
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <PreBuildEvent>
+      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)\..\..\..\cmake-build\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\..\..\" -B "$(MSBuildProjectDirectory)\..\..\..\cmake-build" -G "Visual Studio 17 2022" -A x64 -DZLIB_BUILD_SHARED=OFF -DZLIB_BUILD_TESTING=OFF "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;"</Command>
+      <Message>Configuring zlib 1.3.2 with cmake (if not already configured)</Message>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>cmake --build "$(MSBuildProjectDirectory)\..\..\..\cmake-build" --config Release --target zlibstatic
+IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
+IF NOT EXIST "$(MSBuildProjectDirectory)\x64\Release" MD "$(MSBuildProjectDirectory)\x64\Release"
+COPY /Y "$(MSBuildProjectDirectory)\..\..\..\cmake-build\Release\zs.lib" "$(MSBuildProjectDirectory)\x64\Release\zlib.lib"</Command>
+      <Message>Building zlib Release and copying zs.lib -&gt; x64\Release\zlib.lib</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PreBuildEvent>
+      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)\..\..\..\cmake-build\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\..\..\" -B "$(MSBuildProjectDirectory)\..\..\..\cmake-build" -G "Visual Studio 17 2022" -A x64 -DZLIB_BUILD_SHARED=OFF -DZLIB_BUILD_TESTING=OFF "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;"</Command>
+      <Message>Configuring zlib 1.3.2 with cmake (if not already configured)</Message>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>cmake --build "$(MSBuildProjectDirectory)\..\..\..\cmake-build" --config Debug --target zlibstatic
+IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
+IF NOT EXIST "$(MSBuildProjectDirectory)\x64\Debug" MD "$(MSBuildProjectDirectory)\x64\Debug"
+COPY /Y "$(MSBuildProjectDirectory)\..\..\..\cmake-build\Debug\zsd.lib" "$(MSBuildProjectDirectory)\x64\Debug\zlib.lib"</Command>
+      <Message>Building zlib Debug and copying zsd.lib -&gt; x64\Debug\zlib.lib</Message>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+</Project>

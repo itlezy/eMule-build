@@ -1,5 +1,4 @@
-eMule
-eMule-*
+# eMule and eMule-* are git submodules on build-v0.72a — not ignored
 libs
 libs_debug
 tmp

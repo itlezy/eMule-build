@@ -1,0 +1,321 @@
+diff --git a/ResizableLib/ResizableLayout.cpp b/ResizableLib/ResizableLayout.cpp
+index 80ec8ef..57fcd40 100644
+--- a/ResizableLib/ResizableLayout.cpp
++++ b/ResizableLib/ResizableLayout.cpp
+@@ -72,6 +72,8 @@ void CResizableLayout::AddAnchor(HWND hWnd, ANCHOR anchorTopLeft, ANCHOR anchorB
+ {
+ 	CWnd* pParent = GetResizableWnd();
+ 
++	CleanupInvalidAnchors();
++
+ 	// child window must be valid
+ 	ASSERT(::IsWindow(hWnd));
+ 	// must be child of parent window
+@@ -116,6 +118,35 @@ void CResizableLayout::AddAnchor(HWND hWnd, ANCHOR anchorTopLeft, ANCHOR anchorB
+ 	m_mapLayout.SetAt(hWnd, pos);
+ }
+ 
++/*!
++ *  Remove anchors with invalid HWNDs to avoid stale entries in the layout cache.
++ */
++void CResizableLayout::CleanupInvalidAnchors() const
++{
++	CArray<HWND, HWND> deadKeys;
++	CArray<POSITION, POSITION> deadPositions;
++
++	for (POSITION posMap = m_mapLayout.GetStartPosition(); posMap != NULL; )
++	{
++		HWND hWnd = NULL;
++		POSITION posList = NULL;
++		m_mapLayout.GetNextAssoc(posMap, hWnd, posList);
++		if (!::IsWindow(hWnd))
++		{
++			deadKeys.Add(hWnd);
++			deadPositions.Add(posList);
++		}
++	}
++
++	for (INT_PTR i = 0; i < deadKeys.GetCount(); ++i)
++	{
++		POSITION posList = deadPositions[i];
++		if (posList != NULL)
++			m_listLayout.RemoveAt(posList);
++		m_mapLayout.RemoveKey(deadKeys[i]);
++	}
++}
++
+ /*!
+  *  This function adds all the controls not yet added to the layout manager
+  *  and sets anchor points for its top-left and bottom-right corners.
+diff --git a/ResizableLib/ResizableLayout.h b/ResizableLib/ResizableLayout.h
+index a5473b7..bc6d17f 100644
+--- a/ResizableLib/ResizableLayout.h
++++ b/ResizableLib/ResizableLayout.h
+@@ -138,9 +138,9 @@ class CResizableLayout
+ private:
+ 	//@{
+ 	//! @brief Collection of layout settings for each control
+-	CMap<HWND, HWND, POSITION, POSITION> m_mapLayout;
+-	CList<LAYOUTINFO, LAYOUTINFO&> m_listLayout;
+-	CList<LAYOUTINFO, LAYOUTINFO&> m_listLayoutCB;
++	mutable CMap<HWND, HWND, POSITION, POSITION> m_mapLayout;
++	mutable CList<LAYOUTINFO, LAYOUTINFO&> m_listLayout;
++	mutable CList<LAYOUTINFO, LAYOUTINFO&> m_listLayoutCB;
+ 	//@}
+ 
+ 	//@{
+@@ -162,6 +162,9 @@ private:
+ 	void CalcNewChildPosition(const LAYOUTINFO &layout,
+ 		const CRect &rectParent, CRect &rectChild, UINT *lpFlags) const;
+ 
++	//! @brief Remove anchors whose HWND is no longer valid
++	void CleanupInvalidAnchors() const;
++
+ protected:
+ 	//! @brief Override to initialize resize properties (clipping, refresh)
+ 	virtual void InitResizeProperties(LAYOUTINFO& layout) const;
+diff --git a/ResizableLib/ResizableLib.vcxproj b/ResizableLib/ResizableLib.vcxproj
+index 524afc1..948077d 100644
+--- a/ResizableLib/ResizableLib.vcxproj
++++ b/ResizableLib/ResizableLib.vcxproj
+@@ -1,4 +1,4 @@
+-﻿<?xml version="1.0" encoding="utf-8"?>
++<?xml version="1.0" encoding="utf-8"?>
+ <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+   <ItemGroup Label="ProjectConfigurations">
+     <ProjectConfiguration Include="Debug Static Unicode|Win32">
+@@ -69,104 +69,104 @@
+   <PropertyGroup Label="Globals">
+     <ProjectGuid>{C176053F-C799-4BF4-ABFA-125A4192CEB9}</ProjectGuid>
+     <Keyword>MFCProj</Keyword>
+-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
++    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+   </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Unicode|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Dynamic</UseOfMfc>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Unicode|x64'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Dynamic</UseOfMfc>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Dynamic</UseOfMfc>
+     <CharacterSet>NotSet</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
+-    <UseOfMfc>Dynamic</UseOfMfc>
+-    <CharacterSet>NotSet</CharacterSet>
++    <PlatformToolset>v143</PlatformToolset>
++    <UseOfMfc>Static</UseOfMfc>
++    <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Static Unicode|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Static</UseOfMfc>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Static Unicode|x64'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Static</UseOfMfc>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Static|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Static</UseOfMfc>
+     <CharacterSet>NotSet</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Static|x64'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Static</UseOfMfc>
+     <CharacterSet>NotSet</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Static|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Static</UseOfMfc>
+     <CharacterSet>NotSet</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Static|x64'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Static</UseOfMfc>
+     <CharacterSet>NotSet</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Static Unicode|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Static</UseOfMfc>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Static Unicode|x64'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Static</UseOfMfc>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Unicode|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Dynamic</UseOfMfc>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Unicode|x64'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Dynamic</UseOfMfc>
+     <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
++    <PlatformToolset>v143</PlatformToolset>
+     <UseOfMfc>Dynamic</UseOfMfc>
+     <CharacterSet>NotSet</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+-    <PlatformToolset>v141_xp</PlatformToolset>
+-    <UseOfMfc>Dynamic</UseOfMfc>
+-    <CharacterSet>NotSet</CharacterSet>
++    <PlatformToolset>v143</PlatformToolset>
++    <UseOfMfc>Static</UseOfMfc>
++    <CharacterSet>Unicode</CharacterSet>
+   </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+   <ImportGroup Label="ExtensionSettings">
+@@ -240,67 +240,67 @@
+     <_ProjectFileVersion>14.0.23107.0</_ProjectFileVersion>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Unicode|Win32'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Static Unicode|Win32'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Static|Win32'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Static|Win32'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Static Unicode|Win32'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Unicode|Win32'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Static|x64'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Static Unicode|x64'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Unicode|x64'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Static|x64'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Static Unicode|x64'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Unicode|x64'">
+-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\bin\</OutDir>
++    <OutDir>$(Platform)\$(Configuration)\</OutDir>
+     <IntDir>$(ProjectDir)$(Platform)\$(Configuration)\obj\</IntDir>
+   </PropertyGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+@@ -338,7 +338,7 @@
+       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <StringPooling>true</StringPooling>
+-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+       <FunctionLevelLinking>true</FunctionLevelLinking>
+       <PrecompiledHeader>Use</PrecompiledHeader>
+       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+@@ -677,7 +677,7 @@
+       <Optimization>Disabled</Optimization>
+       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+       <PrecompiledHeader>Use</PrecompiledHeader>
+       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+       <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
+@@ -842,4 +842,4 @@
+   <PropertyGroup>
+     <XPDeprecationWarning>false</XPDeprecationWarning>
+   </PropertyGroup>
+-</Project>
+\ No newline at end of file
++</Project>
