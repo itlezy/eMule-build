@@ -173,7 +173,7 @@ function Get-RepoStatus([string]$Repo) {
             if ($fullPath.StartsWith($repoPath, [System.StringComparison]::OrdinalIgnoreCase)) {
                 $relativeToRepo = $fullPath.Substring($repoPath.Length).TrimStart('\','/')
                 if (-not [string]::IsNullOrWhiteSpace($relativeToRepo)) {
-                    $ignoredPrefixes.Add(($relativeToRepo -replace '\\','/')) | Out-Null
+                    $ignoredPrefixes.Add((($relativeToRepo -replace '\\','/') -replace '/+$','')) | Out-Null
                 }
             }
         }
@@ -184,7 +184,7 @@ function Get-RepoStatus([string]$Repo) {
         Where-Object {
             $entry = $_
             if ($entry.Length -lt 4) { return $true }
-            $path = $entry.Substring(3).Trim() -replace '\\','/'
+            $path = (($entry.Substring(3).Trim() -replace '\\','/') -replace '/+$','')
             foreach ($prefix in $ignoredPrefixes) {
                 if ($path -eq $prefix -or $path.StartsWith("$prefix/")) {
                     return $false

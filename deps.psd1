@@ -68,12 +68,9 @@
             mbedtls = @{
                 ConfigureReady = @(
                     'eMule-mbedtls\visualc\VS2017\CMakeCache.txt'
+                    'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'
                     'eMule-mbedtls\visualc\VS2017\library\mbedtls.vcxproj'
                     'eMule-mbedtls\visualc\VS2017\library\mbedx509.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\core\tfpsacrypto.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\drivers\builtin\builtin.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\drivers\everest\everest.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\tf-psa-crypto\drivers\p256-m\p256-m.vcxproj'
                 )
                 Cleanup = @(
                     'eMule-mbedtls\visualc\VS2017'
