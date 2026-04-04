@@ -11,6 +11,7 @@
 [submodule "eMule-id3lib"]
 	path = eMule-id3lib
 	url = https://github.com/itlezy/eMule-id3lib.git
+	branch = emule-build-v0.72a
 	ignore = all
 	shallow = true
 [submodule "eMule-miniupnp"]
