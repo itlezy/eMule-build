@@ -350,7 +350,7 @@ function Test-GeneratedProjectDefined([string]$Name) {
 }
 
 function Test-WorkspaceTemplateDefined([string]$Name) {
-    $templates = $Workspace.Templates
+    $templates = if ($Workspace.ContainsKey('Templates')) { $Workspace.Templates } else { $null }
     if (-not $templates) { return $false }
     $null -ne $templates[$Name]
 }
@@ -519,10 +519,12 @@ function Get-ExpectedWorkspacePaths {
 
         'patches\miniupnpc-miniupnpc_2_3_3.patch',
         'patches\resizablelib-master.patch',
-        'patches\zlib-v1.3.2.patch',
-        $Workspace.Templates.zlib.Source
+        'patches\zlib-v1.3.2.patch'
     )) {
         $paths.Add($path) | Out-Null
+    }
+    if (Test-WorkspaceTemplateDefined 'zlib') {
+        $paths.Add($Workspace.Templates.zlib.Source) | Out-Null
     }
     if ($DependencyPatches.ContainsKey('mbedtls')) {
         $paths.Add('eMule-mbedtls') | Out-Null
@@ -775,6 +777,7 @@ function Install-MbedTlsWrapper {
 }
 
 function Install-ZlibWrapper {
+    if (-not (Test-WorkspaceTemplateDefined 'zlib')) { return }
     $template = $Workspace.Templates.zlib
     Install-WorkspaceFile $template.Source $template.Destination
 }
