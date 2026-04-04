@@ -116,27 +116,19 @@
 
     Dependencies = @{
         cryptopp = @{
-            Repo   = 'eMule-cryptopp'
-            Patch  = 'cryptopp-CRYPTOPP_8_9_0.patch'
-            Commit = 'Apply eMule build patch: cryptopp-CRYPTOPP_8_9_0.patch'
+            Repo = 'eMule-cryptopp'
         }
         id3lib = @{
-            Repo   = 'eMule-id3lib'
+            Repo = 'eMule-id3lib'
         }
         miniupnp = @{
-            Repo   = 'eMule-miniupnp'
-            Patch  = 'miniupnpc-miniupnpc_2_3_3.patch'
-            Commit = 'Apply eMule build patch: miniupnpc-miniupnpc_2_3_3.patch'
+            Repo = 'eMule-miniupnp'
         }
         ResizableLib = @{
-            Repo   = 'eMule-ResizableLib'
-            Patch  = 'resizablelib-master.patch'
-            Commit = 'Apply eMule build patch: resizablelib-master.patch'
+            Repo = 'eMule-ResizableLib'
         }
         zlib = @{
-            Repo   = 'eMule-zlib'
-            Patch  = 'zlib-v1.3.2.patch'
-            Commit = 'Apply eMule build patch: zlib-v1.3.2.patch'
+            Repo = 'eMule-zlib'
         }
         'mbedtls-tf-psa-crypto' = @{
             Repo   = 'eMule-mbedtls\tf-psa-crypto'
