@@ -87,6 +87,7 @@
                         '-DENABLE_PROGRAMS=OFF'
                         '-DENABLE_TESTING=OFF'
                         '-DGEN_FILES=ON'
+                        '-DCMAKE_POLICY_VERSION_MINIMUM=3.5'
                         '-DCMAKE_POLICY_DEFAULT_CMP0091=NEW'
                         '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>'
                     )
