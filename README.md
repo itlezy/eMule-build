@@ -14,8 +14,8 @@ This is the base workspace branch for the clean `v0.72a` ancestry:
 Branch policy:
 
 - `v0.72a-build-clean` is the full-dependency base workspace for the `v0.72a` line
-- `v0.72a-bugfix-clean` is its strict child and only retargets the app repo to the minimal bugfix stage
-- `v0.72a-broadband-clean` is the first branch allowed to drop deps that the broadband app stage no longer uses
+- `v0.72a-bugfix-clean` is its strict child and retargets the app repo to the minimal bugfix stage without changing the active dependency set
+- `v0.72a-broadband-clean` is the stable child for BB-core app behavior while keeping the same workspace dependency superset
 - `v0.72a-experimental-clean` is the top branch for oracle seams and other unstable changes
 - legacy `v0.72a`, `v0.72a-community`, `v0.72a-broadband-dev`, and `v0.72a-oracle` remain published as frozen source branches
 
@@ -26,7 +26,8 @@ Supported app branch on this workspace branch:
 Dependency policy:
 
 - preserved third-party forks stay pinned as submodules where available
-- dropped deps may still remain on disk in descendant workspaces even when a child app stage no longer wires them into the build
+- the workspace keeps the same pinned dependency superset across all `v0.72a` clean branches
+- child app stages may stop using a dep, but the dep remains present and pinned in the workspace
 
 ---
 
