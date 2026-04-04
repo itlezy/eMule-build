@@ -1,6 +1,6 @@
 @{
     BuildBranch = 'emule-build-v0.72a'
-    AppBuildBranch = 'v0.72a-bugfix-clean'
+    AppBuildBranch = 'v0.72a-broadband-clean'
     Workspace = @{
         Toolchain = @{
             WindowsTargetPlatformVersion = '10.0'
@@ -27,10 +27,17 @@
             Release = @{
                 SourceProject = 'eMule'
                 OutputDir = 'dist'
-                ArchiveName = 'eMule0.72a-bugfix_x64-snapshot.zip'
-                RootDir = 'eMule0.72a-bugfix_x64'
+                ArchiveName = 'eMule0.72a-broadband_x64-snapshot.zip'
+                RootDir = 'eMule0.72a-broadband_x64'
                 BuildInfoName = 'BUILD-INFO.txt'
                 Entry = 'emule.exe'
+                Translations = @{
+                    Solution = 'eMule\srchybrid\lang\lang.sln'
+                    ProjectDir = 'eMule\srchybrid\lang'
+                    OutputDir = 'eMule\srchybrid\x64\lang'
+                    DestinationDir = 'lang'
+                    Configuration = 'Dynamic'
+                }
                 Include = @(
                     @{
                         Source = 'LICENSE'
