@@ -1,5 +1,5 @@
 @{
-    BuildBranch = 'v0.60d-build-clean'
+    BuildBranch = 'v0.60d-experimental-clean'
 
     Workspace = @{
         LogsRoot = 'logs'
@@ -9,9 +9,9 @@
         }
         AppRepo = @{
             SeedRepo = @{
-                Path = 'eMule-v0.60d-build-clean'
+                Path = 'eMule-v0.60d-experimental-clean'
                 Url = 'https://github.com/itlezy/eMule.git'
-                Branch = 'v0.60d-build-clean'
+                Branch = 'v0.60d-experimental-clean'
             }
             Variants = @(
                 @{ Name = 'build'; Branch = 'v0.60d-build-clean'; Path = 'eMule-v0.60d-build-clean' }
