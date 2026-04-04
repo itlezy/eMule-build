@@ -2,11 +2,11 @@
 
 This repository provides a complete build workspace for eMule Community, making it easy to compile eMule and its pinned dependencies from source on Windows.
 
-## Branch `v0.72a-broadband-clean`
+## Branch `v0.72a-experimental-clean`
 
 This is the base workspace branch for the clean `v0.72a` ancestry:
 
-- `v0.72a-broadband-clean`
+- `v0.72a-experimental-clean`
 - `v0.72a-bugfix-clean`
 - `v0.72a-broadband-clean`
 - `v0.72a-experimental-clean`
