@@ -2,7 +2,7 @@
 
 This repository provides a complete build workspace for eMule Community, making it easy to compile eMule and its pinned dependencies from source on Windows.
 
-## Branch `v0.72a-build-clean`
+## Branch `v0.72a-bugfix-clean`
 
 This is the base workspace branch for the clean `v0.72a` ancestry:
 
@@ -14,14 +14,14 @@ This is the base workspace branch for the clean `v0.72a` ancestry:
 Branch policy:
 
 - `v0.72a-build-clean` is the full-dependency base workspace for the `v0.72a` line
-- `v0.72a-bugfix-clean` is its strict child and only retargets the app repo to the minimal bugfix stage
+- `v0.72a-bugfix-clean` is its strict child and retargets the app repo to the minimal bugfix stage without changing the active dependency set
 - `v0.72a-broadband-clean` is the first branch allowed to drop deps that the broadband app stage no longer uses
 - `v0.72a-experimental-clean` is the top branch for oracle seams and other unstable changes
 - legacy `v0.72a`, `v0.72a-community`, `v0.72a-broadband-dev`, and `v0.72a-oracle` remain published as frozen source branches
 
 Supported app branch on this workspace branch:
 
-- `v0.72a-build-clean`
+- `v0.72a-bugfix-clean`
 
 Dependency policy:
 
