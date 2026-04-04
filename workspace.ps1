@@ -508,13 +508,6 @@ function Get-ExpectedWorkspacePaths {
     $paths = [System.Collections.Generic.List[string]]::new()
     foreach ($path in @(
         'deps.psd1',
-        'eMule\srchybrid\emule.vcxproj',
-        'eMule\srchybrid\emule.sln',
-        'eMule-cryptopp\cryptlib.vcxproj',
-        'eMule-id3lib\libprj\id3lib.vcxproj',
-        'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj',
-        'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj',
-        'eMule-zlib',
         'patches\cryptopp-CRYPTOPP_8_9_0.patch',
 
         'patches\miniupnpc-miniupnpc_2_3_3.patch',
@@ -535,6 +528,15 @@ function Get-ExpectedWorkspacePaths {
     }
     if (Test-WorkspaceTemplateDefined 'mbedtls') {
         $paths.Add($Workspace.Templates.mbedtls.Source) | Out-Null
+    }
+    foreach ($name in @($Projects.Keys)) {
+        $project = $Projects[$name]
+        if ($project.Path) {
+            $paths.Add($project.Path) | Out-Null
+        }
+        if ($project.Open) {
+            $paths.Add($project.Open) | Out-Null
+        }
     }
     foreach ($item in @((Get-PackageProfile 'Release').Include)) {
         if ($item.Source) {
