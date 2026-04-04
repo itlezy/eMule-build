@@ -1,1 +1,4 @@
 jsonschema
+jinja2
+packaging
+PyYAML
