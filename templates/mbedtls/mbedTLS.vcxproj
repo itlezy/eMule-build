@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Workspace-owned compatibility wrapper for combining MbedTLS 4.0 component libs.
+  Workspace-owned compatibility wrapper for combining the forked Mbed TLS component libs.
   setup/repair copies this file into eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj.
 -->
 <Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -48,35 +48,26 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)" mkdir "$(OutDir)"
-lib.exe /nologo /OUT:"$(OutDir)mbedtls.lib" "$(MSBuildThisFileDirectory)library\Debug\mbedtls.lib" "$(MSBuildThisFileDirectory)library\Debug\mbedx509.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\core\Debug\tfpsacrypto.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\builtin\builtin.dir\Debug\builtin.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\everest\everest.dir\Debug\everest.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\p256-m\p256m.dir\Debug\p256m.lib"</Command>
+lib.exe /nologo /OUT:"$(OutDir)mbedtls.lib" "$(MSBuildThisFileDirectory)library\Debug\mbedcrypto.lib" "$(MSBuildThisFileDirectory)library\Debug\mbedx509.lib" "$(MSBuildThisFileDirectory)library\Debug\mbedtls.lib"</Command>
       <Message>Combining mbedTLS component libs -&gt; $(OutDir)mbedtls.lib</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)" mkdir "$(OutDir)"
-lib.exe /nologo /OUT:"$(OutDir)mbedtls.lib" "$(MSBuildThisFileDirectory)library\Release\mbedtls.lib" "$(MSBuildThisFileDirectory)library\Release\mbedx509.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\core\Release\tfpsacrypto.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\builtin\builtin.dir\Release\builtin.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\everest\everest.dir\Release\everest.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\p256-m\p256m.dir\Release\p256m.lib"</Command>
+lib.exe /nologo /OUT:"$(OutDir)mbedtls.lib" "$(MSBuildThisFileDirectory)library\Release\mbedcrypto.lib" "$(MSBuildThisFileDirectory)library\Release\mbedx509.lib" "$(MSBuildThisFileDirectory)library\Release\mbedtls.lib"</Command>
       <Message>Combining mbedTLS component libs -&gt; $(OutDir)mbedtls.lib</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ProjectReference Include="library\mbedcrypto.vcxproj">
+      <Project>{A0A0D55A-6CCE-31A6-A062-B0FDB3CFA2B2}</Project>
+    </ProjectReference>
     <ProjectReference Include="library\mbedtls.vcxproj">
       <Project>{A32A45E2-6CCE-31A6-A062-B0FDB3CFA2B2}</Project>
     </ProjectReference>
     <ProjectReference Include="library\mbedx509.vcxproj">
       <Project>{D3C64AC5-8247-35B3-9108-0D37876489D6}</Project>
-    </ProjectReference>
-    <ProjectReference Include="tf-psa-crypto\core\tfpsacrypto.vcxproj">
-      <Project>{AEBF1838-3AF1-35E5-8CCD-A1630560B83D}</Project>
-    </ProjectReference>
-    <ProjectReference Include="tf-psa-crypto\drivers\builtin\builtin.vcxproj">
-      <Project>{3832784E-3078-3367-A299-9E01C69B76BA}</Project>
-    </ProjectReference>
-    <ProjectReference Include="tf-psa-crypto\drivers\everest\everest.vcxproj">
-      <Project>{CB89BD2F-FBB6-3C94-90CE-A3924A232E69}</Project>
-    </ProjectReference>
-    <ProjectReference Include="tf-psa-crypto\drivers\p256-m\p256m.vcxproj">
-      <Project>{38961768-A35A-375F-B7AD-60EF8BEEF095}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
