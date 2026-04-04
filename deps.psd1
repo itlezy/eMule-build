@@ -1,5 +1,5 @@
 @{
-    BuildBranch = 'v0.60d-dev-clean'
+    BuildBranch = 'v0.60d-oracle-clean'
 
     Workspace = @{
         LogsRoot = 'logs'

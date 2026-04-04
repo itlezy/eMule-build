@@ -1,6 +1,6 @@
-# eMule-build `v0.60d-dev-clean`
+# eMule-build `v0.60d-oracle-clean`
 
-This branch is the `dev-clean` child workspace for the `eMule` `v0.60d-*-clean` app stack.
+This branch is the `oracle-clean` child workspace for the `eMule` `v0.60d-*-clean` app stack.
 
 Supported app branches:
 - `v0.60d-build-clean`
@@ -14,7 +14,7 @@ Legacy note:
 Clean workspace family:
 - `v0.60d-build-clean` is the frozen base workspace branch for the `v0.60d` clean line
 - `v0.60d-dev-clean` stays as a strict child of `v0.60d-build-clean` and currently carries policy-only layering
-- `v0.60d-oracle-clean` stays as a strict child of `v0.60d-dev-clean`
+- `v0.60d-oracle-clean` stays as a strict child of `v0.60d-dev-clean` and is the active branch for oracle parity-test work
 - New `v0.60d` line changes should only land on `v0.60d-oracle-clean` for oracle parity-test work
 - If an oracle-side fix is truly shared, promote it downward first and then restack descendants
 
