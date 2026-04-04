@@ -1,5 +1,5 @@
 @{
-    BuildBranch = 'v0.60d'
+    BuildBranch = 'v0.60d-clean'
 
     Workspace = @{
         LogsRoot = 'logs'
@@ -9,14 +9,14 @@
         }
         AppRepo = @{
             SeedRepo = @{
-                Path = 'eMule-v0.60d-oracle'
+                Path = 'eMule-v0.60d-oracle-clean'
                 Url = 'https://github.com/itlezy/eMule.git'
-                Branch = 'v0.60d-oracle'
+                Branch = 'v0.60d-oracle-clean'
             }
             Variants = @(
-                @{ Name = 'build'; Branch = 'v0.60d-build'; Path = 'eMule-v0.60d-build' }
-                @{ Name = 'dev'; Branch = 'v0.60d-dev'; Path = 'eMule-v0.60d-dev' }
-                @{ Name = 'oracle'; Branch = 'v0.60d-oracle'; Path = 'eMule-v0.60d-oracle' }
+                @{ Name = 'build'; Branch = 'v0.60d-build-clean'; Path = 'eMule-v0.60d-build-clean' }
+                @{ Name = 'dev'; Branch = 'v0.60d-dev-clean'; Path = 'eMule-v0.60d-dev-clean' }
+                @{ Name = 'oracle'; Branch = 'v0.60d-oracle-clean'; Path = 'eMule-v0.60d-oracle-clean' }
             )
         }
         Dependencies = @(

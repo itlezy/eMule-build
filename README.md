@@ -1,11 +1,15 @@
-# eMule-build `v0.60d`
+# eMule-build `v0.60d-clean`
 
-This branch is now the unified build workspace for the `eMule` `v0.60d-*` family.
+This branch is the clean build workspace for the `eMule` `v0.60d-*-clean` app stack.
 
 Supported app branches:
-- `v0.60d-build`
-- `v0.60d-dev`
-- `v0.60d-oracle`
+- `v0.60d-build-clean`
+- `v0.60d-dev-clean`
+- `v0.60d-oracle-clean`
+
+Legacy note:
+- The legacy workspace remains on branch `v0.60d`
+- That branch still targets `v0.60d-build`, `v0.60d-dev`, and `v0.60d-oracle`
 
 The workspace keeps shared dependency repos and can keep multiple eMule worktrees side by side under this root.
 
@@ -52,8 +56,8 @@ workspace.cmd bootstrap -Config Release
 `bootstrap` does the following:
 - validates Visual Studio, Git, PowerShell, and Python
 - clones or refreshes dependency repos
-- clones or refreshes the oracle seed app repo
-- repairs and creates `eMule-v0.60d-*` worktrees when needed
+- clones or refreshes the clean oracle seed app repo
+- repairs and creates `eMule-v0.60d-*-clean` worktrees when needed
 - creates `libs` and `libs_debug`
 - ensures Python helper packages are installed
 - builds shared libraries
@@ -62,8 +66,8 @@ workspace.cmd bootstrap -Config Release
 `setup` remains available for repo/bootstrap preparation without building. It does the following:
 - creates `libs` and `libs_debug`
 - clones or refreshes dependency repos
-- clones or refreshes the oracle seed app repo
-- repairs and creates additional `eMule-v0.60d-*` worktrees when possible
+- clones or refreshes the clean oracle seed app repo
+- repairs and creates additional `eMule-v0.60d-*-clean` worktrees when possible
 - ensures Python helper dependencies are installed
 - validates the known app branch layout
 
@@ -106,5 +110,6 @@ workspace.cmd normalize-check
 ## Notes
 
 - `002_create_symlinks.cmd` is deprecated. The supported path now uses direct dependency paths through `v0.60d-workspace.props`.
-- The oracle seed repo lives at `eMule-v0.60d-oracle`. Additional variants live as `eMule-v0.60d-build` and `eMule-v0.60d-dev` worktrees under this workspace when created by `setup` or `bootstrap`.
+- The clean oracle seed repo lives at `eMule-v0.60d-oracle-clean`. Additional variants live as `eMule-v0.60d-build-clean` and `eMule-v0.60d-dev-clean` worktrees under this workspace when created by `setup` or `bootstrap`.
+- The legacy layout remains available on branch `v0.60d` for the pre-restack app family.
 - The current build flow is x64-focused. The workspace command surface accepts `ARM64` for project-readiness work, but the dependency/project cleanup is still in progress.

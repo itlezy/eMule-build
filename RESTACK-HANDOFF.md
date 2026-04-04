@@ -120,3 +120,33 @@ When resuming:
 5. Update workspace metadata to target the `-clean` app family.
 6. Run `workspace.cmd bootstrap -Config Release`.
 7. If green, decide how to document legacy vs clean workspace paths.
+
+## Follow-up completed in eMule-build
+
+On April 4, 2026, the workspace follow-up was resumed in `eMule-build` and moved onto a dedicated clean branch:
+
+- local branch created: `v0.60d-clean`
+- legacy branch preserved: `v0.60d`
+- `deps.psd1` now targets:
+  - seed repo `eMule-v0.60d-oracle-clean`
+  - variants `eMule-v0.60d-build-clean`
+  - variants `eMule-v0.60d-dev-clean`
+  - variants `eMule-v0.60d-oracle-clean`
+- `README.md` now documents `v0.60d-clean` as the clean workspace branch and explicitly points legacy users to `v0.60d`
+
+## Verification completed for eMule-build clean branch
+
+The required workspace acceptance gate passed on April 4, 2026:
+
+- `pwsh -File .\workspace.ps1 validate -Config Release` succeeded
+- `pwsh -File .\workspace.ps1 bootstrap -Config Release` succeeded
+
+Bootstrap summary at completion:
+
+- APP `build` -> `v0.60d-build-clean` at `111d452`
+- APP `dev` -> `v0.60d-dev-clean` at `ae86ab6`
+- APP `oracle` -> `v0.60d-oracle-clean` at `32b4d8c`
+
+## Remaining next step
+
+Decide whether to publish and document `v0.60d-clean` as the preferred workspace branch, now that the clean bootstrap path is green.
