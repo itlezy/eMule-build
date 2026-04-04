@@ -1,6 +1,6 @@
-# eMule-build `v0.60d-build-clean`
+# eMule-build `v0.60d-bugfix-clean`
 
-This branch is the base clean workspace for the `eMule` `v0.60d` four-stage app stack.
+This branch is the `bugfix-clean` child workspace for the `eMule` `v0.60d` four-stage app stack.
 
 Supported app branches:
 - `v0.60d-build-clean`
@@ -124,7 +124,7 @@ workspace.cmd normalize-check
 ## Notes
 
 - `002_create_symlinks.cmd` is deprecated. The supported path now uses direct dependency paths through `v0.60d-workspace.props`.
-- The clean build seed repo lives at `eMule-v0.60d-build-clean`. Additional variants live as `eMule-v0.60d-bugfix-clean`, `eMule-v0.60d-broadband-clean`, and `eMule-v0.60d-experimental-clean` worktrees under this workspace when created by `setup` or `bootstrap`.
+- The clean bugfix seed repo lives at `eMule-v0.60d-bugfix-clean`. Additional variants live as `eMule-v0.60d-build-clean`, `eMule-v0.60d-broadband-clean`, and `eMule-v0.60d-experimental-clean` worktrees under this workspace when created by `setup` or `bootstrap`.
 - The legacy layout remains available on branch `v0.60d` for the pre-restack app family.
 - The clean workspace branches follow the same ancestry rule as the app repo: `build-clean` base, `bugfix-clean` child, `broadband-clean` child of `bugfix-clean`, and `experimental-clean` child of `broadband-clean`.
 - The current build flow is x64-focused. The workspace command surface accepts `ARM64` for project-readiness work, but the dependency/project cleanup is still in progress.
