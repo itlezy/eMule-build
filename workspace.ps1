@@ -90,6 +90,31 @@ function Test-GitRef([string]$Repo, [string]$Ref) {
     return $LASTEXITCODE -eq 0
 }
 
+function Ensure-RemoteTrackingBranch([string]$Repo, [string]$Branch) {
+    if (Test-GitRef $Repo "refs/remotes/origin/$Branch") {
+        return
+    }
+
+    Invoke-Native 'git' @(
+        '-C', $Repo,
+        'fetch', 'origin',
+        "refs/heads/${Branch}:refs/remotes/origin/${Branch}"
+    ) "git fetch origin/$Branch"
+}
+
+function Ensure-LocalBranch([string]$Repo, [string]$Branch) {
+    if (Test-GitRef $Repo "refs/heads/$Branch") {
+        return
+    }
+
+    Ensure-RemoteTrackingBranch $Repo $Branch
+    Invoke-Native 'git' @(
+        '-C', $Repo,
+        'branch', $Branch,
+        "refs/remotes/origin/$Branch"
+    ) "git branch $Branch"
+}
+
 function Get-VsInfo {
     $vswhere = Resolve-Tool @('vswhere.exe', 'vswhere')
     if (-not $vswhere) {
@@ -187,10 +212,7 @@ function Ensure-AppWorktrees {
             continue
         }
 
-        $hasLocal = Test-GitRef $seedRepo "refs/heads/$($variant.Branch)"
-        if (-not $hasLocal) {
-            & git -C $seedRepo branch --track $variant.Branch "origin/$($variant.Branch)" | Out-Null
-        }
+        Ensure-LocalBranch $seedRepo $variant.Branch
         Invoke-Native 'git' @('-C', $seedRepo, 'worktree', 'add', $targetPath, $variant.Branch) "git worktree add $($variant.Branch)"
     }
 }
@@ -227,10 +249,7 @@ function Ensure-Repo([string]$Path, [string]$Url, [string]$Branch, [string]$Labe
     }
 
     if (-not (Test-GitRef $Path "refs/heads/$Branch")) {
-        if (-not (Test-GitRef $Path "refs/remotes/origin/$Branch")) {
-            throw "$Label is missing branch '$Branch' locally and on origin."
-        }
-        Invoke-Native 'git' @('-C', $Path, 'branch', '--track', $Branch, "origin/$Branch") "git branch --track $Label"
+        Ensure-LocalBranch $Path $Branch
     }
 
     Invoke-Native 'git' @('-C', $Path, 'switch', $Branch) "git switch $Label"
