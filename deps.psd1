@@ -101,7 +101,6 @@
         'miniupnp'
         'ResizableLib'
         'zlib'
-        'mbedtls-tf-psa-crypto'
         'mbedtls'
     )
 
@@ -130,24 +129,12 @@
         zlib = @{
             Repo = 'eMule-zlib'
         }
-        'mbedtls-tf-psa-crypto' = @{
-            Repo   = 'eMule-mbedtls\tf-psa-crypto'
-            Patch  = 'mbedtls-tf-psa-crypto-v1.0.0.patch'
-            Commit = 'Apply eMule build patch: mbedtls-tf-psa-crypto-v1.0.0.patch'
-        }
         mbedtls = @{
-            Repo   = 'eMule-mbedtls'
-            Patch  = 'mbedtls-mbedtls-4.0.0.patch'
-            Commit = 'Apply eMule build patch: mbedtls-mbedtls-4.0.0.patch'
+            Repo = 'eMule-mbedtls'
         }
     }
 
-    NestedSubmodules = @(
-        @{
-            ParentRepo = 'eMule-mbedtls'
-            Path = 'tf-psa-crypto'
-        }
-    )
+    NestedSubmodules = @()
 
     Projects = @{
         cryptopp = @{

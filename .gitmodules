@@ -34,6 +34,7 @@
 	shallow = true
 [submodule "eMule-mbedtls"]
 	path = eMule-mbedtls
-	url = https://github.com/Mbed-TLS/mbedtls.git
+	url = https://github.com/itlezy/eMule-mbedtls.git
+	branch = emule-build-v0.72a
 	ignore = all
 	shallow = true

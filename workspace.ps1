@@ -88,6 +88,16 @@ function Get-PerlExe {
     $null
 }
 
+function Get-PythonExe {
+    $python = Resolve-Tool @('python.exe', 'python')
+    if ($python) { return $python }
+
+    $py = Resolve-Tool @('py.exe', 'py')
+    if ($py) { return "$py|-3" }
+
+    $null
+}
+
 function Invoke-Git([string]$Repo, [string[]]$ArgumentList, [string]$Label, [switch]$AllowFailure) {
     $git = Get-GitExe
     if (-not $git) { throw 'git not found on PATH.' }
@@ -519,6 +529,7 @@ function Get-StatusRows {
 function Get-ToolsContext {
     $git = Get-GitExe
     $perl = Get-PerlExe
+    $python = Get-PythonExe
     $cmake = Resolve-Tool @('cmake.exe', 'cmake')
     $vs = Get-VsInfo
     $sdk = Get-SdkInfo
@@ -526,6 +537,7 @@ function Get-ToolsContext {
     [pscustomobject]@{
         Git = $git
         Perl = $perl
+        Python = $python
         CMake = $cmake
         Vs = $vs
         Sdk = $sdk
@@ -541,7 +553,8 @@ function Get-ExpectedWorkspacePaths {
 
         'patches\miniupnpc-miniupnpc_2_3_3.patch',
         'patches\resizablelib-master.patch',
-        'patches\zlib-v1.3.2.patch'
+        'patches\zlib-v1.3.2.patch',
+        'requirements-workspace.txt'
     )) {
         $paths.Add($path) | Out-Null
     }
@@ -550,10 +563,6 @@ function Get-ExpectedWorkspacePaths {
     }
     if ($DependencyPatches.ContainsKey('mbedtls')) {
         $paths.Add('eMule-mbedtls') | Out-Null
-        $paths.Add('patches\mbedtls-mbedtls-4.0.0.patch') | Out-Null
-    }
-    if ($DependencyPatches.ContainsKey('mbedtls-tf-psa-crypto')) {
-        $paths.Add('patches\mbedtls-tf-psa-crypto-v1.0.0.patch') | Out-Null
     }
     if (Test-WorkspaceTemplateDefined 'mbedtls') {
         $paths.Add($Workspace.Templates.mbedtls.Source) | Out-Null
@@ -615,6 +624,21 @@ function Get-ToolReport([string]$Intent, $ToolsContext) {
         'not found; no generated mbedtls profile in this stage'
     }
     Add-Check $results $perlStatus 'perl' $perlDetail
+    $pythonStatus = if ($ToolsContext.Python) {
+        'pass'
+    } elseif ($mbedtlsDefined -and -not $mbedtlsConfigured -and $Intent -in @('general','setup','repair','validate')) {
+        'fail'
+    } else {
+        'warn'
+    }
+    $pythonDetail = if ($ToolsContext.Python) {
+        $ToolsContext.Python
+    } elseif ($mbedtlsDefined) {
+        'not found; required to install mbedtls codegen dependency'
+    } else {
+        'not found; no generated mbedtls profile in this stage'
+    }
+    Add-Check $results $pythonStatus 'python' $pythonDetail
     Add-Check $results ($ToolsContext.CMake ? 'pass' : 'fail') 'cmake' ($ToolsContext.CMake ? $ToolsContext.CMake : 'not found on PATH')
     Add-Check $results ($ToolsContext.Vs.VsWhere ? 'pass' : 'warn') 'vswhere' ($ToolsContext.Vs.VsWhere ? $ToolsContext.Vs.VsWhere : 'not found; using install scan')
     Add-Check $results ($ToolsContext.Vs.Root ? 'pass' : 'fail') 'visual-studio' ($ToolsContext.Vs.Root ? $ToolsContext.Vs.Root : 'Visual Studio 2022 not found')
@@ -745,7 +769,7 @@ function Get-EnvReport([string]$Intent, [string]$Configuration, [string]$Project
     [pscustomobject]@{
         Results = @($results)
         Failed  = (@($results | Where-Object Status -eq 'fail')).Count
-        Tools   = [pscustomobject]@{ Git=$toolsContext.Git; Perl=$toolsContext.Perl; CMake=$toolsContext.CMake; MSBuild=$toolsContext.Vs.MSBuild; DevEnv=$toolsContext.Vs.DevEnv }
+        Tools   = [pscustomobject]@{ Git=$toolsContext.Git; Perl=$toolsContext.Perl; Python=$toolsContext.Python; CMake=$toolsContext.CMake; MSBuild=$toolsContext.Vs.MSBuild; DevEnv=$toolsContext.Vs.DevEnv }
     }
 }
 
@@ -841,10 +865,30 @@ function Invoke-GeneratedProjectConfigure([string]$Name, $EnvReport) {
     Invoke-Native -Exe $EnvReport.Tools.CMake -ArgumentList $args -Label "cmake configure $Name" -WorkDir $null
 }
 
+function Install-WorkspacePythonRequirements($EnvReport) {
+    $requirements = Get-WorkspacePath 'requirements-workspace.txt'
+    if (-not (Test-Path -LiteralPath $requirements)) { return }
+
+    $pythonSpec = $EnvReport.Tools.Python
+    if (-not $pythonSpec) {
+        throw 'python not found on PATH.'
+    }
+
+    $segments = @($pythonSpec -split '\|')
+    $exe = $segments[0]
+    $args = @()
+    if ($segments.Length -gt 1) {
+        $args += $segments[1..($segments.Length - 1)]
+    }
+    $args += @('-m', 'pip', 'install', '-r', $requirements)
+    Invoke-Native -Exe $exe -ArgumentList $args -Label 'python -m pip install -r requirements-workspace.txt' -WorkDir $Root
+}
+
 function Run-Setup {
     $envReport = Get-EnvReport 'setup' $Config $Project
     Show-Report $envReport
     Invoke-Native -Exe $envReport.Tools.Git -ArgumentList @('-C', $Root, 'submodule', 'update', '--init', '--recursive') -Label 'git submodule update' -WorkDir $null
+    Install-WorkspacePythonRequirements $envReport
 
     Ensure-BuildBranch 'eMule' 'eMule' $AppBuildBranch
     foreach ($key in $DependencyOrder) {
