@@ -1,7 +1,7 @@
 [submodule "eMule"]
 	path = eMule
 	url = https://github.com/itlezy/eMule.git
-	branch = v0.72a-broadband-clean
+	branch = v0.72a-experimental-clean
 [submodule "eMule-cryptopp"]
 	path = eMule-cryptopp
 	url = https://github.com/itlezy/eMule-cryptopp.git

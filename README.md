@@ -2,7 +2,7 @@
 
 This repository provides a complete build workspace for eMule Community, making it easy to compile eMule and its pinned dependencies from source on Windows.
 
-## Branch `v0.72a-broadband-clean`
+## Branch `v0.72a-experimental-clean`
 
 This is the base workspace branch for the clean `v0.72a` ancestry:
 
@@ -21,12 +21,12 @@ Branch policy:
 
 Supported app branch on this workspace branch:
 
-- `v0.72a-broadband-clean`
+- `v0.72a-experimental-clean`
 
 Dependency policy:
 
 - preserved third-party forks stay pinned as submodules where available
-- this branch only builds the active broadband dependency set: `cryptopp`, `miniupnp`, `ResizableLib`, and `zlib`
+- this branch keeps the broadband dependency set and layers experimental app-side changes on top
 - dropped deps may still remain on disk in descendant workspaces even when a child app stage no longer wires them into the build
 
 ---

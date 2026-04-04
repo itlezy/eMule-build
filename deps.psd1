@@ -1,6 +1,6 @@
 @{
     BuildBranch = 'emule-build-v0.72a'
-    AppBuildBranch = 'v0.72a-broadband-clean'
+    AppBuildBranch = 'v0.72a-experimental-clean'
     Workspace = @{
         Toolchain = @{
             WindowsTargetPlatformVersion = '10.0'
@@ -17,8 +17,8 @@
             Release = @{
                 SourceProject = 'eMule'
                 OutputDir = 'dist'
-                ArchiveName = 'eMule0.72a-broadband_x64-snapshot.zip'
-                RootDir = 'eMule0.72a-broadband_x64'
+                ArchiveName = 'eMule0.72a-experimental_x64-snapshot.zip'
+                RootDir = 'eMule0.72a-experimental_x64'
                 BuildInfoName = 'BUILD-INFO.txt'
                 Entry = 'emule.exe'
                 Translations = @{
