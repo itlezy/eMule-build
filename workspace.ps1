@@ -98,6 +98,21 @@ function Get-PythonExe {
     $null
 }
 
+function Get-CMakeExe {
+    $cmake = Resolve-Tool @('cmake.exe', 'cmake')
+    if ($cmake) { return $cmake }
+
+    foreach ($candidate in @(
+        'C:\Program Files\Microsoft Visual Studio\18\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe',
+        'C:\Program Files\Microsoft Visual Studio\17\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe',
+        'C:\Program Files\CMake\bin\cmake.exe'
+    )) {
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+    }
+
+    $null
+}
+
 function Invoke-Git([string]$Repo, [string[]]$ArgumentList, [string]$Label, [switch]$AllowFailure) {
     $git = Get-GitExe
     if (-not $git) { throw 'git not found on PATH.' }
@@ -126,6 +141,17 @@ function Invoke-Git([string]$Repo, [string[]]$ArgumentList, [string]$Label, [swi
 
 function Get-GitText([string]$Repo, [string[]]$ArgumentList, [string]$Label, [switch]$AllowFailure) {
     (($null + (Invoke-Git $Repo $ArgumentList $Label -AllowFailure:$AllowFailure)) -join "`n").Trim()
+}
+
+function Test-GitRepo([string]$Repo) {
+    if (-not (Test-Path -LiteralPath $Repo)) { return $false }
+    $gitDir = Join-Path $Repo '.git'
+    if (Test-Path -LiteralPath $gitDir) { return $true }
+
+    $git = Get-GitExe
+    if (-not $git) { return $false }
+    & $git -C $Repo rev-parse --is-inside-work-tree 2>$null | Out-Null
+    $LASTEXITCODE -eq 0
 }
 
 function Test-GitRef([string]$Repo, [string]$Ref) {
@@ -470,7 +496,7 @@ function Get-DependencyBranchState([string]$DependencyKey) {
     $meta = $DependencyPatches[$DependencyKey]
     $repo = Join-Path $Root $meta.Repo
     $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
-    if (-not (Test-Path -LiteralPath $repo)) {
+    if (-not (Test-GitRepo $repo)) {
         return [pscustomobject]@{ Ready=$false; Detail='repo missing' }
     }
 
@@ -489,7 +515,7 @@ function Get-DependencyStatusRows {
         $meta = $DependencyPatches[$key]
         $repo = Join-Path $Root $meta.Repo
         $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
-        if (-not (Test-Path -LiteralPath $repo)) {
+        if (-not (Test-GitRepo $repo)) {
             [pscustomobject]@{
                 Name = $key
                 Repo = $meta.Repo
@@ -530,7 +556,7 @@ function Get-ToolsContext {
     $git = Get-GitExe
     $perl = Get-PerlExe
     $python = Get-PythonExe
-    $cmake = Resolve-Tool @('cmake.exe', 'cmake')
+    $cmake = Get-CMakeExe
     $vs = Get-VsInfo
     $sdk = Get-SdkInfo
     $identity = if ($git) { Get-GitIdentity $Root } else { $null }
