@@ -165,7 +165,7 @@ Locked policy after the clean restack:
 The preferred clean workspace shape is now:
 
 - `v0.60d-build-clean` as the frozen base workspace branch
-- `v0.60d-dev-clean` as a strict child branch kept for ancestry parity
+- `v0.60d-dev-clean` as a strict child branch kept for ancestry parity and policy-only layering
 - `v0.60d-oracle-clean` as the only `v0.60d` workspace branch expected to receive new parity-test related changes
 
 The previously published single-branch workspace path:
