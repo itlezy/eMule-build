@@ -185,12 +185,14 @@ function Get-RepoStatus([string]$Repo) {
             $entry = $_
             if ($entry.Length -lt 4) { return $true }
             $path = (($entry.Substring(3).Trim() -replace '\\','/') -replace '/+$','')
+            $skip = $false
             foreach ($prefix in $ignoredPrefixes) {
                 if ($path -eq $prefix -or $path.StartsWith("$prefix/")) {
-                    return $false
+                    $skip = $true
+                    break
                 }
             }
-            return $true
+            return (-not $skip)
         })
 }
 
