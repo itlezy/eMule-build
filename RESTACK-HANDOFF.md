@@ -150,3 +150,26 @@ Bootstrap summary at completion:
 ## Remaining next step
 
 Decide whether to publish and document `v0.60d-clean` as the preferred workspace branch, now that the clean bootstrap path is green.
+
+## Freeze policy for the v0.60d line
+
+Locked policy after the clean restack:
+
+- the `v0.60d` line is frozen outside oracle parity-test work
+- the app repo should only accept new `v0.60d` changes on `v0.60d-oracle-clean`
+- if an oracle-side fix proves shared, promote it downward before restacking descendants
+- the workspace repo should mirror the same ancestor chain with consistent names
+
+## Planned workspace branch family
+
+The preferred clean workspace shape is now:
+
+- `v0.60d-build-clean` as the frozen base workspace branch
+- `v0.60d-dev-clean` as a strict child branch kept for ancestry parity
+- `v0.60d-oracle-clean` as the only `v0.60d` workspace branch expected to receive new parity-test related changes
+
+The previously published single-branch workspace path:
+
+- `v0.60d-clean`
+
+is transitional and superseded by the layered family above.

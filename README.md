@@ -1,6 +1,6 @@
-# eMule-build `v0.60d-clean`
+# eMule-build `v0.60d-build-clean`
 
-This branch is the clean build workspace for the `eMule` `v0.60d-*-clean` app stack.
+This branch is the base clean build workspace for the `eMule` `v0.60d-*-clean` app stack.
 
 Supported app branches:
 - `v0.60d-build-clean`
@@ -10,6 +10,17 @@ Supported app branches:
 Legacy note:
 - The legacy workspace remains on branch `v0.60d`
 - That branch still targets `v0.60d-build`, `v0.60d-dev`, and `v0.60d-oracle`
+
+Clean workspace family:
+- `v0.60d-build-clean` is the frozen base workspace branch for the `v0.60d` clean line
+- `v0.60d-dev-clean` stays as a strict child of `v0.60d-build-clean`
+- `v0.60d-oracle-clean` stays as a strict child of `v0.60d-dev-clean`
+- New `v0.60d` line changes should only land on `v0.60d-oracle-clean` for oracle parity-test work
+- If an oracle-side fix is truly shared, promote it downward first and then restack descendants
+
+Status:
+- The `v0.60d` line is otherwise frozen
+- The older single-branch workspace path `v0.60d-clean` is transitional and superseded by the layered family above
 
 The workspace keeps shared dependency repos and can keep multiple eMule worktrees side by side under this root.
 
@@ -112,4 +123,5 @@ workspace.cmd normalize-check
 - `002_create_symlinks.cmd` is deprecated. The supported path now uses direct dependency paths through `v0.60d-workspace.props`.
 - The clean oracle seed repo lives at `eMule-v0.60d-oracle-clean`. Additional variants live as `eMule-v0.60d-build-clean` and `eMule-v0.60d-dev-clean` worktrees under this workspace when created by `setup` or `bootstrap`.
 - The legacy layout remains available on branch `v0.60d` for the pre-restack app family.
+- The clean workspace branches follow the same ancestry rule as the app repo: `build-clean` base, `dev-clean` child, `oracle-clean` child of `dev-clean`.
 - The current build flow is x64-focused. The workspace command surface accepts `ARM64` for project-readiness work, but the dependency/project cleanup is still in progress.

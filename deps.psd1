@@ -1,5 +1,5 @@
 @{
-    BuildBranch = 'v0.60d-clean'
+    BuildBranch = 'v0.60d-build-clean'
 
     Workspace = @{
         LogsRoot = 'logs'
