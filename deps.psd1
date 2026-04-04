@@ -9,14 +9,15 @@
         }
         AppRepo = @{
             SeedRepo = @{
-                Path = 'eMule-v0.60d-oracle-clean'
+                Path = 'eMule-v0.60d-build-clean'
                 Url = 'https://github.com/itlezy/eMule.git'
-                Branch = 'v0.60d-oracle-clean'
+                Branch = 'v0.60d-build-clean'
             }
             Variants = @(
                 @{ Name = 'build'; Branch = 'v0.60d-build-clean'; Path = 'eMule-v0.60d-build-clean' }
-                @{ Name = 'dev'; Branch = 'v0.60d-dev-clean'; Path = 'eMule-v0.60d-dev-clean' }
-                @{ Name = 'oracle'; Branch = 'v0.60d-oracle-clean'; Path = 'eMule-v0.60d-oracle-clean' }
+                @{ Name = 'bugfix'; Branch = 'v0.60d-bugfix-clean'; Path = 'eMule-v0.60d-bugfix-clean' }
+                @{ Name = 'broadband'; Branch = 'v0.60d-broadband-clean'; Path = 'eMule-v0.60d-broadband-clean' }
+                @{ Name = 'experimental'; Branch = 'v0.60d-experimental-clean'; Path = 'eMule-v0.60d-experimental-clean' }
             )
         }
         Dependencies = @(
