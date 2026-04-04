@@ -126,7 +126,36 @@ function Test-GitRef([string]$Repo, [string]$Ref) {
 }
 
 function Get-RepoStatus([string]$Repo) {
-    @((Invoke-Git $Repo @('status','--porcelain=v1','--untracked-files=all') 'git status') | Where-Object { $_ })
+    $rootPath = [IO.Path]::GetFullPath($Root).TrimEnd('\','/')
+    $repoPath = [IO.Path]::GetFullPath($Repo).TrimEnd('\','/')
+    $ignoredPrefixes = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($name in @($GeneratedProjects.Keys)) {
+        $profile = $GeneratedProjects[$name]
+        foreach ($relativePath in @($profile.Cleanup)) {
+            $fullPath = [IO.Path]::GetFullPath((Join-Path $Root $relativePath)).TrimEnd('\','/')
+            if ($fullPath.StartsWith($repoPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $relativeToRepo = $fullPath.Substring($repoPath.Length).TrimStart('\','/')
+                if (-not [string]::IsNullOrWhiteSpace($relativeToRepo)) {
+                    $ignoredPrefixes.Add(($relativeToRepo -replace '\\','/')) | Out-Null
+                }
+            }
+        }
+    }
+
+    @((Invoke-Git $Repo @('status','--porcelain=v1','--untracked-files=all') 'git status') |
+        Where-Object { $_ } |
+        Where-Object {
+            $entry = $_
+            if ($entry.Length -lt 4) { return $true }
+            $path = $entry.Substring(3).Trim() -replace '\\','/'
+            foreach ($prefix in $ignoredPrefixes) {
+                if ($path -eq $prefix -or $path.StartsWith("$prefix/")) {
+                    return $false
+                }
+            }
+            return $true
+        })
 }
 
 function Get-RepoBranch([string]$Repo) {
