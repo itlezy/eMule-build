@@ -1,4 +1,5 @@
-# eMule and eMule-* are git submodules on build-v0.72a — not ignored
+# App worktrees are materialized locally.
+eMule-*
 libs
 libs_debug
 tmp

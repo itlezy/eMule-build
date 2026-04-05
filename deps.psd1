@@ -11,8 +11,21 @@
             'logs'
             'dist'
             'tmp'
-            'eMule\srchybrid\x64'
+            'eMule-v0.72a-build-clean\srchybrid\x64'
         )
+        AppRepo = @{
+            SeedRepo = @{
+                Path = 'eMule-v0.72a-build-clean'
+                Url = 'https://github.com/itlezy/eMule.git'
+                Branch = 'v0.72a-build-clean'
+            }
+            Variants = @(
+                @{ Name = 'build'; Branch = 'v0.72a-build-clean'; Path = 'eMule-v0.72a-build-clean' }
+                @{ Name = 'bugfix'; Branch = 'v0.72a-bugfix-clean'; Path = 'eMule-v0.72a-bugfix-clean' }
+                @{ Name = 'broadband'; Branch = 'v0.72a-broadband-clean'; Path = 'eMule-v0.72a-broadband-clean' }
+                @{ Name = 'experimental'; Branch = 'v0.72a-experimental-clean'; Path = 'eMule-v0.72a-experimental-clean' }
+            )
+        }
         Templates = @{
             zlib = @{
                 Source = 'templates\zlib\zlib.vcxproj'
@@ -192,12 +205,12 @@
         }
         eMule = @{
             Kind   = 'msbuild'
-            Path   = 'eMule\srchybrid\emule.vcxproj'
+            Path   = 'eMule-v0.72a-build-clean\srchybrid\emule.vcxproj'
             Output = @{
-                Release = 'eMule\srchybrid\x64\Release\emule.exe'
-                Debug   = 'eMule\srchybrid\x64\Debug\emule.exe'
+                Release = 'eMule-v0.72a-build-clean\srchybrid\x64\Release\emule.exe'
+                Debug   = 'eMule-v0.72a-build-clean\srchybrid\x64\Debug\emule.exe'
             }
-            Open = 'eMule\srchybrid\emule.sln'
+            Open = 'eMule-v0.72a-build-clean\srchybrid\emule.sln'
         }
     }
 }

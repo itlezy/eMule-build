@@ -21,6 +21,8 @@ $PSNativeCommandUseErrorActionPreference = $false
 $Root = Split-Path -Parent $PSCommandPath
 $Manifest = Import-PowerShellDataFile -Path (Join-Path $Root 'deps.psd1')
 $Workspace = $Manifest.Workspace
+$AppRepo = if ($Workspace.ContainsKey('AppRepo')) { $Workspace.AppRepo } else { $null }
+$SeedRepo = if ($null -ne $AppRepo -and $AppRepo.ContainsKey('SeedRepo')) { $AppRepo.SeedRepo } else { $null }
 $GeneratedProjects = $Workspace.GeneratedProjects
 $Toolchain = $Workspace.Toolchain
 $BuildBranch = $Manifest.BuildBranch
@@ -31,6 +33,14 @@ $DependencyOrder = @($Manifest.DependencyOrder)
 $BuildProjects = @($Manifest.BuildProjects)
 $Projects = $Manifest.Projects
 $LogsRoot = Join-Path $Root $Workspace.LogsRoot
+$BuildAppRelativePath = if ($null -ne $SeedRepo -and $SeedRepo.ContainsKey('Path')) { [string]$SeedRepo.Path } else { 'eMule-v0.72a-build-clean' }
+$BuildAppPath = Join-Path $Root $BuildAppRelativePath
+$KnownAppBranches = @{}
+if ($null -ne $AppRepo -and $AppRepo.ContainsKey('Variants')) {
+    foreach ($variant in @($AppRepo.Variants)) {
+        $KnownAppBranches[[string]$variant.Branch] = [string]$variant.Name
+    }
+}
 $RunLogLabel = switch ($Command) {
     'build-project' { "$Command-$Project-$Config" }
     { $_ -in @('build-libs','build-app','build-all','setup','repair','package','run-binary','clean-config','validate') } { "$Command-$Config" }
@@ -202,6 +212,140 @@ function Get-RepoBranch([string]$Repo) {
 
 function Get-RepoHeadShort([string]$Repo) {
     Get-GitText $Repo @('rev-parse','--short','HEAD') 'git rev-parse --short'
+}
+
+function Ensure-RemoteTrackingBranch([string]$Repo, [string]$Branch) {
+    if (Test-GitRef $Repo "refs/remotes/origin/$Branch") { return }
+    Invoke-Git $Repo @('fetch', 'origin', "refs/heads/$Branch`:refs/remotes/origin/$Branch") "git fetch origin/$Branch" | Out-Null
+}
+
+function Ensure-LocalBranch([string]$Repo, [string]$Branch) {
+    if (Test-GitRef $Repo "refs/heads/$Branch") { return }
+    Ensure-RemoteTrackingBranch $Repo $Branch
+    Invoke-Git $Repo @('branch', '--track', $Branch, "origin/$Branch") "git branch $Branch" | Out-Null
+}
+
+function Sync-RepoBranchHead([string]$Repo, [string]$Branch, [string]$Label) {
+    Ensure-RemoteTrackingBranch $Repo $Branch
+
+    $currentBranch = Get-RepoBranch $Repo
+    if ($currentBranch -ne $Branch) {
+        if ((@(Get-RepoStatus $Repo)).Count -ne 0) {
+            throw "$Label at '$Repo' is on branch '$currentBranch' but should be '$Branch', and the repo is dirty."
+        }
+
+        Ensure-LocalBranch $Repo $Branch
+        Invoke-Git $Repo @('switch', $Branch) "git switch $Label" | Out-Null
+    }
+
+    if ((@(Get-RepoStatus $Repo)).Count -ne 0) {
+        throw "$Label at '$Repo' is dirty and cannot be fast-forwarded to origin/$Branch."
+    }
+
+    Invoke-Git $Repo @('merge', '--ff-only', "refs/remotes/origin/$Branch") "git merge --ff-only $Label" | Out-Null
+}
+
+function Get-ActiveApps {
+    $apps = [System.Collections.Generic.List[object]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    if ($null -eq $SeedRepo) { return $apps }
+
+    $seedPath = Join-Path $Root $SeedRepo.Path
+    if (Test-Path -LiteralPath $seedPath) {
+        $branch = Get-RepoBranch $seedPath
+        if ($KnownAppBranches.ContainsKey($branch)) {
+            $fullSeedPath = [IO.Path]::GetFullPath($seedPath)
+            $null = $seen.Add($fullSeedPath)
+            $apps.Add([pscustomobject]@{
+                Name = $KnownAppBranches[$branch]
+                Branch = $branch
+                Path = $fullSeedPath
+                Source = 'seed'
+            }) | Out-Null
+        }
+    }
+
+    foreach ($variant in @($AppRepo.Variants)) {
+        $resolved = Resolve-Path -LiteralPath (Join-Path $Root $variant.Path) -ErrorAction SilentlyContinue
+        if (-not $resolved) { continue }
+        if ($seen.Contains($resolved.Path)) { continue }
+
+        $apps.Add([pscustomobject]@{
+            Name = [string]$variant.Name
+            Branch = Get-RepoBranch $resolved.Path
+            Path = $resolved.Path
+            Source = 'worktree'
+            ExpectedBranch = [string]$variant.Branch
+        }) | Out-Null
+    }
+
+    return $apps
+}
+
+function Assert-AppLayout {
+    if ($null -eq $AppRepo) { return }
+
+    foreach ($app in Get-ActiveApps) {
+        if ($app.PSObject.Properties.Name -contains 'ExpectedBranch' -and $app.Branch -ne $app.ExpectedBranch) {
+            throw "App checkout '$($app.Path)' is on branch '$($app.Branch)', expected '$($app.ExpectedBranch)'."
+        }
+    }
+}
+
+function Ensure-AppSeedRepo {
+    if ($null -eq $SeedRepo) { return }
+
+    $repo = Join-Path $Root $SeedRepo.Path
+    if (-not (Test-GitRepo $repo)) {
+        throw "Seed eMule repo missing at '$repo'. Run git submodule update first."
+    }
+
+    Ensure-LocalBranch $repo ([string]$SeedRepo.Branch)
+    Ensure-BuildBranch $SeedRepo.Path 'eMule' ([string]$SeedRepo.Branch)
+    Sync-RepoBranchHead -Repo $repo -Branch ([string]$SeedRepo.Branch) -Label 'seed app repo'
+}
+
+function Repair-AppWorktreeMetadata {
+    if ($null -eq $AppRepo) { return }
+
+    $seedRepoPath = Join-Path $Root $SeedRepo.Path
+    if (-not (Test-Path -LiteralPath $seedRepoPath)) { return }
+
+    $paths = [System.Collections.Generic.List[string]]::new()
+    $paths.Add([IO.Path]::GetFullPath($seedRepoPath)) | Out-Null
+    foreach ($variant in @($AppRepo.Variants)) {
+        $targetPath = Join-Path $Root $variant.Path
+        if (Test-Path -LiteralPath $targetPath) {
+            $paths.Add([IO.Path]::GetFullPath($targetPath)) | Out-Null
+        }
+    }
+
+    if ($paths.Count -gt 0) {
+        Invoke-Git $seedRepoPath (@('worktree', 'repair') + $paths.ToArray()) 'git worktree repair' -AllowFailure | Out-Null
+    }
+}
+
+function Ensure-AppWorktrees {
+    if ($null -eq $AppRepo) { return }
+
+    $seedRepoPath = Join-Path $Root $SeedRepo.Path
+    if (-not (Test-Path -LiteralPath $seedRepoPath)) {
+        throw "Seed eMule repo missing at '$seedRepoPath'."
+    }
+
+    $currentSeedBranch = Get-RepoBranch $seedRepoPath
+    foreach ($variant in @($AppRepo.Variants)) {
+        $targetPath = Join-Path $Root $variant.Path
+        if (-not (Test-Path -LiteralPath $targetPath)) {
+            if ($currentSeedBranch -eq $variant.Branch) { continue }
+
+            Ensure-LocalBranch $seedRepoPath ([string]$variant.Branch)
+            Invoke-Git $seedRepoPath @('worktree', 'add', $targetPath, ([string]$variant.Branch)) "git worktree add $($variant.Branch)" | Out-Null
+        }
+
+        Sync-RepoBranchHead -Repo $targetPath -Branch ([string]$variant.Branch) -Label "app variant '$($variant.Name)'"
+    }
 }
 
 function Get-GitIdentity([string]$Repo) {
@@ -432,7 +576,11 @@ function Test-WorkspacePaths([string[]]$RelativePaths) {
 }
 
 function Test-GeneratedProjectReady([string]$Name) {
-    Test-WorkspacePaths (Get-GeneratedProjectProfile $Name).ConfigureReady
+    if (-not (Test-WorkspacePaths (Get-GeneratedProjectProfile $Name).ConfigureReady)) {
+        return $false
+    }
+
+    return Test-GeneratedProjectMatchesWorkspace $Name
 }
 
 function Get-GeneratedProjectBuildDir([string]$Name) {
@@ -453,6 +601,47 @@ function Get-GeneratedProjectArtifactName([string]$Name, [string]$Configuration)
         throw "No build artifact defined for $Name/$Configuration."
     }
     $artifactName
+}
+
+function Test-GeneratedProjectMatchesWorkspace([string]$Name) {
+    $profile = Get-GeneratedProjectProfile $Name
+    $buildDir = Get-GeneratedProjectBuildDir $Name
+    $sourceDir = Get-GeneratedProjectSourceDir $Name
+    $cachePath = Join-Path $buildDir 'CMakeCache.txt'
+    if (-not (Test-Path -LiteralPath $cachePath)) {
+        return $false
+    }
+
+    $cache = Get-Content -LiteralPath $cachePath -Raw
+    $expectedSource = [IO.Path]::GetFullPath($sourceDir).Replace('\', '/')
+    $expectedBuild = [IO.Path]::GetFullPath($buildDir).Replace('\', '/')
+    $normalizedCache = $cache.Replace('\', '/')
+    if ($normalizedCache -notmatch [regex]::Escape($expectedSource)) {
+        return $false
+    }
+    if ($normalizedCache -notmatch [regex]::Escape($expectedBuild)) {
+        return $false
+    }
+
+    foreach ($relativePath in @($profile.ConfigureReady)) {
+        if ([IO.Path]::GetExtension([string]$relativePath) -notin @('.vcxproj', '.sln', '.vcxproj.filters')) {
+            continue
+        }
+
+        $fullPath = Get-WorkspacePath $relativePath
+        if (-not (Test-Path -LiteralPath $fullPath)) {
+            return $false
+        }
+
+        $content = (Get-Content -LiteralPath $fullPath -Raw).Replace('\', '/')
+        if ($content -match [regex]::Escape($expectedSource) -or $content -match [regex]::Escape($expectedBuild)) {
+            continue
+        }
+
+        return $false
+    }
+
+    return $true
 }
 
 function Get-PackageProfile([string]$Configuration = 'Release') {
@@ -545,11 +734,11 @@ function Get-StatusRows {
     @(
         [pscustomobject]@{
             Name = 'eMule'
-            Repo = 'eMule'
-            Branch = Get-RepoBranch (Join-Path $Root 'eMule')
-            Head = Get-RepoHeadShort (Join-Path $Root 'eMule')
+            Repo = $BuildAppRelativePath
+            Branch = Get-RepoBranch $BuildAppPath
+            Head = Get-RepoHeadShort $BuildAppPath
             Patch = 'fork'
-            Worktree = if ((@(Get-RepoStatus (Join-Path $Root 'eMule'))).Count -eq 0) { 'clean' } else { 'dirty' }
+            Worktree = if ((@(Get-RepoStatus $BuildAppPath)).Count -eq 0) { 'clean' } else { 'dirty' }
         }
     ) + @(Get-DependencyStatusRows)
 }
@@ -594,6 +783,13 @@ function Get-ExpectedWorkspacePaths {
     }
     if (Test-WorkspaceTemplateDefined 'mbedtls') {
         $paths.Add($Workspace.Templates.mbedtls.Source) | Out-Null
+    }
+    if ($null -ne $AppRepo -and $AppRepo.ContainsKey('Variants')) {
+        foreach ($variant in @($AppRepo.Variants)) {
+            if ($variant.Path) {
+                $paths.Add([string]$variant.Path) | Out-Null
+            }
+        }
     }
     foreach ($name in @($Projects.Keys)) {
         $project = $Projects[$name]
@@ -700,7 +896,7 @@ function Get-WorkspaceReport([string]$Intent, $ToolsContext) {
     $missing = @(Get-ExpectedWorkspacePaths | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })
     Add-Check $results (Get-WorkspaceSeverity $Intent $missing.Count) 'workspace' (($missing.Count -eq 0) ? 'required paths present' : ('missing: ' + ($missing -join ', ')))
 
-    foreach ($path in @('eMule\cryptopp','eMule\zlib','eMule\ResizableLib')) {
+    foreach ($path in @("$BuildAppRelativePath\cryptopp","$BuildAppRelativePath\zlib","$BuildAppRelativePath\ResizableLib")) {
         $full = Join-Path $Root $path
         if ((Test-Path -LiteralPath $full) -and ((Get-Item -LiteralPath $full -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
             Add-Check $results 'warn' 'obsolete-link' $path
@@ -912,20 +1108,7 @@ function Install-WorkspacePythonRequirements($EnvReport) {
     Invoke-Native -Exe $exe -ArgumentList $args -Label 'python -m pip install -r requirements-workspace.txt' -WorkDir $Root
 }
 
-function Run-Setup {
-    $envReport = Get-EnvReport 'setup' $Config $Project
-    Show-Report $envReport
-    Invoke-Native -Exe $envReport.Tools.Git -ArgumentList @('-C', $Root, 'submodule', 'update', '--init', '--recursive') -Label 'git submodule update' -WorkDir $null
-    Install-WorkspacePythonRequirements $envReport
-
-    Ensure-BuildBranch 'eMule' 'eMule' $AppBuildBranch
-    foreach ($key in $DependencyOrder) {
-        Ensure-PatchCommit $key
-    }
-    foreach ($entry in $NestedSubmodules) {
-        Sync-NestedBuildSubmodule $entry
-    }
-
+function Ensure-GeneratedProjectsReady($EnvReport) {
     if (Test-GeneratedProjectDefined 'mbedtls') {
         $mbedBuild = Get-GeneratedProjectBuildDir 'mbedtls'
         $mbedtlsConfiguredNow = $false
@@ -941,9 +1124,28 @@ function Run-Setup {
     }
 
     if (-not (Test-GeneratedProjectReady 'zlib')) {
+        Clean-GeneratedProject 'zlib'
         Invoke-GeneratedProjectConfigure 'zlib' $envReport
     }
     Install-ZlibWrapper
+}
+
+function Run-Setup {
+    $envReport = Get-EnvReport 'setup' $Config $Project
+    Show-Report $envReport
+    Invoke-Native -Exe $envReport.Tools.Git -ArgumentList @('-C', $Root, 'submodule', 'update', '--init', '--recursive') -Label 'git submodule update' -WorkDir $null
+    Install-WorkspacePythonRequirements $envReport
+    Ensure-AppSeedRepo
+    Repair-AppWorktreeMetadata
+    Ensure-AppWorktrees
+    Assert-AppLayout
+    foreach ($key in $DependencyOrder) {
+        Ensure-PatchCommit $key
+    }
+    foreach ($entry in $NestedSubmodules) {
+        Sync-NestedBuildSubmodule $entry
+    }
+    Ensure-GeneratedProjectsReady $envReport
 }
 
 function Ensure-Logs {
@@ -965,6 +1167,13 @@ function Remove-GeneratedTarget([string]$RelativePath) {
 function Clean-MbedTlsGenerated {
     if (-not (Test-GeneratedProjectDefined 'mbedtls')) { return }
     foreach ($path in @((Get-GeneratedProjectProfile 'mbedtls').Cleanup)) {
+        Remove-GeneratedTarget $path
+    }
+}
+
+function Clean-GeneratedProject([string]$Name) {
+    if (-not (Test-GeneratedProjectDefined $Name)) { return }
+    foreach ($path in @((Get-GeneratedProjectProfile $Name).Cleanup)) {
         Remove-GeneratedTarget $path
     }
 }
@@ -999,6 +1208,7 @@ function Build-Libs {
     $envReport = Get-EnvReport 'build-libs' $Config $Project
     Show-Report $envReport
     Ensure-Logs
+    Ensure-GeneratedProjectsReady $envReport
     $cmake = $envReport.Tools.CMake
     $msbuild = $envReport.Tools.MSBuild
     $runLogs = $RunLogs
@@ -1014,22 +1224,20 @@ function Build-Libs {
             Artifact = if ($info.Kind -eq 'cmake') { Get-GeneratedProjectArtifactName $_ $Config } else { $null }
         }
     }
-    $throttleLimit = [Math]::Min([Math]::Max(1, @($defs).Count), [Math]::Max(1, [Environment]::ProcessorCount - 1))
-    $results = $defs | ForEach-Object -Parallel {
-        $def = $_
-        $log = Join-Path $using:runLogs "$($def.Name)-$using:Config.log"
+    $results = foreach ($def in @($defs)) {
+        $log = Join-Path $runLogs "$($def.Name)-$Config.log"
         try {
             if ($def.Kind -eq 'cmake') {
-                & $using:cmake --build $def.Build --config $using:Config --target zlibstatic *> $log
+                & $cmake --build $def.Build --config $Config --target zlibstatic *> $log
                 $code = $LASTEXITCODE
                 if ($code -eq 0) {
                     if (-not (Test-Path -LiteralPath $def.Out)) { $null = New-Item -ItemType Directory -Path $def.Out -Force }
-                    $src = Join-Path $def.Build ($using:Config + '\' + $def.Artifact)
+                    $src = Join-Path $def.Build ($Config + '\' + $def.Artifact)
                     Copy-Item -LiteralPath $src -Destination (Join-Path $def.Out 'zlib.lib') -Force
                 }
             } else {
-                $target = if ($using:skipClean) { 'Build' } else { 'Clean,Build' }
-                & $using:msbuild $def.Path "-target:$target" "/property:Configuration=$using:Config" /property:Platform=x64 /nologo /verbosity:minimal *> $log
+                $target = if ($skipClean) { 'Build' } else { 'Clean,Build' }
+                & $msbuild $def.Path "-target:$target" "/property:Configuration=$Config" /property:Platform=x64 /nologo /verbosity:minimal *> $log
                 $code = $LASTEXITCODE
             }
             [pscustomobject]@{ Name=$def.Name; Success=($code -eq 0); Log=$log; Message=if ($code -eq 0) { '' } else { "exit code $code" } }
@@ -1037,7 +1245,7 @@ function Build-Libs {
             $_ | Out-File -FilePath $log -Append -Encoding utf8
             [pscustomobject]@{ Name=$def.Name; Success=$false; Log=$log; Message=$_.Exception.Message }
         }
-    } -ThrottleLimit $throttleLimit
+    }
     $failed = $results | Where-Object { -not $_.Success }
     foreach ($r in $results | Sort-Object Name) {
         Write-Host ("[{0}] {1}{2}" -f ($(if ($r.Success) { 'PASS' } else { 'FAIL' })), $r.Name, $(if ($r.Success) { '' } else { ": $($r.Message). See $($r.Log)" })) -ForegroundColor ($(if ($r.Success) { 'Green' } else { 'Red' }))
@@ -1085,7 +1293,7 @@ function New-PackageBuildInfo([string]$Configuration = 'Release') {
         "BuiltUtc: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
         "WorkspaceBranch: $workspaceBranch"
         "WorkspaceCommit: $workspaceCommit"
-        "eMuleCommit: $(Get-RepoHeadShort (Get-WorkspacePath 'eMule'))"
+        "eMuleCommit: $(Get-RepoHeadShort $BuildAppPath)"
         "Binary: $(Split-Path -Leaf (Get-OutputPath $sourceProject $Configuration))"
         "BinarySourceDir: $sourceRepoPath"
         "PowerShell: $($PSVersionTable.PSVersion)"
@@ -1145,7 +1353,7 @@ function New-PackageZip([string]$SourceFile, [string]$DestinationZip) {
 function Run-Binary {
     $envReport = Get-EnvReport 'run-binary' $Config 'eMule'
     Show-Report $envReport
-    $dir = Join-Path $Root "eMule\srchybrid\x64\$Config"
+    $dir = Join-Path $BuildAppPath "srchybrid\x64\$Config"
     $source = Join-Path $dir 'emule.exe'
     $launch = {
         param([string]$Suffix, [bool]$Local)
@@ -1253,7 +1461,7 @@ switch ($Command) {
         Invoke-WithWorkspaceLock 'clean-config' {
             $r = Get-EnvReport 'clean-config' $Config 'eMule'
             Show-Report $r
-            $path = Join-Path $Root "eMule\srchybrid\x64\$Config\config"
+            $path = Join-Path $BuildAppPath "srchybrid\x64\$Config\config"
             if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
         }
     }
