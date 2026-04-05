@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','validate-full','setup','repair','bootstrap','build-libs','build-app','build-all','package','normalize','normalize-check')]
+    [ValidateSet('env-check','dep-status','freeze-status','validate','validate-full','setup','repair','bootstrap','build-libs','build-app','build-all','package','normalize','normalize-check')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -27,8 +27,10 @@ $DependencyOrder = if ($Manifest.ContainsKey('DependencyOrder')) { @($Manifest.D
 $BuildProjects = if ($Manifest.ContainsKey('BuildProjects')) { @($Manifest.BuildProjects) } else { @($DependencyOrder) }
 $Projects = if ($Manifest.ContainsKey('Projects')) { $Manifest.Projects } else { @{} }
 $KnownAppBranches = @{}
+$KnownAppVariants = @{}
 foreach ($variant in $AppRepo.Variants) {
     $KnownAppBranches[$variant.Branch] = $variant.Name
+    $KnownAppVariants[$variant.Branch] = $variant
 }
 
 function Resolve-Tool([string[]]$Names) {
@@ -118,7 +120,7 @@ function Ensure-LocalBranch([string]$Repo, [string]$Branch) {
     Ensure-RemoteTrackingBranch $Repo $Branch
     Invoke-Native 'git' @(
         '-C', $Repo,
-        'branch', $Branch,
+        'branch', '--track', $Branch,
         "refs/remotes/origin/$Branch"
     ) "git branch $Branch"
 }
@@ -131,6 +133,76 @@ function Test-GitCommit([string]$Repo, [string]$Commit) {
 
     & $git -C $Repo rev-parse --verify --quiet "$Commit^{commit}" 2>$null | Out-Null
     return $LASTEXITCODE -eq 0
+}
+
+function Get-AppVariant([string]$Branch) {
+    if ($KnownAppVariants.ContainsKey($Branch)) {
+        return $KnownAppVariants[$Branch]
+    }
+
+    $null
+}
+
+function Get-AppMutability([string]$Branch) {
+    $variant = Get-AppVariant $Branch
+    if ($null -eq $variant -or -not $variant.ContainsKey('Mutability')) {
+        return 'editable'
+    }
+
+    return [string]$variant.Mutability
+}
+
+function Test-AppFrozen([string]$Branch) {
+    (Get-AppMutability $Branch) -eq 'frozen'
+}
+
+function Get-RepoUpstream([string]$Repo) {
+    $git = Resolve-Tool @('git.exe', 'git')
+    if (-not $git) {
+        return ''
+    }
+
+    $output = & $git -C $Repo rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        return (($output -join "`n").Trim())
+    }
+
+    $branch = Get-RepoBranch $Repo
+    if ([string]::IsNullOrWhiteSpace($branch) -or $branch -eq 'HEAD') {
+        return ''
+    }
+
+    $remote = (& $git -C $Repo config --get "branch.$branch.remote" 2>$null | Select-Object -First 1)
+    $merge = (& $git -C $Repo config --get "branch.$branch.merge" 2>$null | Select-Object -First 1)
+    if ([string]::IsNullOrWhiteSpace($remote) -or [string]::IsNullOrWhiteSpace($merge)) {
+        return ''
+    }
+
+    $mergeName = [string]$merge
+    foreach ($prefix in @('refs/heads/', 'heads/')) {
+        if ($mergeName.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $mergeName = $mergeName.Substring($prefix.Length)
+            break
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($mergeName)) {
+        return ''
+    }
+
+    return "$remote/$mergeName"
+}
+
+function Ensure-BranchUpstream([string]$Repo, [string]$Branch) {
+    Ensure-RemoteTrackingBranch $Repo $Branch
+    $upstream = Get-RepoUpstream $Repo
+    $expected = "origin/$Branch"
+    if ($upstream -eq $expected) {
+        return
+    }
+
+    Invoke-Native 'git' @('-C', $Repo, 'config', "branch.$Branch.remote", 'origin') "git config branch.$Branch.remote"
+    Invoke-Native 'git' @('-C', $Repo, 'config', "branch.$Branch.merge", "refs/heads/$Branch") "git config branch.$Branch.merge"
 }
 
 function Get-VsInfo {
@@ -179,12 +251,16 @@ function Get-ActiveApps {
     if (Test-Path -LiteralPath $seedRepo) {
         $branch = Get-RepoBranch $seedRepo
         if ($KnownAppBranches.ContainsKey($branch)) {
+            $variant = Get-AppVariant $branch
             $null = $seen.Add([IO.Path]::GetFullPath($seedRepo))
             $apps.Add([pscustomobject]@{
                 Name = $KnownAppBranches[$branch]
                 Branch = $branch
                 Path = $seedRepo
                 Source = 'seed'
+                Mutability = Get-AppMutability $branch
+                Upstream = Get-RepoUpstream $seedRepo
+                ExpectedBranch = if ($null -ne $variant) { [string]$variant.Branch } else { $branch }
             }) | Out-Null
         }
     }
@@ -200,6 +276,8 @@ function Get-ActiveApps {
             Path = $path.Path
             Source = 'worktree'
             ExpectedBranch = $variant.Branch
+            Mutability = if ($variant.ContainsKey('Mutability')) { [string]$variant.Mutability } else { 'editable' }
+            Upstream = Get-RepoUpstream $path.Path
         }) | Out-Null
     }
 
@@ -214,6 +292,28 @@ function Assert-AppLayout {
     }
 }
 
+function Get-AppFreezeRows {
+    $rows = [System.Collections.Generic.List[object]]::new()
+    foreach ($app in Get-ActiveApps) {
+        $dirty = -not (Test-RepoClean $app.Path)
+        $rows.Add([pscustomobject]@{
+                Name = $app.Name
+                Branch = $app.Branch
+                Mutability = $app.Mutability
+                Upstream = if ([string]::IsNullOrWhiteSpace($app.Upstream)) { '(none)' } else { $app.Upstream }
+                Worktree = if ($dirty) { 'dirty' } else { 'clean' }
+                FreezeStatus = if ($app.Mutability -eq 'frozen') {
+                    if ($dirty) { 'violation' } else { 'ok' }
+                } else {
+                    if ($dirty) { 'allowed-dirty' } else { 'ok' }
+                }
+                Path = $app.Path
+            }) | Out-Null
+    }
+
+    $rows
+}
+
 function Ensure-AppWorktrees {
     $seedRepo = Join-Path $Root $SeedRepo.Path
     if (-not (Test-Path -LiteralPath $seedRepo)) {
@@ -225,6 +325,7 @@ function Ensure-AppWorktrees {
         $targetPath = Join-Path $Root $variant.Path
         if (-not (Test-Path -LiteralPath $targetPath)) {
             if ($currentSeedBranch -eq $variant.Branch) {
+                Ensure-BranchUpstream -Repo $seedRepo -Branch $variant.Branch
                 continue
             }
 
@@ -232,7 +333,25 @@ function Ensure-AppWorktrees {
             Invoke-Native 'git' @('-C', $seedRepo, 'worktree', 'add', $targetPath, $variant.Branch) "git worktree add $($variant.Branch)"
         }
 
+        $currentBranch = Get-RepoBranch $targetPath
+        if ($currentBranch -ne $variant.Branch) {
+            Sync-RepoBranchHead -Path $targetPath -Branch $variant.Branch -Label "app variant '$($variant.Name)'"
+            Ensure-BranchUpstream -Repo $targetPath -Branch $variant.Branch
+            continue
+        }
+
+        if (-not (Test-RepoClean $targetPath)) {
+            if (($variant.ContainsKey('Mutability') ? [string]$variant.Mutability : 'editable') -eq 'editable') {
+                Write-Host "==> Leaving editable app variant '$($variant.Name)' dirty and unsynced" -ForegroundColor Yellow
+                Ensure-BranchUpstream -Repo $targetPath -Branch $variant.Branch
+                continue
+            }
+
+            throw "Frozen app variant '$($variant.Name)' at '$targetPath' is dirty."
+        }
+
         Sync-RepoBranchHead -Path $targetPath -Branch $variant.Branch -Label "app variant '$($variant.Name)'"
+        Ensure-BranchUpstream -Repo $targetPath -Branch $variant.Branch
     }
 }
 
@@ -324,6 +443,7 @@ function Ensure-AppSeedRepo {
     $repo = Join-Path $Root $SeedRepo.Path
     Ensure-Repo -Path $repo -Url $SeedRepo.Url -Branch $SeedRepo.Branch -Label 'seed app repo'
     Sync-RepoBranchHead -Path $repo -Branch $SeedRepo.Branch -Label 'seed app repo'
+    Ensure-BranchUpstream -Repo $repo -Branch $SeedRepo.Branch
 }
 
 function Repair-AppWorktreeMetadata {
@@ -478,6 +598,19 @@ function Get-WorkspaceReport {
         $ready = Test-GeneratedProjectReady $name
         $profile = Get-GeneratedProjectProfile $name
         Add-Check $results $(if ($ready) { 'pass' } else { 'fail' }) "$name-configure" $(if ($ready) { ($profile.ConfigureReady -join ', ') } else { 'missing or incomplete; run setup/repair' })
+    }
+
+    foreach ($app in Get-ActiveApps) {
+        $dirty = -not (Test-RepoClean $app.Path)
+        $upstreamName = if ([string]::IsNullOrWhiteSpace($app.Upstream)) { '(none)' } else { $app.Upstream }
+
+        Add-Check $results $(if ([string]::IsNullOrWhiteSpace($app.Upstream)) { 'fail' } else { 'pass' }) "$($app.Name)-upstream" $(if ([string]::IsNullOrWhiteSpace($app.Upstream)) { "missing upstream for $($app.Branch)" } else { $upstreamName })
+
+        if ($app.Mutability -eq 'frozen') {
+            Add-Check $results $(if ($dirty) { 'fail' } else { 'pass' }) "$($app.Name)-freeze" $(if ($dirty) { "frozen branch dirty: $($app.Branch)" } else { "frozen branch clean: $($app.Branch)" })
+        } else {
+            Add-Check $results $(if ($dirty) { 'warn' } else { 'pass' }) "$($app.Name)-freeze" $(if ($dirty) { "editable branch dirty: $($app.Branch)" } else { "editable branch clean: $($app.Branch)" })
+        }
     }
 
     @($results)
@@ -779,8 +912,16 @@ switch ($Command) {
         }
         foreach ($app in Get-ActiveApps) {
             $status = (Get-RepoStatus $app.Path) -join '; '
-            Write-Host ("APP {0} [{1}] {2}" -f $app.Path, $app.Branch, $status)
+            $upstream = if ([string]::IsNullOrWhiteSpace($app.Upstream)) { '(none)' } else { $app.Upstream }
+            Write-Host ("APP {0} [{1}] [{2}] upstream={3} {4}" -f $app.Path, $app.Branch, $app.Mutability, $upstream, $status)
         }
+    }
+    'freeze-status' {
+        Get-AppFreezeRows |
+            Select-Object Name,Mutability,Branch,Upstream,Worktree,FreezeStatus,Path |
+            Format-Table -AutoSize |
+            Out-String -Width 240 |
+            Write-Host
     }
     'setup' {
         New-Item -ItemType Directory -Force -Path (Join-Path $Root 'libs') | Out-Null

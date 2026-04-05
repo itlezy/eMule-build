@@ -15,10 +15,10 @@
             }
             CompareSubdir = 'srchybrid'
             Variants = @(
-                @{ Name = 'build'; Branch = 'v0.60d-build-clean'; Path = 'eMule-v0.60d-build-clean' }
-                @{ Name = 'bugfix'; Branch = 'v0.60d-bugfix-clean'; Path = 'eMule-v0.60d-bugfix-clean' }
-                @{ Name = 'broadband'; Branch = 'v0.60d-broadband-clean'; Path = 'eMule-v0.60d-broadband-clean' }
-                @{ Name = 'experimental'; Branch = 'v0.60d-experimental-clean'; Path = 'eMule-v0.60d-experimental-clean' }
+                @{ Name = 'build'; Branch = 'v0.60d-build-clean'; Path = 'eMule-v0.60d-build-clean'; Mutability = 'frozen' }
+                @{ Name = 'bugfix'; Branch = 'v0.60d-bugfix-clean'; Path = 'eMule-v0.60d-bugfix-clean'; Mutability = 'frozen' }
+                @{ Name = 'broadband'; Branch = 'v0.60d-broadband-clean'; Path = 'eMule-v0.60d-broadband-clean'; Mutability = 'frozen' }
+                @{ Name = 'experimental'; Branch = 'v0.60d-experimental-clean'; Path = 'eMule-v0.60d-experimental-clean'; Mutability = 'editable' }
             )
         }
         Package = @{

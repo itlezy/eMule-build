@@ -45,6 +45,7 @@ Batch wrapper:
 
 ```cmd
 workspace.cmd env-check
+workspace.cmd freeze-status
 workspace.cmd setup
 workspace.cmd bootstrap -Config Release
 workspace.cmd validate
@@ -57,9 +58,19 @@ Direct PowerShell:
 
 ```powershell
 pwsh -File .\workspace.ps1 env-check
+pwsh -File .\workspace.ps1 freeze-status
 pwsh -File .\workspace.ps1 bootstrap -Config Release
 pwsh -File .\workspace.ps1 build-all -Config Debug
 ```
+
+## Freeze policy
+
+- `v0.60d-build-clean`, `v0.60d-bugfix-clean`, and `v0.60d-broadband-clean` are frozen reference branches.
+- `v0.60d-experimental-clean` is the only editable app-source branch for normal `v0.60d` work.
+- `validate` now fails if a frozen app worktree is dirty.
+- `validate` also fails if an app worktree has no upstream tracking branch.
+- `setup` and `repair` keep syncing frozen branches, but they leave a dirty `experimental` worktree untouched instead of forcing it clean.
+- `freeze-status` reports each app variant as `frozen` or `editable`, along with upstream and current freeze state.
 
 ## Fresh start
 
