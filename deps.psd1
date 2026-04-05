@@ -19,6 +19,7 @@
                 Url = 'https://github.com/itlezy/eMule.git'
                 Branch = 'v0.72a-build-clean'
             }
+            CompareSubdir = 'srchybrid'
             Variants = @(
                 @{ Name = 'build'; Branch = 'v0.72a-build-clean'; Path = 'eMule-v0.72a-build-clean' }
                 @{ Name = 'bugfix'; Branch = 'v0.72a-bugfix-clean'; Path = 'eMule-v0.72a-bugfix-clean' }
