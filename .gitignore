@@ -3,6 +3,7 @@ eMule-*
 libs
 libs_debug
 tmp
+runtime/
 
 *.zip
 

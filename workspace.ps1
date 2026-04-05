@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','freeze-status','validate','validate-full','setup','repair','bootstrap','build-libs','build-app','build-all','package','normalize','normalize-check')]
+    [ValidateSet('env-check','dep-status','freeze-status','validate','validate-full','setup','repair','bootstrap','build-libs','build-app','build-all','build-experimental','package','normalize','normalize-check','parity-swarm-prepare','parity-swarm-start','parity-swarm-stop','parity-swarm-collect')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -16,6 +16,8 @@ $PSNativeCommandUseErrorActionPreference = $false
 
 $Root = Split-Path -Parent $PSCommandPath
 $Manifest = Import-PowerShellDataFile -Path (Join-Path $Root 'deps.psd1')
+$ParitySwarmManifestPath = Join-Path $Root 'scripts\parity-swarm.psd1'
+$ParitySwarm = if (Test-Path -LiteralPath $ParitySwarmManifestPath) { Import-PowerShellDataFile -Path $ParitySwarmManifestPath } else { $null }
 $Workspace = $Manifest.Workspace
 $Dependencies = @($Workspace.Dependencies)
 $AppRepo = $Workspace.AppRepo
@@ -900,6 +902,341 @@ function Get-ToolsContext {
     }
 }
 
+function Get-ExperimentalVariant {
+    @($AppRepo.Variants | Where-Object { $_.Name -eq 'experimental' })[0]
+}
+
+function Get-ExperimentalProjectPath {
+    Join-Path (Join-Path $Root (Get-ExperimentalVariant).Path) 'srchybrid\emule.vcxproj'
+}
+
+function Get-ExperimentalOutputPath([string]$Configuration) {
+    if ($ParitySwarm -and $ParitySwarm.ExperimentalOutput -and $ParitySwarm.ExperimentalOutput[$Configuration]) {
+        return Join-Path $Root $ParitySwarm.ExperimentalOutput[$Configuration]
+    }
+
+    Join-Path (Join-Path $Root (Get-ExperimentalVariant).Path) "srchybrid\x64\$Configuration\emule.exe"
+}
+
+function Build-ExperimentalApp {
+    $msbuild = (Get-VsInfo).MSBuild
+    if (-not $msbuild -or -not (Test-Path -LiteralPath $msbuild)) {
+        throw 'MSBuild.exe was not found in the detected Visual Studio installation.'
+    }
+
+    $variant = Get-ExperimentalVariant
+    $project = Get-ExperimentalProjectPath
+    if (-not (Test-Path -LiteralPath $project)) {
+        throw "Experimental app project missing at '$project'."
+    }
+
+    Write-Host "==> Building eMule [experimental] $script:Config/$script:Platform" -ForegroundColor Cyan
+    $workspaceRoot = [IO.Path]::GetFullPath($Root) + '\'
+    $arguments = @(
+        $project,
+        '-target:Build',
+        "/property:Configuration=$script:Config",
+        "/property:Platform=$script:Platform",
+        "/property:WorkspaceRoot=$workspaceRoot"
+    )
+    $override = [Environment]::GetEnvironmentVariable($ToolsetOverrideVariable)
+    if ($override) {
+        $arguments += "/property:PlatformToolset=$override"
+    }
+    Invoke-Native $msbuild $arguments 'MSBuild eMule [experimental]' (Join-Path $Root $variant.Path)
+}
+
+function Get-ParitySwarmConfig {
+    if (-not $ParitySwarm) {
+        throw "Parity swarm manifest missing at '$ParitySwarmManifestPath'."
+    }
+    $ParitySwarm
+}
+
+function Get-ParitySwarmRuntimeRoot {
+    Join-Path $Root (Get-ParitySwarmConfig).RuntimeRoot
+}
+
+function Get-ParitySwarmStatePath {
+    Join-Path $Root (Get-ParitySwarmConfig).StateFile
+}
+
+function Get-ParitySwarmReadyFileName {
+    [string](Get-ParitySwarmConfig).ReadyFileName
+}
+
+function Get-ParitySwarmProfileRoot([object]$Node) {
+    Join-Path (Get-ParitySwarmRuntimeRoot) ("profiles\{0}" -f $Node.Name)
+}
+
+function Get-ParitySwarmRunRoot([string]$RunId) {
+    Join-Path (Get-ParitySwarmRuntimeRoot) ("runs\{0}" -f $RunId)
+}
+
+function Get-ParitySwarmState {
+    $path = Get-ParitySwarmStatePath
+    if (-not (Test-Path -LiteralPath $path)) {
+        return $null
+    }
+
+    Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+}
+
+function Save-ParitySwarmState([object]$State) {
+    $path = Get-ParitySwarmStatePath
+    $parent = Split-Path -Parent $path
+    if (-not (Test-Path -LiteralPath $parent)) {
+        $null = New-Item -ItemType Directory -Path $parent -Force
+    }
+    $State | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $path -Encoding utf8NoBOM
+}
+
+function Remove-ParitySwarmState {
+    $path = Get-ParitySwarmStatePath
+    if (Test-Path -LiteralPath $path) {
+        Remove-Item -LiteralPath $path -Force
+    }
+}
+
+function Get-ParitySwarmPreferencesContent([object]$Node) {
+@"
+[eMule]
+Port=$($Node.TcpPort)
+UDPPort=$($Node.UdpPort)
+ServerUDPPort=$($Node.ServerUdpPort)
+BindAddr=$($Node.BindAddr)
+AllowLocalHostIP=1
+FilterBadIPs=0
+Autoconnect=1
+StartupMinimized=1
+MinToTray=1
+BringToFront=0
+Splashscreen=0
+SaveLogToDisk=1
+SaveDebugToDisk=1
+Verbose=1
+OnlineSignature=0
+AutoTakeED2KLinks=0
+AutoConnectStaticOnly=0
+Serverlist=0
+AddServersFromServer=0
+AddServersFromClient=0
+NetworkKademlia=1
+NetworkED2K=0
+OpenPortsOnStartUp=0
+EnableScheduler=0
+KadUDPKey=$($Node.KadUdpKey)
+CreateCrashDump=0
+
+[WebServer]
+Enabled=0
+Port=$($Node.WebPort)
+WebUseUPnP=0
+
+[UPnP]
+EnableUPnP=0
+CloseUPnPOnExit=0
+"@
+}
+
+function Ensure-ParitySwarmProfile([object]$Node) {
+    $profileRoot = Get-ParitySwarmProfileRoot $Node
+    $configRoot = Join-Path $profileRoot 'config'
+    foreach ($path in @($profileRoot, $configRoot, (Join-Path $profileRoot 'logs'), (Join-Path $profileRoot 'Incoming'), (Join-Path $profileRoot 'Temp'))) {
+        if (-not (Test-Path -LiteralPath $path)) {
+            $null = New-Item -ItemType Directory -Path $path -Force
+        }
+    }
+
+    $preferencesPath = Join-Path $configRoot 'preferences.ini'
+    Set-Content -LiteralPath $preferencesPath -Value (Get-ParitySwarmPreferencesContent $Node) -Encoding ascii
+}
+
+function Reset-ParitySwarmProfile([object]$Node) {
+    Ensure-ParitySwarmProfile $Node
+    $profileRoot = Get-ParitySwarmProfileRoot $Node
+    $configRoot = Join-Path $profileRoot 'config'
+
+    foreach ($path in @((Join-Path $profileRoot 'logs'), (Join-Path $profileRoot 'Incoming'), (Join-Path $profileRoot 'Temp'))) {
+        if (Test-Path -LiteralPath $path) {
+            Get-ChildItem -LiteralPath $path -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $keep = @('preferences.ini', 'preferences.dat', 'preferencesKad.dat', 'cryptkey.dat', 'collectioncryptkey.dat')
+    if (Test-Path -LiteralPath $configRoot) {
+        foreach ($item in Get-ChildItem -LiteralPath $configRoot -Force -ErrorAction SilentlyContinue) {
+            if ($keep -contains $item.Name) {
+                continue
+            }
+            Remove-Item -LiteralPath $item.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    foreach ($file in @('harness.ready', 'status.log')) {
+        $path = Join-Path $profileRoot $file
+        if (Test-Path -LiteralPath $path) {
+            Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Wait-ParitySwarmReadyFile([string]$Path, [int]$TimeoutSeconds = 60) {
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-Path -LiteralPath $Path) {
+            return
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    throw "Timed out waiting for readiness marker '$Path'."
+}
+
+function Get-ParitySwarmProcessFallback([string]$ProfileRoot) {
+    Get-CimInstance Win32_Process -Filter "Name = 'emule.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -and $_.CommandLine -like "*$ProfileRoot*" }
+}
+
+function Invoke-ParitySwarmCliCommand([string]$ExePath, [string]$ProfileRoot, [string]$CommandText) {
+    $arguments = @("-configdir=""$ProfileRoot""", $CommandText)
+    $process = Start-Process -FilePath $ExePath -ArgumentList $arguments -WindowStyle Minimized -PassThru
+    Wait-Process -Id $process.Id -Timeout 10 -ErrorAction SilentlyContinue
+}
+
+function Collect-ParitySwarmOutputs([object]$State) {
+    if ($null -eq $State) {
+        return
+    }
+
+    $runRoot = Get-ParitySwarmRunRoot $State.RunId
+    if (-not (Test-Path -LiteralPath $runRoot)) {
+        $null = New-Item -ItemType Directory -Path $runRoot -Force
+    }
+
+    foreach ($node in @($State.Nodes)) {
+        $targetRoot = Join-Path $runRoot $node.Name
+        if (-not (Test-Path -LiteralPath $targetRoot)) {
+            $null = New-Item -ItemType Directory -Path $targetRoot -Force
+        }
+
+        foreach ($path in @(
+            (Join-Path $node.ProfileRoot 'harness.ready'),
+            (Join-Path $node.ProfileRoot 'status.log')
+        )) {
+            if (Test-Path -LiteralPath $path) {
+                Copy-Item -LiteralPath $path -Destination (Join-Path $targetRoot (Split-Path -Leaf $path)) -Force
+            }
+        }
+
+        $logRoot = Join-Path $node.ProfileRoot 'logs'
+        if (Test-Path -LiteralPath $logRoot) {
+            Get-ChildItem -LiteralPath $logRoot -File -ErrorAction SilentlyContinue | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $targetRoot $_.Name) -Force
+            }
+        }
+    }
+
+    $summaryPath = Join-Path $runRoot 'summary.json'
+    $State | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $summaryPath -Encoding utf8NoBOM
+}
+
+function Stop-ParitySwarmInternal([switch]$SkipCollect) {
+    $state = Get-ParitySwarmState
+    if ($null -eq $state) {
+        return
+    }
+
+    $exePath = Get-ExperimentalOutputPath $Config
+    foreach ($node in @($state.Nodes)) {
+        if (Test-Path -LiteralPath $exePath) {
+            Invoke-ParitySwarmCliCommand $exePath $node.ProfileRoot 'exit'
+        }
+    }
+
+    Start-Sleep -Seconds 3
+
+    foreach ($node in @($state.Nodes)) {
+        if ($node.Pid) {
+            Stop-Process -Id $node.Pid -Force -ErrorAction SilentlyContinue
+        }
+        foreach ($process in @(Get-ParitySwarmProcessFallback $node.ProfileRoot)) {
+            Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    if (-not $SkipCollect) {
+        Collect-ParitySwarmOutputs $state
+    }
+    Remove-ParitySwarmState
+}
+
+function Start-ParitySwarm {
+    $swarmConfig = Get-ParitySwarmConfig
+    $runtimeRoot = Get-ParitySwarmRuntimeRoot
+    foreach ($path in @($runtimeRoot, (Join-Path $runtimeRoot 'profiles'), (Join-Path $runtimeRoot 'runs'))) {
+        if (-not (Test-Path -LiteralPath $path)) {
+            $null = New-Item -ItemType Directory -Path $path -Force
+        }
+    }
+
+    Stop-ParitySwarmInternal -SkipCollect
+
+    if (-not (Test-Path -LiteralPath (Get-ExperimentalOutputPath $script:Config))) {
+        Build-ExperimentalApp
+    }
+
+    $runId = (Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss')
+    $exePath = Get-ExperimentalOutputPath $script:Config
+    $stateNodes = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($node in @($swarmConfig.Profiles)) {
+        Reset-ParitySwarmProfile $node
+        $profileRoot = Get-ParitySwarmProfileRoot $node
+        $readyPath = Join-Path $profileRoot (Get-ParitySwarmReadyFileName)
+        $arguments = @(
+            '-AutoStart'
+            "-configdir=""$profileRoot"""
+            "-bootstrap=""$($node.BootstrapPeers -join ',')"""
+            "-readyfile=""$readyPath"""
+            '-ignoreinstances'
+        )
+        $process = Start-Process -FilePath $exePath -WorkingDirectory (Split-Path -Parent $exePath) -ArgumentList $arguments -WindowStyle Minimized -PassThru
+        $stateNodes.Add([pscustomobject]@{
+            Name = $node.Name
+            Pid = $process.Id
+            ProfileRoot = $profileRoot
+            ReadyFile = $readyPath
+            BootstrapPeers = @($node.BootstrapPeers)
+        }) | Out-Null
+    }
+
+    foreach ($node in @($stateNodes)) {
+        Wait-ParitySwarmReadyFile $node.ReadyFile
+    }
+
+    foreach ($node in @($stateNodes)) {
+        foreach ($peer in @($node.BootstrapPeers)) {
+            Invoke-ParitySwarmCliCommand $exePath $node.ProfileRoot "kad_bootstrap=$peer"
+        }
+        Invoke-ParitySwarmCliCommand $exePath $node.ProfileRoot 'status'
+    }
+
+    $state = [pscustomobject]@{
+        RunId = $runId
+        Config = $script:Config
+        Platform = $script:Platform
+        ExePath = $exePath
+        StartedUtc = (Get-Date).ToUniversalTime().ToString('o')
+        Nodes = @($stateNodes)
+    }
+    Save-ParitySwarmState $state
+    Write-Host "Parity swarm started: run=$runId" -ForegroundColor Green
+    foreach ($node in @($state.Nodes)) {
+        Write-Host (" - {0} pid={1} profile={2}" -f $node.Name, $node.Pid, $node.ProfileRoot)
+    }
+}
+
 switch ($Command) {
     'env-check' {
         $vs = Get-VsInfo
@@ -984,9 +1321,36 @@ switch ($Command) {
     'build-app' {
         Build-Apps
     }
+    'build-experimental' {
+        Build-ExperimentalApp
+    }
     'build-all' {
         & $PSCommandPath build-libs -Config $Config -Platform $Platform
         & $PSCommandPath build-app -Config $Config -Platform $Platform
+    }
+    'parity-swarm-prepare' {
+        foreach ($node in @((Get-ParitySwarmConfig).Profiles)) {
+            Ensure-ParitySwarmProfile $node
+        }
+        if (-not (Test-Path -LiteralPath (Get-ExperimentalOutputPath $Config))) {
+            Build-ExperimentalApp
+        }
+        Write-Host "Parity swarm profiles prepared under $(Get-ParitySwarmRuntimeRoot)" -ForegroundColor Green
+    }
+    'parity-swarm-start' {
+        Start-ParitySwarm
+    }
+    'parity-swarm-stop' {
+        Stop-ParitySwarmInternal
+        Write-Host 'Parity swarm stopped.' -ForegroundColor Green
+    }
+    'parity-swarm-collect' {
+        $state = Get-ParitySwarmState
+        if ($null -eq $state) {
+            throw 'No active parity swarm state found.'
+        }
+        Collect-ParitySwarmOutputs $state
+        Write-Host "Parity swarm outputs collected under $(Get-ParitySwarmRunRoot $state.RunId)" -ForegroundColor Green
     }
     'package' {
         if ($Config -ne 'Release') {
