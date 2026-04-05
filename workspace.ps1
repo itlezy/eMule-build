@@ -81,6 +81,10 @@ function Get-RepoHead([string]$Repo) {
     ((Invoke-Git $Repo @('rev-parse','--short','HEAD') 'git rev-parse') -join "`n").Trim()
 }
 
+function Get-RepoHeadFull([string]$Repo) {
+    ((Invoke-Git $Repo @('rev-parse','HEAD') 'git rev-parse') -join "`n").Trim()
+}
+
 function Test-GitRef([string]$Repo, [string]$Ref) {
     $git = Resolve-Tool @('git.exe', 'git')
     if (-not $git) {
@@ -113,6 +117,16 @@ function Ensure-LocalBranch([string]$Repo, [string]$Branch) {
         'branch', $Branch,
         "refs/remotes/origin/$Branch"
     ) "git branch $Branch"
+}
+
+function Test-GitCommit([string]$Repo, [string]$Commit) {
+    $git = Resolve-Tool @('git.exe', 'git')
+    if (-not $git) {
+        return $false
+    }
+
+    & $git -C $Repo rev-parse --verify --quiet "$Commit^{commit}" 2>$null | Out-Null
+    return $LASTEXITCODE -eq 0
 }
 
 function Get-VsInfo {
@@ -205,27 +219,29 @@ function Ensure-AppWorktrees {
     $currentSeedBranch = Get-RepoBranch $seedRepo
     foreach ($variant in $AppRepo.Variants) {
         $targetPath = Join-Path $Root $variant.Path
-        if (Test-Path -LiteralPath $targetPath) {
-            continue
-        }
-        if ($currentSeedBranch -eq $variant.Branch) {
-            continue
+        if (-not (Test-Path -LiteralPath $targetPath)) {
+            if ($currentSeedBranch -eq $variant.Branch) {
+                continue
+            }
+
+            Ensure-LocalBranch $seedRepo $variant.Branch
+            Invoke-Native 'git' @('-C', $seedRepo, 'worktree', 'add', $targetPath, $variant.Branch) "git worktree add $($variant.Branch)"
         }
 
-        Ensure-LocalBranch $seedRepo $variant.Branch
-        Invoke-Native 'git' @('-C', $seedRepo, 'worktree', 'add', $targetPath, $variant.Branch) "git worktree add $($variant.Branch)"
+        Sync-RepoBranchHead -Path $targetPath -Branch $variant.Branch -Label "app variant '$($variant.Name)'"
     }
 }
 
-function Ensure-Repo([string]$Path, [string]$Url, [string]$Branch, [string]$Label) {
+function Ensure-Repo([string]$Path, [string]$Url, [string]$Branch, [string]$Label, [string]$Commit = $null) {
     if (-not (Test-Path -LiteralPath $Path)) {
         Write-Host "==> Cloning $Label into $Path" -ForegroundColor Cyan
-        if ($Branch) {
+        if ($Commit) {
+            Invoke-Native 'git' @('clone', $Url, $Path) "git clone $Label"
+        } elseif ($Branch) {
             Invoke-Native 'git' @('clone', '--branch', $Branch, '--single-branch', $Url, $Path) "git clone $Label"
         } else {
             Invoke-Native 'git' @('clone', $Url, $Path) "git clone $Label"
         }
-        return
     }
 
     if (-not (Test-Path -LiteralPath (Join-Path $Path '.git'))) {
@@ -234,6 +250,24 @@ function Ensure-Repo([string]$Path, [string]$Url, [string]$Branch, [string]$Labe
 
     Write-Host "==> Refreshing $Label" -ForegroundColor Cyan
     Invoke-Native 'git' @('-C', $Path, 'fetch', '--all', '--prune') "git fetch $Label"
+
+    if ($Commit) {
+        if (-not (Test-GitCommit $Path $Commit)) {
+            Invoke-Native 'git' @('-C', $Path, 'fetch', 'origin', $Commit) "git fetch $Label commit"
+        }
+
+        $currentCommit = Get-RepoHeadFull $Path
+        if ($currentCommit -eq $Commit) {
+            return
+        }
+
+        if (-not (Test-RepoClean $Path)) {
+            throw "$Label at '$Path' is not at pinned commit '$Commit', and the repo is dirty."
+        }
+
+        Invoke-Native 'git' @('-C', $Path, 'checkout', '--detach', $Commit) "git checkout $Label"
+        return
+    }
 
     if (-not $Branch) {
         return
@@ -255,16 +289,37 @@ function Ensure-Repo([string]$Path, [string]$Url, [string]$Branch, [string]$Labe
     Invoke-Native 'git' @('-C', $Path, 'switch', $Branch) "git switch $Label"
 }
 
+function Sync-RepoBranchHead([string]$Path, [string]$Branch, [string]$Label) {
+    Ensure-RemoteTrackingBranch $Path $Branch
+
+    $currentBranch = Get-RepoBranch $Path
+    if ($currentBranch -ne $Branch) {
+        if (-not (Test-RepoClean $Path)) {
+            throw "$Label at '$Path' is on branch '$currentBranch' but should be '$Branch', and the repo is dirty."
+        }
+
+        Ensure-LocalBranch $Path $Branch
+        Invoke-Native 'git' @('-C', $Path, 'switch', $Branch) "git switch $Label"
+    }
+
+    if (-not (Test-RepoClean $Path)) {
+        throw "$Label at '$Path' is dirty and cannot be fast-forwarded to origin/$Branch."
+    }
+
+    Invoke-Native 'git' @('-C', $Path, 'merge', '--ff-only', "refs/remotes/origin/$Branch") "git merge --ff-only $Label"
+}
+
 function Ensure-DependencyRepos {
     foreach ($dependency in $Dependencies) {
         $repo = Join-Path $Root $dependency.Repo
-        Ensure-Repo -Path $repo -Url $dependency.Url -Branch $dependency.Branch -Label "dependency '$($dependency.Name)'"
+        Ensure-Repo -Path $repo -Url $dependency.Url -Branch $dependency.Branch -Commit $dependency.Commit -Label "dependency '$($dependency.Name)'"
     }
 }
 
 function Ensure-AppSeedRepo {
     $repo = Join-Path $Root $SeedRepo.Path
     Ensure-Repo -Path $repo -Url $SeedRepo.Url -Branch $SeedRepo.Branch -Label 'seed app repo'
+    Sync-RepoBranchHead -Path $repo -Branch $SeedRepo.Branch -Label 'seed app repo'
 }
 
 function Repair-AppWorktreeMetadata {
