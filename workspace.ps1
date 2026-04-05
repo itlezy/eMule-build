@@ -110,6 +110,10 @@ function Ensure-RemoteTrackingBranch([string]$Repo, [string]$Branch) {
         'fetch', 'origin',
         "refs/heads/${Branch}:refs/remotes/origin/${Branch}"
     ) "git fetch origin/$Branch"
+
+    if (-not (Test-GitRef $Repo "refs/remotes/origin/$Branch")) {
+        throw "Remote branch 'origin/$Branch' is missing for repo '$Repo'."
+    }
 }
 
 function Ensure-LocalBranch([string]$Repo, [string]$Branch) {
@@ -120,7 +124,7 @@ function Ensure-LocalBranch([string]$Repo, [string]$Branch) {
     Ensure-RemoteTrackingBranch $Repo $Branch
     Invoke-Native 'git' @(
         '-C', $Repo,
-        'branch', '--track', $Branch,
+        'branch', $Branch,
         "refs/remotes/origin/$Branch"
     ) "git branch $Branch"
 }
@@ -439,9 +443,19 @@ function Ensure-DependencyRepos {
     }
 }
 
+function Set-AppRepoLocalGitPolicy([string]$Repo) {
+    Invoke-Native 'git' @('-C', $Repo, 'config', 'core.autocrlf', 'false') 'git config core.autocrlf'
+    Invoke-Native 'git' @('-C', $Repo, 'config', 'core.eol', 'lf') 'git config core.eol'
+}
+
 function Ensure-AppSeedRepo {
     $repo = Join-Path $Root $SeedRepo.Path
+    $seedExisted = Test-Path -LiteralPath $repo
     Ensure-Repo -Path $repo -Url $SeedRepo.Url -Branch $SeedRepo.Branch -Label 'seed app repo'
+    Set-AppRepoLocalGitPolicy $repo
+    if (-not $seedExisted) {
+        Invoke-Native 'git' @('-C', $repo, 'reset', '--hard', 'HEAD') 'git reset seed app repo'
+    }
     Sync-RepoBranchHead -Path $repo -Branch $SeedRepo.Branch -Label 'seed app repo'
     Ensure-BranchUpstream -Repo $repo -Branch $SeedRepo.Branch
 }
