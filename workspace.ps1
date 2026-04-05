@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','setup','repair','build-libs','build-app','build-all','build-project','open-solution','open-project','run-binary','package','clean-config','clean-generated')]
+    [ValidateSet('env-check','dep-status','validate','validate-full','setup','repair','build-libs','build-app','build-all','build-project','open-solution','open-project','run-binary','package','clean-config','clean-generated')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -43,7 +43,7 @@ if ($null -ne $AppRepo -and $AppRepo.ContainsKey('Variants')) {
 }
 $RunLogLabel = switch ($Command) {
     'build-project' { "$Command-$Project-$Config" }
-    { $_ -in @('build-libs','build-app','build-all','setup','repair','package','run-binary','clean-config','validate') } { "$Command-$Config" }
+    { $_ -in @('build-libs','build-app','build-all','setup','repair','package','run-binary','clean-config','validate','validate-full') } { "$Command-$Config" }
     default { $Command }
 }
 $RunLogs = Join-Path $LogsRoot ("{0}-{1}" -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $RunLogLabel)
@@ -835,7 +835,7 @@ function Get-ToolReport([string]$Intent, $ToolsContext) {
     Add-Check $results ($ToolsContext.Git ? 'pass' : 'fail') 'git' ($ToolsContext.Git ? $ToolsContext.Git : 'not found on PATH')
     $perlStatus = if ($ToolsContext.Perl) {
         'pass'
-    } elseif ($mbedtlsDefined -and -not $mbedtlsConfigured -and $Intent -in @('general','setup','repair','validate')) {
+    } elseif ($mbedtlsDefined -and -not $mbedtlsConfigured -and $Intent -in @('general','setup','repair','validate','validate-full')) {
         'fail'
     } else {
         'warn'
@@ -850,7 +850,7 @@ function Get-ToolReport([string]$Intent, $ToolsContext) {
     Add-Check $results $perlStatus 'perl' $perlDetail
     $pythonStatus = if ($ToolsContext.Python) {
         'pass'
-    } elseif ($mbedtlsDefined -and -not $mbedtlsConfigured -and $Intent -in @('general','setup','repair','validate')) {
+    } elseif ($mbedtlsDefined -and -not $mbedtlsConfigured -and $Intent -in @('general','setup','repair','validate','validate-full')) {
         'fail'
     } else {
         'warn'
@@ -875,7 +875,7 @@ function Get-ToolReport([string]$Intent, $ToolsContext) {
         $hasIdentity = -not [string]::IsNullOrWhiteSpace($ToolsContext.Identity.Name) -and -not [string]::IsNullOrWhiteSpace($ToolsContext.Identity.Email)
         $identityStatus = if ($hasIdentity) {
             'pass'
-        } elseif ($Intent -in @('setup','general','validate')) {
+        } elseif ($Intent -in @('setup','general','validate','validate-full')) {
             'fail'
         } else {
             'warn'
@@ -965,20 +965,20 @@ function Get-PackageArchiveCheck([string]$Configuration, [switch]$Optional) {
 function Get-BuildStateReport([string]$Intent, [string]$Configuration, [string]$ProjectName) {
     $results = [System.Collections.Generic.List[object]]::new()
 
-    if ($Intent -in @('build-app','validate') -or ($Intent -eq 'build-project' -and $ProjectName -eq 'eMule')) {
+    if ($Intent -in @('build-app','validate-full') -or ($Intent -eq 'build-project' -and $ProjectName -eq 'eMule')) {
         foreach ($dep in $BuildProjects) {
             $out = Get-OutputPath $dep $Configuration
             Add-Check $results ((Test-Path -LiteralPath $out) ? 'pass' : 'fail') "$dep-output" ((Test-Path -LiteralPath $out) ? $out : "missing: $out")
         }
     }
 
-    if ($Intent -in @('run-binary','package','clean-config','validate')) {
+    if ($Intent -in @('run-binary','package','clean-config','validate-full')) {
         $exe = Get-OutputPath 'eMule' $Configuration
         $status = if (Test-Path -LiteralPath $exe) { 'pass' } elseif ($Intent -eq 'clean-config') { 'warn' } else { 'fail' }
         Add-Check $results $status 'emule-output' ((Test-Path -LiteralPath $exe) ? $exe : "missing: $exe")
     }
 
-    if ($Intent -eq 'validate' -and $Configuration -eq 'Release') {
+    if ($Intent -eq 'validate-full' -and $Configuration -eq 'Release') {
         Add-Checks $results (Get-PackageArchiveCheck $Configuration -Optional)
     }
     @($results)
@@ -1406,10 +1406,22 @@ function Run-Validate {
     Write-Host "Logs: $RunLogs" -ForegroundColor DarkGray
 }
 
+function Run-ValidateFull {
+    $report = Get-EnvReport 'validate-full' $Config 'eMule'
+    Show-Report $report
+    Get-StatusRows |
+        Select-Object Name,Branch,Head,Patch,Worktree,Repo |
+        Format-Table -AutoSize |
+        Out-String -Width 200 |
+        Write-Host
+    Write-Host "Logs: $RunLogs" -ForegroundColor DarkGray
+}
+
 switch ($Command) {
     'env-check' { Show-Report (Get-EnvReport 'general' $Config $Project) }
     'dep-status' { Show-DependencyStatus }
     'validate' { Run-Validate }
+    'validate-full' { Run-ValidateFull }
     'setup' { Invoke-WithWorkspaceLock 'setup' { Run-Setup } }
     'repair' { Invoke-WithWorkspaceLock 'repair' { Repair-Workspace } }
     'build-libs' { Invoke-WithWorkspaceLock 'build-libs' { Build-Libs } }
