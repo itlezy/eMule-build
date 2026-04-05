@@ -1022,7 +1022,7 @@ Serverlist=0
 AddServersFromServer=0
 AddServersFromClient=0
 NetworkKademlia=1
-NetworkED2K=0
+NetworkED2K=1
 OpenPortsOnStartUp=0
 EnableScheduler=0
 KadUDPKey=$($Node.KadUdpKey)
@@ -1102,6 +1102,23 @@ function Invoke-ParitySwarmCliCommand([string]$ExePath, [string]$ProfileRoot, [s
     $arguments = @("-configdir=""$ProfileRoot""", $CommandText)
     $process = Start-Process -FilePath $ExePath -ArgumentList $arguments -WindowStyle Minimized -PassThru
     Wait-Process -Id $process.Id -Timeout 10 -ErrorAction SilentlyContinue
+}
+
+function Ensure-ParitySwarmSeedFile([object]$Node) {
+    $profileRoot = Get-ParitySwarmProfileRoot $Node
+    $seedPath = Join-Path $profileRoot 'Incoming\parity-seed.bin'
+    $seedContent = [byte[]](0..255)
+    $stream = [System.IO.File]::Open($seedPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+    try {
+        for ($i = 0; $i -lt 1024; $i++) {
+            $stream.Write($seedContent, 0, $seedContent.Length)
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+
+    return $seedPath
 }
 
 function Collect-ParitySwarmOutputs([object]$State) {
@@ -1194,6 +1211,7 @@ function Start-ParitySwarm {
         Reset-ParitySwarmProfile $node
         $profileRoot = Get-ParitySwarmProfileRoot $node
         $readyPath = Join-Path $profileRoot (Get-ParitySwarmReadyFileName)
+        $seedLinkPath = Join-Path (Get-ParitySwarmProfileRoot $swarmConfig.Profiles[0]) 'seed.ed2k'
         $arguments = @(
             '-AutoStart'
             "-configdir=""$profileRoot"""
@@ -1201,6 +1219,18 @@ function Start-ParitySwarm {
             "-readyfile=""$readyPath"""
             '-ignoreinstances'
         )
+        if ($node.Name -eq 'node-a') {
+            $seedPath = Ensure-ParitySwarmSeedFile $node
+            if (Test-Path -LiteralPath $seedLinkPath) {
+                Remove-Item -LiteralPath $seedLinkPath -Force
+            }
+            $arguments += "-sharefile=""$seedPath"""
+            $arguments += "-exportlinkfile=""$seedLinkPath"""
+            $arguments += '-exportsourceip="127.0.0.1"'
+        }
+        else {
+            $arguments += "-downloadlinkfile=""$seedLinkPath"""
+        }
         $process = Start-Process -FilePath $exePath -WorkingDirectory (Split-Path -Parent $exePath) -ArgumentList $arguments -WindowStyle Minimized -PassThru
         $stateNodes.Add([pscustomobject]@{
             Name = $node.Name
