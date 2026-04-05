@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','setup','repair','bootstrap','build-libs','build-app','build-all','normalize','normalize-check')]
+    [ValidateSet('env-check','dep-status','validate','validate-full','setup','repair','bootstrap','build-libs','build-app','build-all','normalize','normalize-check')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -427,6 +427,27 @@ function Write-WorkspaceSummary {
     Write-Host ("Outputs       libs={0} libs_debug={1}" -f (Join-Path $Root 'libs'), (Join-Path $Root 'libs_debug'))
 }
 
+function Assert-BuildOutputs([string]$Configuration, [string]$Platform) {
+    $libRoot = Join-Path $Root ($(if ($Configuration -eq 'Debug') { 'libs_debug' } else { 'libs' }))
+    if (-not (Test-Path -LiteralPath $libRoot)) {
+        throw "Library output directory missing at '$libRoot'."
+    }
+
+    $libCount = @(
+        Get-ChildItem -LiteralPath $libRoot -Recurse -File -Include *.lib -ErrorAction SilentlyContinue
+    ).Count
+    if ($libCount -eq 0) {
+        throw "No .lib outputs were found under '$libRoot'."
+    }
+
+    foreach ($app in Get-ActiveApps) {
+        $exePath = Join-Path $app.Path "srchybrid\x64\$Configuration\emule.exe"
+        if (-not (Test-Path -LiteralPath $exePath)) {
+            throw "Expected eMule output missing at '$exePath'."
+        }
+    }
+}
+
 switch ($Command) {
     'env-check' {
         $vs = Get-VsInfo
@@ -485,6 +506,10 @@ switch ($Command) {
         & $PSCommandPath env-check -Config $Config -Platform $Platform
         & $PSCommandPath dep-status -Config $Config -Platform $Platform
         Assert-AppLayout
+    }
+    'validate-full' {
+        & $PSCommandPath validate -Config $Config -Platform $Platform
+        Assert-BuildOutputs -Configuration $Config -Platform $Platform
     }
     'build-libs' {
         foreach ($dependency in $Dependencies) {
