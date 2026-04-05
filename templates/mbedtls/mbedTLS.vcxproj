@@ -9,15 +9,22 @@
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{F1A2B3C4-D5E6-7890-ABCD-EF1234567890}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <Platform>x64</Platform>
     <ProjectName>mbedTLS</ProjectName>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
@@ -27,7 +34,15 @@
     <ConfigurationType>Utility</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
     <ConfigurationType>Utility</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
@@ -41,44 +56,40 @@
   <PropertyGroup>
     <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(MSBuildProjectDirectory)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">$(Platform)\$(Configuration)\tmp\</IntDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\tmp\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">$(MSBuildProjectDirectory)\$(Platform)\$(Configuration)\</OutDir>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(MSBuildProjectDirectory)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(Platform)\$(Configuration)\tmp\</IntDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\tmp\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">$(MSBuildProjectDirectory)\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <PreBuildEvent>
+      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)-$(Platform)\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\.." -B "$(MSBuildProjectDirectory)-$(Platform)" -G "Visual Studio 17 2022" -A $(Platform) -DENABLE_PROGRAMS=OFF -DENABLE_TESTING=OFF -DGEN_FILES=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_POLICY_DEFAULT_CMP0091=NEW "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;" "-DPERL_EXECUTABLE=%ProgramFiles%/Git/usr/bin/perl.exe"</Command>
+      <Message>Configuring Mbed TLS with cmake for $(Platform) (if not already configured)</Message>
+    </PreBuildEvent>
     <PostBuildEvent>
-      <Command>if not exist "$(OutDir)" mkdir "$(OutDir)"
-lib.exe /nologo /OUT:"$(OutDir)mbedtls.lib" "$(MSBuildThisFileDirectory)library\Debug\mbedtls.lib" "$(MSBuildThisFileDirectory)library\Debug\mbedx509.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\core\Debug\tfpsacrypto.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\builtin\builtin.dir\Debug\builtin.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\everest\everest.dir\Debug\everest.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\p256-m\p256-m.dir\Debug\p256-m.lib"</Command>
+      <Command>cmake --build "$(MSBuildProjectDirectory)-$(Platform)" --config Debug --target ALL_BUILD
+IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
+if not exist "$(OutDir)" mkdir "$(OutDir)"
+lib.exe /nologo /OUT:"$(OutDir)mbedtls.lib" "$(MSBuildProjectDirectory)-$(Platform)\library\Debug\mbedtls.lib" "$(MSBuildProjectDirectory)-$(Platform)\library\Debug\mbedx509.lib" "$(MSBuildProjectDirectory)-$(Platform)\tf-psa-crypto\core\Debug\tfpsacrypto.lib" "$(MSBuildProjectDirectory)-$(Platform)\tf-psa-crypto\drivers\builtin\builtin.dir\Debug\builtin.lib" "$(MSBuildProjectDirectory)-$(Platform)\tf-psa-crypto\drivers\everest\everest.dir\Debug\everest.lib" "$(MSBuildProjectDirectory)-$(Platform)\tf-psa-crypto\drivers\p256-m\p256-m.dir\Debug\p256-m.lib"</Command>
       <Message>Combining mbedTLS component libs -&gt; $(OutDir)mbedtls.lib</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <PreBuildEvent>
+      <Command>IF NOT EXIST "$(MSBuildProjectDirectory)-$(Platform)\CMakeCache.txt" cmake -S "$(MSBuildProjectDirectory)\..\.." -B "$(MSBuildProjectDirectory)-$(Platform)" -G "Visual Studio 17 2022" -A $(Platform) -DENABLE_PROGRAMS=OFF -DENABLE_TESTING=OFF -DGEN_FILES=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_POLICY_DEFAULT_CMP0091=NEW "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$&lt;$&lt;CONFIG:Debug&gt;:Debug&gt;" "-DPERL_EXECUTABLE=%ProgramFiles%/Git/usr/bin/perl.exe"</Command>
+      <Message>Configuring Mbed TLS with cmake for $(Platform) (if not already configured)</Message>
+    </PreBuildEvent>
     <PostBuildEvent>
-      <Command>if not exist "$(OutDir)" mkdir "$(OutDir)"
-lib.exe /nologo /OUT:"$(OutDir)mbedtls.lib" "$(MSBuildThisFileDirectory)library\Release\mbedtls.lib" "$(MSBuildThisFileDirectory)library\Release\mbedx509.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\core\Release\tfpsacrypto.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\builtin\builtin.dir\Release\builtin.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\everest\everest.dir\Release\everest.lib" "$(MSBuildThisFileDirectory)tf-psa-crypto\drivers\p256-m\p256-m.dir\Release\p256-m.lib"</Command>
+      <Command>cmake --build "$(MSBuildProjectDirectory)-$(Platform)" --config Release --target ALL_BUILD
+IF %ERRORLEVEL% NEQ 0 EXIT /B %ERRORLEVEL%
+if not exist "$(OutDir)" mkdir "$(OutDir)"
+lib.exe /nologo /OUT:"$(OutDir)mbedtls.lib" "$(MSBuildProjectDirectory)-$(Platform)\library\Release\mbedtls.lib" "$(MSBuildProjectDirectory)-$(Platform)\library\Release\mbedx509.lib" "$(MSBuildProjectDirectory)-$(Platform)\tf-psa-crypto\core\Release\tfpsacrypto.lib" "$(MSBuildProjectDirectory)-$(Platform)\tf-psa-crypto\drivers\builtin\builtin.dir\Release\builtin.lib" "$(MSBuildProjectDirectory)-$(Platform)\tf-psa-crypto\drivers\everest\everest.dir\Release\everest.lib" "$(MSBuildProjectDirectory)-$(Platform)\tf-psa-crypto\drivers\p256-m\p256-m.dir\Release\p256-m.lib"</Command>
       <Message>Combining mbedTLS component libs -&gt; $(OutDir)mbedtls.lib</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ProjectReference Include="library\mbedtls.vcxproj">
-      <Project>{A32A45E2-6CCE-31A6-A062-B0FDB3CFA2B2}</Project>
-    </ProjectReference>
-    <ProjectReference Include="library\mbedx509.vcxproj">
-      <Project>{D3C64AC5-8247-35B3-9108-0D37876489D6}</Project>
-    </ProjectReference>
-    <ProjectReference Include="tf-psa-crypto\core\tfpsacrypto.vcxproj">
-      <Project>{AEBF1838-3AF1-35E5-8CCD-A1630560B83D}</Project>
-    </ProjectReference>
-    <ProjectReference Include="tf-psa-crypto\drivers\builtin\builtin.vcxproj">
-      <Project>{3832784E-3078-3367-A299-9E01C69B76BA}</Project>
-    </ProjectReference>
-    <ProjectReference Include="tf-psa-crypto\drivers\everest\everest.vcxproj">
-      <Project>{CB89BD2F-FBB6-3C94-90CE-A3924A232E69}</Project>
-    </ProjectReference>
-    <ProjectReference Include="tf-psa-crypto\drivers\p256-m\p256-m.vcxproj">
-      <Project>{38961768-A35A-375F-B7AD-60EF8BEEF095}</Project>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

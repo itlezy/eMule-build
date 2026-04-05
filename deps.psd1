@@ -30,7 +30,7 @@
         Templates = @{
             zlib = @{
                 Source = 'templates\zlib\zlib.vcxproj'
-                Destination = 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
+                Destination = 'eMule-zlib\zlib\contrib\vstudio\vc\zlib.vcxproj'
             }
             mbedtls = @{
                 Source = 'templates\mbedtls\mbedTLS.vcxproj'
@@ -56,16 +56,18 @@
         GeneratedProjects = @{
             zlib = @{
                 ConfigureReady = @(
-                    'eMule-zlib\cmake-build\CMakeCache.txt'
+                    'eMule-zlib\cmake-build-x64\CMakeCache.txt'
                 )
                 Cleanup = @(
-                    'eMule-zlib\cmake-build'
-                    'eMule-zlib\contrib\vstudio\vc\x64'
-                    'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
+                    'eMule-zlib\cmake-build-x64'
+                    'eMule-zlib\cmake-build-ARM64'
+                    'eMule-zlib\zlib\contrib\vstudio\vc\x64'
+                    'eMule-zlib\zlib\contrib\vstudio\vc\ARM64'
+                    'eMule-zlib\zlib\contrib\vstudio\vc\zlib.vcxproj'
                 )
                 Configure = @{
-                    Source = 'eMule-zlib'
-                    Build = 'eMule-zlib\cmake-build'
+                    Source = 'eMule-zlib\zlib'
+                    Build = 'eMule-zlib\cmake-build-x64'
                     Generator = 'Visual Studio 17 2022'
                     Platform = 'x64'
                     Arguments = @(
@@ -81,17 +83,20 @@
             }
             mbedtls = @{
                 ConfigureReady = @(
-                    'eMule-mbedtls\visualc\VS2017\CMakeCache.txt'
-                    'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\library\mbedtls.vcxproj'
-                    'eMule-mbedtls\visualc\VS2017\library\mbedx509.vcxproj'
+                    'eMule-mbedtls\visualc\VS2017-x64\CMakeCache.txt'
+                    'eMule-mbedtls\visualc\VS2017-x64\library\mbedtls.vcxproj'
+                    'eMule-mbedtls\visualc\VS2017-x64\library\mbedx509.vcxproj'
                 )
                 Cleanup = @(
-                    'eMule-mbedtls\visualc\VS2017'
+                    'eMule-mbedtls\visualc\VS2017-x64'
+                    'eMule-mbedtls\visualc\VS2017-ARM64'
+                    'eMule-mbedtls\visualc\VS2017\x64'
+                    'eMule-mbedtls\visualc\VS2017\ARM64'
+                    'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj'
                 )
                 Configure = @{
                     Source = 'eMule-mbedtls'
-                    Build = 'eMule-mbedtls\visualc\VS2017'
+                    Build = 'eMule-mbedtls\visualc\VS2017-x64'
                     Generator = 'Visual Studio 17 2022'
                     Platform = 'x64'
                     Arguments = @(
@@ -128,21 +133,93 @@
     Dependencies = @{
         cryptopp = @{
             Repo = 'eMule-cryptopp'
+            Version = '8.9.0'
+            Upstream = @{
+                Url = 'https://github.com/weidai11/cryptopp'
+                Ref = 'CRYPTOPP_8_9_0'
+            }
+            Policy = @{
+                Mode = 'track-latest-upstream'
+                Notes = @(
+                    'Prefer upstream Crypto++ releases.'
+                    'Keep workspace deltas limited to build integration only.'
+                )
+            }
         }
         id3lib = @{
             Repo = 'eMule-id3lib'
+            Version = '3.9.1'
+            Upstream = @{
+                Url = 'https://github.com/itlezy/eMule-id3lib'
+                Ref = 'v3.9.1'
+            }
+            Policy = @{
+                Mode = 'frozen'
+                Notes = @(
+                    'Legacy dependency kept stable for compatibility.'
+                    'Only change for break/fix or unavoidable toolchain maintenance.'
+                )
+            }
         }
         miniupnp = @{
             Repo = 'eMule-miniupnp'
+            Version = '2.3.3'
+            Upstream = @{
+                Url = 'https://github.com/miniupnp/miniupnp'
+                Ref = 'miniupnpc_2_3_3'
+            }
+            Policy = @{
+                Mode = 'track-latest-upstream'
+                Notes = @(
+                    'Track the latest MiniUPnPc client-library release.'
+                    'Do not confuse miniupnpc with miniupnpd daemon-only releases.'
+                )
+            }
         }
         ResizableLib = @{
             Repo = 'eMule-ResizableLib'
+            Version = 'master'
+            Upstream = @{
+                Url = 'https://github.com/ppescher/resizablelib'
+                Ref = 'master'
+            }
+            Policy = @{
+                Mode = 'frozen'
+                Notes = @(
+                    'Freeze on the current fork state.'
+                    'The eMuleAI stale-anchor memory leak fix is already present in this fork.'
+                )
+            }
         }
         zlib = @{
             Repo = 'eMule-zlib'
+            Version = '1.3.2'
+            Upstream = @{
+                Url = 'https://github.com/madler/zlib'
+                Ref = 'v1.3.2'
+            }
+            Policy = @{
+                Mode = 'track-latest-upstream'
+                Notes = @(
+                    'Prefer upstream zlib releases.'
+                    'Use CMake as the source of truth for generated project files.'
+                )
+            }
         }
         mbedtls = @{
             Repo = 'eMule-mbedtls'
+            Version = '4.1.0'
+            Upstream = @{
+                Url = 'https://github.com/Mbed-TLS/mbedtls'
+                Ref = 'mbedtls-4.1.0'
+            }
+            Policy = @{
+                Mode = 'track-latest-upstream'
+                Notes = @(
+                    'Prefer upstream Mbed TLS releases.'
+                    'Use CMake generation and keep wrapper changes minimal.'
+                )
+            }
         }
     }
 
@@ -151,12 +228,12 @@
     Projects = @{
         cryptopp = @{
             Kind   = 'msbuild'
-            Path   = 'eMule-cryptopp\cryptlib.vcxproj'
+            Path   = 'eMule-cryptopp\cryptopp\cryptlib.vcxproj'
             Output = @{
-                Release = 'eMule-cryptopp\x64\Release\cryptlib.lib'
-                Debug   = 'eMule-cryptopp\x64\Debug\cryptlib.lib'
+                Release = 'eMule-cryptopp\cryptopp\x64\Release\cryptlib.lib'
+                Debug   = 'eMule-cryptopp\cryptopp\x64\Debug\cryptlib.lib'
             }
-            Open = 'eMule-cryptopp\cryptlib.vcxproj'
+            Open = 'eMule-cryptopp\cryptopp\cryptlib.vcxproj'
         }
         id3lib = @{
             Kind   = 'msbuild'
@@ -187,13 +264,13 @@
         }
         zlib = @{
             Kind   = 'cmake'
-            Path   = 'eMule-zlib'
-            Build  = 'eMule-zlib\cmake-build'
+            Path   = 'eMule-zlib\zlib'
+            Build  = 'eMule-zlib\cmake-build-x64'
             Output = @{
-                Release = 'eMule-zlib\contrib\vstudio\vc\x64\Release\zlib.lib'
-                Debug   = 'eMule-zlib\contrib\vstudio\vc\x64\Debug\zlib.lib'
+                Release = 'eMule-zlib\zlib\contrib\vstudio\vc\x64\Release\zlib.lib'
+                Debug   = 'eMule-zlib\zlib\contrib\vstudio\vc\x64\Debug\zlib.lib'
             }
-            Open = 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj'
+            Open = 'eMule-zlib\zlib\contrib\vstudio\vc\zlib.vcxproj'
         }
         mbedtls = @{
             Kind   = 'msbuild'
@@ -211,7 +288,7 @@
                 Release = 'eMule-v0.72a-build-clean\srchybrid\x64\Release\emule.exe'
                 Debug   = 'eMule-v0.72a-build-clean\srchybrid\x64\Debug\emule.exe'
             }
-            Open = 'eMule-v0.72a-build-clean\srchybrid\emule.sln'
+            Open = 'eMule-v0.72a-build-clean\srchybrid\emule.vcxproj'
         }
     }
 }

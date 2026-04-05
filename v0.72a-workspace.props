@@ -6,7 +6,7 @@
 
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64' or '$(Platform)'=='ARM64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(WorkspaceRoot);$(WorkspaceRoot)eMule-cryptopp;$(WorkspaceRoot)eMule-ResizableLib;$(WorkspaceRoot)eMule-miniupnp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(WorkspaceRoot);$(WorkspaceRoot)eMule-cryptopp;$(WorkspaceRoot)eMule-ResizableLib;$(WorkspaceRoot)eMule-zlib;$(WorkspaceRoot)eMule-miniupnp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
 </Project>

@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','validate-full','setup','repair','build-libs','build-app','build-all','build-project','open-solution','open-project','run-binary','package','clean-config','clean-generated')]
+    [ValidateSet('env-check','dep-status','validate','validate-full','setup','repair','build-libs','build-app','build-all','build-project','open-app','open-project','run-binary','package','clean-config','clean-generated')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -27,7 +27,7 @@ $GeneratedProjects = $Workspace.GeneratedProjects
 $Toolchain = $Workspace.Toolchain
 $BuildBranch = $Manifest.BuildBranch
 $AppBuildBranch = $Manifest.AppBuildBranch
-$DependencyPatches = $Manifest.Dependencies
+$Dependencies = $Manifest.Dependencies
 $NestedSubmodules = @($Manifest.NestedSubmodules)
 $DependencyOrder = @($Manifest.DependencyOrder)
 $BuildProjects = @($Manifest.BuildProjects)
@@ -67,10 +67,6 @@ function Resolve-FirstExisting([string[]]$Paths) {
 
 function Get-WorkspacePath([string]$RelativePath) {
     Join-Path $Root $RelativePath
-}
-
-function Get-PatchPath([string]$PatchFile) {
-    Join-Path $Root "patches\$PatchFile"
 }
 
 function Get-GitExe {
@@ -355,31 +351,6 @@ function Get-GitIdentity([string]$Repo) {
     }
 }
 
-function Get-PatchPaths([string]$PatchFile) {
-    $path = Get-PatchPath $PatchFile
-    $paths = [System.Collections.Generic.List[string]]::new()
-    foreach ($line in [IO.File]::ReadLines($path)) {
-        if ($line -match '^diff --git a/(.+?) b/(.+)$') {
-            $paths.Add($Matches[2]) | Out-Null
-        }
-    }
-    @($paths | Select-Object -Unique)
-}
-
-function Test-PatchApplied([string]$Repo, [string]$PatchFile) {
-    $git = Get-GitExe
-    if (-not $git) { return $false }
-    & $git -C $Repo apply --reverse --check --ignore-whitespace (Get-PatchPath $PatchFile) 2>$null
-    $LASTEXITCODE -eq 0
-}
-
-function Test-PatchCanApply([string]$Repo, [string]$PatchFile) {
-    $git = Get-GitExe
-    if (-not $git) { return $false }
-    & $git -C $Repo apply --check --ignore-whitespace (Get-PatchPath $PatchFile) 2>$null
-    $LASTEXITCODE -eq 0
-}
-
 function Get-StagedPaths([string]$Repo) {
     @((Invoke-Git $Repo @('diff','--cached','--name-only') 'git diff --cached') | Where-Object { $_ })
 }
@@ -397,45 +368,6 @@ function Ensure-BuildBranch([string]$RepoRelative, [string]$Label, [string]$Bran
     }
 
     Invoke-Git $repo @('switch', '-c', $BranchName) "git switch -c $BranchName" | Out-Null
-}
-
-function Ensure-PatchCommit([string]$DependencyKey) {
-    $meta = $DependencyPatches[$DependencyKey]
-    $repo = Join-Path $Root $meta.Repo
-    $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
-
-    Ensure-BuildBranch $meta.Repo $DependencyKey
-
-    if (-not $patch) {
-        Write-Host "  $DependencyKey has no patch to apply (baked into branch)" -ForegroundColor DarkGray
-        return
-    }
-
-    $patchAppliedBefore = Test-PatchApplied $repo $patch
-
-    if (-not (Test-PatchApplied $repo $patch)) {
-        if (-not (Test-PatchCanApply $repo $patch)) {
-            throw "$DependencyKey patch $patch cannot be applied cleanly."
-        }
-        Write-Host "  Applying $patch" -ForegroundColor Cyan
-        Invoke-Git $repo @('apply','--3way','--ignore-whitespace',(Get-PatchPath $patch)) "git apply $patch" | Out-Null
-    } elseif (-not $patchAppliedBefore) {
-        Write-Host "  Reusing existing patch state for $DependencyKey on $BuildBranch" -ForegroundColor DarkGray
-    } else {
-        Write-Host "  $DependencyKey already carries $patch" -ForegroundColor DarkGray
-    }
-
-    $paths = Get-PatchPaths $patch
-    if ((@($paths).Count) -eq 0) {
-        throw "Patch $patch does not declare any file paths."
-    }
-    Invoke-Git $repo (@('add','-A','--') + $paths) "git add $patch" | Out-Null
-
-    $staged = @(Get-StagedPaths $repo)
-    if ((@($staged).Count) -eq 0) { return }
-
-    Write-Host "  Recording local build commit on $BuildBranch for $DependencyKey" -ForegroundColor Cyan
-    Invoke-Git $repo @('commit','-m',$meta.Commit) "git commit $($meta.Commit)" | Out-Null
 }
 
 function Get-RecordedGitlink([string]$Repo, [string]$SubmodulePath) {
@@ -684,35 +616,35 @@ function Get-PackageEntryPath([string]$Configuration = 'Release', [string]$Entry
 }
 
 function Get-DependencyBranchState([string]$DependencyKey) {
-    $meta = $DependencyPatches[$DependencyKey]
+    $meta = $Dependencies[$DependencyKey]
     $repo = Join-Path $Root $meta.Repo
-    $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
     if (-not (Test-GitRepo $repo)) {
         return [pscustomobject]@{ Ready=$false; Detail='repo missing' }
     }
 
     $branch = Get-RepoBranch $repo
-    $patchApplied = if ($patch) { Test-PatchApplied $repo $patch } else { $true }
-    $patchLabel  = if ($patch) { if ($patchApplied) { 'present' } else { 'missing' } } else { 'baked-in' }
     $status = @(Get-RepoStatus $repo)
     $clean = (@($status).Count) -eq 0
-    $ready = ($branch -eq $BuildBranch) -and $patchApplied -and $clean
-    $detail = '{0}; patch {1}; {2}' -f $branch, $patchLabel, $(if ($clean) { 'clean' } else { 'dirty' })
+    $ready = ($branch -eq $BuildBranch) -and $clean
+    $policy = if ($meta.Contains('Policy') -and $meta.Policy.Contains('Mode')) { [string]$meta.Policy.Mode } else { 'unspecified' }
+    $detail = '{0}; policy {1}; {2}' -f $branch, $policy, $(if ($clean) { 'clean' } else { 'dirty' })
     [pscustomobject]@{ Ready=$ready; Detail=$detail }
 }
 
 function Get-DependencyStatusRows {
     foreach ($key in $DependencyOrder) {
-        $meta = $DependencyPatches[$key]
+        $meta = $Dependencies[$key]
         $repo = Join-Path $Root $meta.Repo
-        $patch = if ($meta.Contains('Patch')) { $meta.Patch } else { $null }
+        $policy = if ($meta.Contains('Policy') -and $meta.Policy.Contains('Mode')) { [string]$meta.Policy.Mode } else { '' }
+        $version = if ($meta.Contains('Version')) { [string]$meta.Version } else { '' }
         if (-not (Test-GitRepo $repo)) {
             [pscustomobject]@{
                 Name = $key
+                Version = $version
+                Policy = $policy
                 Repo = $meta.Repo
                 Branch = 'missing'
                 Head = ''
-                Patch = 'missing'
                 Worktree = 'missing'
             }
             continue
@@ -721,10 +653,11 @@ function Get-DependencyStatusRows {
         $status = @(Get-RepoStatus $repo)
         [pscustomobject]@{
             Name = $key
+            Version = $version
+            Policy = $policy
             Repo = $meta.Repo
             Branch = Get-RepoBranch $repo
             Head = Get-RepoHeadShort $repo
-            Patch = if (-not $patch) { 'baked-in' } elseif (Test-PatchApplied $repo $patch) { 'present' } else { 'missing' }
             Worktree = if ($status.Count -eq 0) { 'clean' } else { 'dirty' }
         }
     }
@@ -734,10 +667,11 @@ function Get-StatusRows {
     @(
         [pscustomobject]@{
             Name = 'eMule'
+            Version = 'v0.72a'
+            Policy = 'workspace-app-fork'
             Repo = $BuildAppRelativePath
             Branch = Get-RepoBranch $BuildAppPath
             Head = Get-RepoHeadShort $BuildAppPath
-            Patch = 'fork'
             Worktree = if ((@(Get-RepoStatus $BuildAppPath)).Count -eq 0) { 'clean' } else { 'dirty' }
         }
     ) + @(Get-DependencyStatusRows)
@@ -766,11 +700,6 @@ function Get-ExpectedWorkspacePaths {
     $paths = [System.Collections.Generic.List[string]]::new()
     foreach ($path in @(
         'deps.psd1',
-        'patches\cryptopp-CRYPTOPP_8_9_0.patch',
-
-        'patches\miniupnpc-miniupnpc_2_3_3.patch',
-        'patches\resizablelib-master.patch',
-        'patches\zlib-v1.3.2.patch',
         'requirements-workspace.txt'
     )) {
         $paths.Add($path) | Out-Null
@@ -778,7 +707,7 @@ function Get-ExpectedWorkspacePaths {
     if (Test-WorkspaceTemplateDefined 'zlib') {
         $paths.Add($Workspace.Templates.zlib.Source) | Out-Null
     }
-    if ($DependencyPatches.ContainsKey('mbedtls')) {
+    if ($Dependencies.ContainsKey('mbedtls')) {
         $paths.Add('eMule-mbedtls') | Out-Null
     }
     if (Test-WorkspaceTemplateDefined 'mbedtls') {
@@ -873,17 +802,11 @@ function Get-ToolReport([string]$Intent, $ToolsContext) {
     Add-Check $results ($ToolsContext.Sdk ? 'pass' : 'fail') 'windows-sdk' ($ToolsContext.Sdk ? "$($ToolsContext.Sdk.Version) @ $($ToolsContext.Sdk.Root)" : 'Windows 10 SDK not found')
     if ($ToolsContext.Git) {
         $hasIdentity = -not [string]::IsNullOrWhiteSpace($ToolsContext.Identity.Name) -and -not [string]::IsNullOrWhiteSpace($ToolsContext.Identity.Email)
-        $identityStatus = if ($hasIdentity) {
-            'pass'
-        } elseif ($Intent -in @('setup','general','validate','validate-full')) {
-            'fail'
-        } else {
-            'warn'
-        }
+        $identityStatus = if ($hasIdentity) { 'pass' } else { 'warn' }
         $identityDetail = if ($hasIdentity) {
             "$($ToolsContext.Identity.Name) <$($ToolsContext.Identity.Email)>"
         } else {
-            'missing git user.name and/or user.email'
+            'missing git user.name and/or user.email; only needed when you intend to commit from this workspace'
         }
         Add-Check $results $identityStatus 'git-identity' $identityDetail
     }
@@ -1140,7 +1063,7 @@ function Run-Setup {
     Ensure-AppWorktrees
     Assert-AppLayout
     foreach ($key in $DependencyOrder) {
-        Ensure-PatchCommit $key
+        Ensure-BuildBranch $Dependencies[$key].Repo $key
     }
     foreach ($entry in $NestedSubmodules) {
         Sync-NestedBuildSubmodule $entry
@@ -1389,7 +1312,7 @@ function Show-DependencyStatus {
     Show-Report $report
 
     Get-StatusRows |
-        Select-Object Name,Branch,Head,Patch,Worktree,Repo |
+        Select-Object Name,Version,Policy,Branch,Head,Patch,Worktree,Repo |
         Format-Table -AutoSize |
         Out-String -Width 200 |
         Write-Host
@@ -1399,7 +1322,7 @@ function Run-Validate {
     $report = Get-EnvReport 'validate' $Config 'eMule'
     Show-Report $report
     Get-StatusRows |
-        Select-Object Name,Branch,Head,Patch,Worktree,Repo |
+        Select-Object Name,Version,Policy,Branch,Head,Patch,Worktree,Repo |
         Format-Table -AutoSize |
         Out-String -Width 200 |
         Write-Host
@@ -1410,7 +1333,7 @@ function Run-ValidateFull {
     $report = Get-EnvReport 'validate-full' $Config 'eMule'
     Show-Report $report
     Get-StatusRows |
-        Select-Object Name,Branch,Head,Patch,Worktree,Repo |
+        Select-Object Name,Version,Policy,Branch,Head,Patch,Worktree,Repo |
         Format-Table -AutoSize |
         Out-String -Width 200 |
         Write-Host
@@ -1449,8 +1372,8 @@ switch ($Command) {
             Build-ProjectInternal $r $Project $Config
         }
     }
-    'open-solution' {
-        $r = Get-EnvReport 'open-solution' $Config 'eMule'
+    'open-app' {
+        $r = Get-EnvReport 'open-app' $Config 'eMule'
         Show-Report $r
         Start-Process -FilePath $r.Tools.DevEnv -ArgumentList @(Join-Path $Root $Projects.eMule.Open) | Out-Null
     }
