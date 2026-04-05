@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','validate-full','setup','repair','bootstrap','build-libs','build-app','build-all','normalize','normalize-check')]
+    [ValidateSet('env-check','dep-status','validate','validate-full','setup','repair','bootstrap','build-libs','build-app','build-all','package','normalize','normalize-check')]
     [string]$Command,
     [ValidateSet('Release', 'Debug')]
     [string]$Config = 'Release',
@@ -20,8 +20,12 @@ $Workspace = $Manifest.Workspace
 $Dependencies = @($Workspace.Dependencies)
 $AppRepo = $Workspace.AppRepo
 $SeedRepo = $AppRepo.SeedRepo
+$GeneratedProjects = if ($Workspace.ContainsKey('GeneratedProjects')) { $Workspace.GeneratedProjects } else { @{} }
 $Toolchain = $Workspace.Toolchain
 $ToolsetOverrideVariable = $Toolchain.ToolsetOverrideVariable
+$DependencyOrder = if ($Manifest.ContainsKey('DependencyOrder')) { @($Manifest.DependencyOrder) } else { @($Dependencies | ForEach-Object { $_.Name }) }
+$BuildProjects = if ($Manifest.ContainsKey('BuildProjects')) { @($Manifest.BuildProjects) } else { @($DependencyOrder) }
+$Projects = if ($Manifest.ContainsKey('Projects')) { $Manifest.Projects } else { @{} }
 $KnownAppBranches = @{}
 foreach ($variant in $AppRepo.Variants) {
     $KnownAppBranches[$variant.Branch] = $variant.Name
@@ -427,24 +431,325 @@ function Write-WorkspaceSummary {
     Write-Host ("Outputs       libs={0} libs_debug={1}" -f (Join-Path $Root 'libs'), (Join-Path $Root 'libs_debug'))
 }
 
-function Assert-BuildOutputs([string]$Configuration, [string]$Platform) {
-    $libRoot = Join-Path $Root ($(if ($Configuration -eq 'Debug') { 'libs_debug' } else { 'libs' }))
-    if (-not (Test-Path -LiteralPath $libRoot)) {
-        throw "Library output directory missing at '$libRoot'."
+function Get-WorkspaceReport {
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    $requiredPaths = [System.Collections.Generic.List[string]]::new()
+    $requiredPaths.Add('libs') | Out-Null
+    $requiredPaths.Add('libs_debug') | Out-Null
+    foreach ($variant in @($AppRepo.Variants)) {
+        $requiredPaths.Add([string]$variant.Path) | Out-Null
     }
 
-    $libCount = @(
-        Get-ChildItem -LiteralPath $libRoot -Recurse -File -Include *.lib -ErrorAction SilentlyContinue
-    ).Count
-    if ($libCount -eq 0) {
-        throw "No .lib outputs were found under '$libRoot'."
-    }
+    $missing = @($requiredPaths | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Root $_)) })
+    Add-Check $results $(if ($missing.Count -eq 0) { 'pass' } else { 'fail' }) 'workspace' $(if ($missing.Count -eq 0) { 'required paths present' } else { 'missing: ' + ($missing -join ', ') })
 
-    foreach ($app in Get-ActiveApps) {
-        $exePath = Join-Path $app.Path "srchybrid\x64\$Configuration\emule.exe"
-        if (-not (Test-Path -LiteralPath $exePath)) {
-            throw "Expected eMule output missing at '$exePath'."
+    foreach ($dependency in $Dependencies) {
+        $repoPath = Join-Path $Root $dependency.Repo
+        $status = if (-not (Test-Path -LiteralPath $repoPath)) {
+            'fail'
+        } elseif ($dependency.Commit) {
+            $(if ((Get-RepoHeadFull $repoPath) -eq $dependency.Commit -and (Test-RepoClean $repoPath)) { 'pass' } else { 'fail' })
+        } else {
+            $branchOk = (Get-RepoBranch $repoPath) -eq $dependency.Branch
+            $(if ($branchOk -and (Test-RepoClean $repoPath)) { 'pass' } else { 'fail' })
         }
+
+        if ($status -eq 'pass') {
+            $detail = if ($dependency.Commit) {
+                "{0}; pinned {1}; clean" -f (Get-RepoHead $repoPath), $dependency.Commit
+            } else {
+                "{0}; clean" -f (Get-RepoBranch $repoPath)
+            }
+        } else {
+            $detail = if (-not (Test-Path -LiteralPath $repoPath)) {
+                'repo missing'
+            } elseif ($dependency.Commit) {
+                "{0}; expected pinned {1}; {2}" -f (Get-RepoHeadFull $repoPath), $dependency.Commit, $(if (Test-RepoClean $repoPath) { 'clean' } else { 'dirty' })
+            } else {
+                "{0}; expected {1}; {2}" -f (Get-RepoBranch $repoPath), $dependency.Branch, $(if (Test-RepoClean $repoPath) { 'clean' } else { 'dirty' })
+            }
+        }
+
+        Add-Check $results $status "$($dependency.Name)-branch" $detail
+    }
+
+    foreach ($name in @($GeneratedProjects.Keys)) {
+        $ready = Test-GeneratedProjectReady $name
+        $profile = Get-GeneratedProjectProfile $name
+        Add-Check $results $(if ($ready) { 'pass' } else { 'fail' }) "$name-configure" $(if ($ready) { ($profile.ConfigureReady -join ', ') } else { 'missing or incomplete; run setup/repair' })
+    }
+
+    @($results)
+}
+
+function Get-PackageArchiveCheck([string]$Configuration, [switch]$Optional) {
+    $zip = Get-PackagePath $Configuration
+    if (-not (Test-Path -LiteralPath $zip)) {
+        return [pscustomobject]@{
+            Status = $(if ($Optional) { 'warn' } else { 'fail' })
+            Name = 'package-archive'
+            Detail = "missing: $zip"
+        }
+    }
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = $null
+    try {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
+        $entries = @($archive.Entries | Select-Object -ExpandProperty FullName)
+        $missingEntries = @(Get-PackageEntryList $Configuration | Where-Object { $_ -notin $entries })
+        if ($missingEntries.Count -gt 0) {
+            return [pscustomobject]@{
+                Status = 'fail'
+                Name = 'package-archive'
+                Detail = "missing entries $($missingEntries -join ', ') in $zip"
+            }
+        }
+
+        return [pscustomobject]@{
+            Status = 'pass'
+            Name = 'package-archive'
+            Detail = "$zip => $($entries -join ', ')"
+        }
+    } finally {
+        if ($archive) {
+            $archive.Dispose()
+        }
+    }
+}
+
+function Get-BuildStateReport([string]$Configuration, [switch]$SkipPackageArchive) {
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($name in $BuildProjects) {
+        $out = Get-OutputPath $name $Configuration
+        Add-Check $results $(if (Test-Path -LiteralPath $out) { 'pass' } else { 'fail' }) "$name-output" $(if (Test-Path -LiteralPath $out) { $out } else { "missing: $out" })
+    }
+
+    $exe = Get-OutputPath 'eMule' $Configuration
+    Add-Check $results $(if (Test-Path -LiteralPath $exe) { 'pass' } else { 'fail' }) 'emule-output' $(if (Test-Path -LiteralPath $exe) { $exe } else { "missing: $exe" })
+
+    if ($Configuration -eq 'Release' -and $Workspace.ContainsKey('Package') -and -not $SkipPackageArchive) {
+        Add-Checks $results (Get-PackageArchiveCheck $Configuration)
+    }
+
+    @($results)
+}
+
+function Get-EnvReport([switch]$Full, [switch]$SkipPackageArchive) {
+    $results = [System.Collections.Generic.List[object]]::new()
+    $tools = Get-ToolsContext
+
+    Add-Check $results $(if ($tools.Vs) { 'pass' } else { 'fail' }) 'visual-studio' $(if ($tools.Vs) { $tools.Vs.Root } else { 'Visual Studio 2022 with MSBuild is required.' })
+    Add-Check $results $(if ($tools.Git) { 'pass' } else { 'fail' }) 'git' $(if ($tools.Git) { $tools.Git } else { 'git not found on PATH.' })
+    Add-Check $results $(if ($tools.Python) { 'pass' } else { 'fail' }) 'python' $(if ($tools.Python) { $tools.Python } else { 'python not found on PATH.' })
+
+    Add-Checks $results (Get-WorkspaceReport)
+    if ($Full) {
+        Add-Checks $results (Get-BuildStateReport -Configuration $Config -SkipPackageArchive:$SkipPackageArchive)
+    }
+
+    [pscustomobject]@{
+        Results = @($results)
+        Failed = (@($results | Where-Object Status -eq 'fail')).Count
+        Tools = $tools
+    }
+}
+
+function Show-Report($Report) {
+    foreach ($item in $Report.Results) {
+        $color = @{ pass='Green'; warn='Yellow'; fail='Red' }[$item.Status]
+        Write-Host ("[{0}] {1}: {2}" -f $item.Status.ToUpper(), $item.Name, $item.Detail) -ForegroundColor $color
+    }
+
+    if ($Report.Failed -gt 0) {
+        throw 'Environment check failed.'
+    }
+}
+
+function Get-PackageStageDir([string]$Configuration = 'Release') {
+    Join-Path $Root ('dist\stage-{0}' -f $Configuration.ToLowerInvariant())
+}
+
+function New-PackageBuildInfo([string]$Configuration = 'Release') {
+    $toolsContext = Get-ToolsContext
+    @(
+        "PackageRoot: $(Get-PackageRootDir $Configuration)"
+        "SourceProject: $((Get-PackageProfile $Configuration).SourceProject)"
+        "Configuration: $Configuration"
+        "BuiltUtc: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+        "WorkspaceBranch: $(Get-RepoBranch $Root)"
+        "WorkspaceCommit: $(Get-RepoHeadFull $Root)"
+        "eMuleCommit: $(Get-RepoHead (Join-Path $Root $SeedRepo.Path))"
+        "Binary: $(Split-Path -Leaf (Get-OutputPath 'eMule' $Configuration))"
+        "PowerShell: $($PSVersionTable.PSVersion)"
+        "MSBuild: $($toolsContext.Vs.MSBuild)"
+        "VisualStudio: $($toolsContext.Vs.Root)"
+    ) -join [Environment]::NewLine
+}
+
+function New-PackageStage([string]$Configuration = 'Release') {
+    $profile = Get-PackageProfile $Configuration
+    $stageDir = Get-PackageStageDir $Configuration
+    if (Test-Path -LiteralPath $stageDir) {
+        Remove-Item -LiteralPath $stageDir -Recurse -Force
+    }
+
+    $packageRoot = Join-Path $stageDir $profile.RootDir
+    $null = New-Item -ItemType Directory -Path $packageRoot -Force
+    Copy-Item -LiteralPath (Get-OutputPath $profile.SourceProject $Configuration) -Destination (Join-Path $packageRoot $profile.Entry) -Force
+
+    foreach ($item in @($profile.Include)) {
+        $destination = Join-Path $packageRoot $item.Destination
+        $parent = Split-Path -Parent $destination
+        if (-not (Test-Path -LiteralPath $parent)) {
+            $null = New-Item -ItemType Directory -Path $parent -Force
+        }
+        Copy-Item -LiteralPath (Get-WorkspacePath $item.Source) -Destination $destination -Force
+    }
+
+    if ($profile.BuildInfoName) {
+        [IO.File]::WriteAllText((Join-Path $packageRoot $profile.BuildInfoName), (New-PackageBuildInfo $Configuration))
+    }
+
+    $stageDir
+}
+
+function New-PackageZip([string]$SourceFile, [string]$DestinationZip) {
+    $destinationDir = Split-Path -Parent $DestinationZip
+    if (-not (Test-Path -LiteralPath $destinationDir)) {
+        $null = New-Item -ItemType Directory -Path $destinationDir -Force
+    }
+    if (Test-Path -LiteralPath $DestinationZip) {
+        Remove-Item -LiteralPath $DestinationZip -Force
+    }
+
+    $sourceDir = Split-Path -Parent $SourceFile
+    $leaf = Split-Path -Leaf $SourceFile
+    Push-Location $sourceDir
+    try {
+        Compress-Archive -LiteralPath ".\$leaf" -DestinationPath $DestinationZip -CompressionLevel Optimal
+    } finally {
+        Pop-Location
+    }
+}
+
+function Add-Check($List, [string]$Status, [string]$Name, [string]$Detail) {
+    $List.Add([pscustomobject]@{ Status = $Status; Name = $Name; Detail = $Detail }) | Out-Null
+}
+
+function Add-Checks($List, $Checks) {
+    foreach ($check in @($Checks)) {
+        if ($check) {
+            $List.Add($check) | Out-Null
+        }
+    }
+}
+
+function Get-WorkspacePath([string]$RelativePath) {
+    Join-Path $Root $RelativePath
+}
+
+function Get-OutputPath([string]$Name, [string]$Configuration) {
+    Join-Path $Root $Projects[$Name].Output[$Configuration]
+}
+
+function Test-GeneratedProjectDefined([string]$Name) {
+    $null -ne $GeneratedProjects[$Name]
+}
+
+function Get-GeneratedProjectProfile([string]$Name) {
+    $profile = $GeneratedProjects[$Name]
+    if (-not $profile) {
+        throw "No generated project profile defined for $Name."
+    }
+    $profile
+}
+
+function Test-GeneratedProjectReady([string]$Name) {
+    if (-not (Test-GeneratedProjectDefined $Name)) {
+        return $false
+    }
+
+    foreach ($relativePath in @((Get-GeneratedProjectProfile $Name).ConfigureReady)) {
+        if (-not (Test-Path -LiteralPath (Get-WorkspacePath $relativePath))) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+function Get-PackageProfile([string]$Configuration = 'Release') {
+    if (-not $Workspace.ContainsKey('Package')) {
+        throw 'No package profiles are defined.'
+    }
+
+    $profile = $Workspace.Package[$Configuration]
+    if (-not $profile) {
+        throw "No package profile defined for configuration $Configuration."
+    }
+
+    $profile
+}
+
+function Get-PackageOutputDir([string]$Configuration = 'Release') {
+    $profile = Get-PackageProfile $Configuration
+    if ([string]::IsNullOrWhiteSpace($profile.OutputDir)) {
+        return $Root
+    }
+
+    Join-Path $Root $profile.OutputDir
+}
+
+function Get-PackagePath([string]$Configuration = 'Release') {
+    $profile = Get-PackageProfile $Configuration
+    $archiveName = if ($profile.ContainsKey('ArchiveName')) { $profile.ArchiveName } else { $profile.Archive }
+    if ([string]::IsNullOrWhiteSpace($archiveName)) {
+        throw "No package archive name defined for configuration $Configuration."
+    }
+
+    Join-Path (Get-PackageOutputDir $Configuration) $archiveName
+}
+
+function Get-PackageRootDir([string]$Configuration = 'Release') {
+    $profile = Get-PackageProfile $Configuration
+    if ([string]::IsNullOrWhiteSpace($profile.RootDir)) {
+        throw "No package root directory defined for configuration $Configuration."
+    }
+
+    $profile.RootDir
+}
+
+function Get-PackageEntryPath([string]$Configuration = 'Release', [string]$Entry) {
+    '{0}/{1}' -f (Get-PackageRootDir $Configuration), (($Entry -replace '\\','/').TrimStart('/'))
+}
+
+function Get-PackageEntryList([string]$Configuration = 'Release') {
+    $profile = Get-PackageProfile $Configuration
+    $entries = [System.Collections.Generic.List[string]]::new()
+    $entries.Add((Get-PackageEntryPath $Configuration $profile.Entry)) | Out-Null
+    if ($profile.BuildInfoName) {
+        $entries.Add((Get-PackageEntryPath $Configuration $profile.BuildInfoName)) | Out-Null
+    }
+    foreach ($item in @($profile.Include)) {
+        if ($item.Destination) {
+            $entries.Add((Get-PackageEntryPath $Configuration $item.Destination)) | Out-Null
+        }
+    }
+
+    @($entries)
+}
+
+function Get-ToolsContext {
+    $git = Resolve-Tool @('git.exe', 'git')
+    $python = Resolve-Tool @('python.exe', 'python')
+    $vs = Get-VsInfo
+    [pscustomobject]@{
+        Git = $git
+        Python = $python
+        Vs = $vs
     }
 }
 
@@ -503,13 +808,16 @@ switch ($Command) {
         Write-WorkspaceSummary
     }
     'validate' {
-        & $PSCommandPath env-check -Config $Config -Platform $Platform
+        $report = Get-EnvReport
+        Show-Report $report
         & $PSCommandPath dep-status -Config $Config -Platform $Platform
         Assert-AppLayout
     }
     'validate-full' {
-        & $PSCommandPath validate -Config $Config -Platform $Platform
-        Assert-BuildOutputs -Configuration $Config -Platform $Platform
+        $report = Get-EnvReport -Full
+        Show-Report $report
+        & $PSCommandPath dep-status -Config $Config -Platform $Platform
+        Assert-AppLayout
     }
     'build-libs' {
         foreach ($dependency in $Dependencies) {
@@ -524,6 +832,17 @@ switch ($Command) {
     'build-all' {
         & $PSCommandPath build-libs -Config $Config -Platform $Platform
         & $PSCommandPath build-app -Config $Config -Platform $Platform
+    }
+    'package' {
+        if ($Config -ne 'Release') {
+            throw 'Packaging is only supported for Release.'
+        }
+        $report = Get-EnvReport -Full -SkipPackageArchive
+        Show-Report $report
+        $zip = Get-PackagePath 'Release'
+        $stageDir = New-PackageStage 'Release'
+        New-PackageZip -SourceFile (Join-Path $stageDir (Get-PackageRootDir 'Release')) -DestinationZip $zip
+        Write-Host "Package created at $zip" -ForegroundColor Green
     }
     'normalize' {
         Ensure-PythonPackages
