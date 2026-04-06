@@ -1,6 +1,6 @@
 @{
     BuildBranch = 'emule-build-v0.72a'
-    AppBuildBranch = 'bb/v0.72a/test'
+    AppBuildBranch = 'bb/v0.72a/bugfix'
     Workspace = @{
         Toolchain = @{
             WindowsTargetPlatformVersion = '10.0'
@@ -11,13 +11,13 @@
             'logs'
             'dist'
             'tmp'
-            'eMule-bb-v0.72a-test\srchybrid\x64'
+            'eMule-bb-v0.72a-bugfix\srchybrid\x64'
         )
         AppRepo = @{
             SeedRepo = @{
-                Path = 'eMule-bb-v0.72a-test'
+                Path = 'eMule-bb-v0.72a-bugfix'
                 Url = 'https://github.com/itlezy/eMule.git'
-                Branch = 'bb/v0.72a/test'
+                Branch = 'bb/v0.72a/bugfix'
             }
             CompareSubdir = 'srchybrid'
             Variants = @(
@@ -40,8 +40,8 @@
             Release = @{
                 SourceProject = 'eMule'
                 OutputDir = 'dist'
-                ArchiveName = 'eMule0.72a-test_x64-snapshot.zip'
-                RootDir = 'eMule0.72a-test_x64'
+                ArchiveName = 'eMule0.72a-bugfix_x64-snapshot.zip'
+                RootDir = 'eMule0.72a-bugfix_x64'
                 BuildInfoName = 'BUILD-INFO.txt'
                 Entry = 'emule.exe'
                 Include = @(
@@ -282,12 +282,12 @@
         }
         eMule = @{
             Kind   = 'msbuild'
-            Path   = 'eMule-bb-v0.72a-test\srchybrid\emule.vcxproj'
+            Path   = 'eMule-bb-v0.72a-bugfix\srchybrid\emule.vcxproj'
             Output = @{
-                Release = 'eMule-bb-v0.72a-test\srchybrid\x64\Release\emule.exe'
-                Debug   = 'eMule-bb-v0.72a-test\srchybrid\x64\Debug\emule.exe'
+                Release = 'eMule-bb-v0.72a-bugfix\srchybrid\x64\Release\emule.exe'
+                Debug   = 'eMule-bb-v0.72a-bugfix\srchybrid\x64\Debug\emule.exe'
             }
-            Open = 'eMule-bb-v0.72a-test\srchybrid\emule.vcxproj'
+            Open = 'eMule-bb-v0.72a-bugfix\srchybrid\emule.vcxproj'
         }
     }
 }
