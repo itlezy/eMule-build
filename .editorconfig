@@ -12,5 +12,8 @@ trim_trailing_whitespace = false
 [*.patch]
 end_of_line = lf
 
-[*.{ps1,cmd,bat,sln,vcxproj,props}]
+[*.{ps1,cmd,bat,sln,slnx,vcxproj,vcxproj.filters,props,targets,rc,rc2}]
 end_of_line = crlf
+
+[*.rc2]
+charset = utf-8-bom

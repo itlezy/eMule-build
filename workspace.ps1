@@ -33,7 +33,7 @@ $DependencyOrder = @($Manifest.DependencyOrder)
 $BuildProjects = @($Manifest.BuildProjects)
 $Projects = $Manifest.Projects
 $LogsRoot = Join-Path $Root $Workspace.LogsRoot
-$BuildAppRelativePath = if ($null -ne $SeedRepo -and $SeedRepo.ContainsKey('Path')) { [string]$SeedRepo.Path } else { 'eMule-v0.72a-build-clean' }
+$BuildAppRelativePath = if ($null -ne $SeedRepo -and $SeedRepo.ContainsKey('Path')) { [string]$SeedRepo.Path } else { 'eMule-bb-v0.72a-build' }
 $BuildAppPath = Join-Path $Root $BuildAppRelativePath
 $KnownAppBranches = @{}
 if ($null -ne $AppRepo -and $AppRepo.ContainsKey('Variants')) {

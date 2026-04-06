@@ -1,6 +1,6 @@
 @{
     BuildBranch = 'emule-build-v0.72a'
-    AppBuildBranch = 'v0.72a-build-clean'
+    AppBuildBranch = 'bb/v0.72a/build'
     Workspace = @{
         Toolchain = @{
             WindowsTargetPlatformVersion = '10.0'
@@ -11,20 +11,19 @@
             'logs'
             'dist'
             'tmp'
-            'eMule-v0.72a-build-clean\srchybrid\x64'
+            'eMule-bb-v0.72a-build\srchybrid\x64'
         )
         AppRepo = @{
             SeedRepo = @{
-                Path = 'eMule-v0.72a-build-clean'
+                Path = 'eMule-bb-v0.72a-build'
                 Url = 'https://github.com/itlezy/eMule.git'
-                Branch = 'v0.72a-build-clean'
+                Branch = 'bb/v0.72a/build'
             }
             CompareSubdir = 'srchybrid'
             Variants = @(
-                @{ Name = 'build'; Branch = 'v0.72a-build-clean'; Path = 'eMule-v0.72a-build-clean' }
-                @{ Name = 'bugfix'; Branch = 'v0.72a-bugfix-clean'; Path = 'eMule-v0.72a-bugfix-clean' }
-                @{ Name = 'broadband'; Branch = 'v0.72a-broadband-clean'; Path = 'eMule-v0.72a-broadband-clean' }
-                @{ Name = 'experimental'; Branch = 'v0.72a-experimental-clean'; Path = 'eMule-v0.72a-experimental-clean' }
+                @{ Name = 'build'; Branch = 'bb/v0.72a/build'; Path = 'eMule-bb-v0.72a-build' }
+                @{ Name = 'test'; Branch = 'bb/v0.72a/test'; Path = 'eMule-bb-v0.72a-test' }
+                @{ Name = 'bugfix'; Branch = 'bb/v0.72a/bugfix'; Path = 'eMule-bb-v0.72a-bugfix' }
             )
         }
         Templates = @{
@@ -283,12 +282,12 @@
         }
         eMule = @{
             Kind   = 'msbuild'
-            Path   = 'eMule-v0.72a-build-clean\srchybrid\emule.vcxproj'
+            Path   = 'eMule-bb-v0.72a-build\srchybrid\emule.vcxproj'
             Output = @{
-                Release = 'eMule-v0.72a-build-clean\srchybrid\x64\Release\emule.exe'
-                Debug   = 'eMule-v0.72a-build-clean\srchybrid\x64\Debug\emule.exe'
+                Release = 'eMule-bb-v0.72a-build\srchybrid\x64\Release\emule.exe'
+                Debug   = 'eMule-bb-v0.72a-build\srchybrid\x64\Debug\emule.exe'
             }
-            Open = 'eMule-v0.72a-build-clean\srchybrid\emule.vcxproj'
+            Open = 'eMule-bb-v0.72a-build\srchybrid\emule.vcxproj'
         }
     }
 }

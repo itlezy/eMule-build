@@ -4,17 +4,16 @@ This repo is the Windows build workspace for the `v0.72a` eMule line. It owns th
 
 ## Branch Layout
 
-- `v0.72a-build-clean`: clean base derived from `community-0.72`, limited to build and integration deltas
-- `v0.72a-bugfix-clean`: bugfix child branch
-- `v0.72a-broadband-clean`: stable BB child branch
-- `v0.72a-experimental-clean`: experimental child branch
+- `bb/v0.72a/build`: canonical build baseline derived from `community-0.72`
+- `bb/v0.72a/test`: seam and test-surface child branch
+- `bb/v0.72a/bugfix`: canonical bugfix child branch
 
-Rules for `build-clean`:
+Rules for `build`:
 
 - keep app source as close to `community-0.72` as possible
 - keep ARM64 surface from community
 - normalize handwritten Visual Studio projects to `v143`
-- do not carry bugfixes or behavioral changes in `build-clean`
+- do not carry bugfixes or behavioral changes in `build`
 - do not encode workspace layout in app source includes
 
 ## Dependency Policy
@@ -35,14 +34,13 @@ The current `ResizableLib` fork already includes the eMuleAI stale-anchor memory
 
 ## Workspace Layout
 
-The workspace keeps the existing `eMule-*` repo names at the root:
+The workspace mirrors the canonical branch layout in filesystem-safe `eMule-*` worktree names:
 
 ```text
 eMule-build-v0.72/
-  eMule-v0.72a-build-clean/
-  eMule-v0.72a-bugfix-clean/
-  eMule-v0.72a-broadband-clean/
-  eMule-v0.72a-experimental-clean/
+  eMule-bb-v0.72a-build/
+  eMule-bb-v0.72a-test/
+  eMule-bb-v0.72a-bugfix/
   eMule-cryptopp/
   eMule-id3lib/
   eMule-miniupnp/
@@ -146,7 +144,7 @@ It does not apply patch files.
 
 ## App Surface
 
-`build-clean` uses:
+`build` uses:
 
 - `srchybrid\emule.vcxproj`
 
@@ -168,4 +166,4 @@ The package includes:
 
 - `MBEDTLS_ALLOW_PRIVATE_ACCESS` and `bcrypt.lib` are intentional project-level integration details for the current `mbedtls` fork and the community source contract.
 - The `mbedtls` fork already carries the threading-alt configuration needed by eMule in `tf-psa-crypto\include\psa\crypto_config.h`.
-- If `build-clean` needs a behavioral fix, move it to `bugfix` instead of keeping it in the base branch.
+- If `build` needs a behavioral fix, move it to `bugfix` instead of keeping it in the base branch.

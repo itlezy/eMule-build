@@ -1,7 +1,7 @@
-[submodule "eMule-v0.72a-build-clean"]
-	path = eMule-v0.72a-build-clean
+[submodule "eMule-bb-v0.72a-build"]
+	path = eMule-bb-v0.72a-build
 	url = https://github.com/itlezy/eMule.git
-	branch = v0.72a-build-clean
+	branch = bb/v0.72a/build
 [submodule "eMule-cryptopp"]
 	path = eMule-cryptopp
 	url = https://github.com/itlezy/eMule-cryptopp.git
