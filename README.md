@@ -1,41 +1,63 @@
-# Build package for eMule Community
+# eMule-build
 
-Meant to ease the build work, all projects upgraded to VS 2019, compiling, with correct path references and updated libraries (as much as possible)
+`eMule-build` owns the canonical build and test orchestration for the 0.72a
+workspace rooted at `EMULE_WORKSPACE_ROOT`.
 
-## Pre-requisites
-1. Have a recent `git` installed and available on `PATH`
-2. Ensure the command `mklink` is available on your Windows system, otherwise get `junction` from Sysinternals and modify `002_create_symlinks.cmd` accordingly
-3. Have Visual Studio 2019 Community installed with Windows SDK 10.0 and Toolset v142 (should all be by default when you install C++ components for Visual Studio)
+`eMulebb-setup` is responsible only for materializing the workspace and then
+triggering this repo. This repo owns:
 
-## Build Steps
-This git repo contains accessory scripts to clone the other repos and perform the builds. So clone this repo as first step.
+- shared dependency build orchestration
+- app build orchestration for the active 0.72a branches
+- shared test builds
+- parity, coverage, and live-diff launch flows
 
-### 001_clone_git_repos
-First step is to run `001_clone_git_repos.cmd` and then you will have the following directories, which are all the cleaned-up and as much as possible up to date dependencies to build eMule, plus the program directory itself.
+## Canonical layout
 
+```text
+EMULE_WORKSPACE_ROOT\
+  repos\
+    eMule\
+    eMule-build\
+    eMule-build-tests\
+    eMule-tooling\
+    eMule-remote\
+    third_party\...
+  workspaces\
+    v0.72a\
+      app\
+        eMule-main\
+        eMule-v0.72a-build\
+        eMule-v0.72a-bugfix\
 ```
-eMule-cryptopp-8.4.0
-eMule-CxImage-7.02
-eMule-id3lib-3.9.1
-eMule-libpng-1.5.30
-eMule-mbedtls-2.28
-eMule-miniupnp-2.2.3
-eMule-ResizableLib
-eMule-zlib-1.2.12
-eMule
+
+Active app branches:
+
+- `main`
+- `release/v0.72a-build`
+- `release/v0.72a-bugfix`
+
+## Entry points
+
+```powershell
+pwsh -File .\workspace.ps1 env-check   -EmuleWorkspaceRoot <workspace-root>
+pwsh -File .\workspace.ps1 build-libs  -EmuleWorkspaceRoot <workspace-root>
+pwsh -File .\workspace.ps1 build-app   -EmuleWorkspaceRoot <workspace-root>
+pwsh -File .\workspace.ps1 build-tests -EmuleWorkspaceRoot <workspace-root>
+pwsh -File .\workspace.ps1 test        -EmuleWorkspaceRoot <workspace-root>
+pwsh -File .\workspace.ps1 full        -EmuleWorkspaceRoot <workspace-root>
 ```
 
-### 002_create_symlinks
-Second step is to run `002_create_symlinks.cmd` just to keep some source code references to include directories unchanged in eMule main project.
+Or from `cmd.exe`:
 
-Then there are scripts each to `launch_VS` if you want to play around with the libraries or the main project, and scripts `build_MSBuild` to launch the builds of each.
+```cmd
+workspace.cmd build-app -EmuleWorkspaceRoot <workspace-root>
+```
 
-The directory `libs` is the place where built libraries are copied and referenced by the linker of the main eMule project to build the final executable file.
+Supported build matrix:
 
-The external libraries should require no change at this stage, so they are mostly for reference and all forked from their original repositories for integrity. Minor changes had to be made to build them on Visual Studio 2019, which you can see in git history.
+- app and dependencies: `Debug|x64`, `Release|x64`, `Debug|ARM64`, `Release|ARM64`
+- shared tests: `Debug|x64`, `Release|x64`
 
-### 003_build_MSBuild_ALL_libs
-Finally you should be ready to go, this last script `003_build_MSBuild_ALL_libs.cmd` launches all the library builds in parallel. As last step you will have to build eMule `build_MSBuild_eMule.cmd` as of course it depends on all the libraries that you just built.
-
-### Notes
-Please note that I have upgraded few libraries such as libpng, cryptopp, etc.. just taking the most recent minor version from their current git repositories, where applicable. Some others such as ResizableLib or CxImage are not really recent nor maintained. Due to the library upgrades and some other compiler switch changes, please ensure you test properly this build, as I am now doing.
+The legacy batch files remain in the repo for historical compatibility, but the
+canonical maintained entrypoint is `workspace.ps1`. Legacy pre-canonical branch
+names are not part of the supported workflow.
