@@ -49,7 +49,7 @@
             @{
                 Name = 'zlib'
                 Path = 'repos\third_party\eMule-zlib'
-                Project = 'zlib\contrib\vstudio\vc\zlib.vcxproj'
+                Project = 'contrib\vstudio\vc\zlib.vcxproj'
             }
             @{
                 Name = 'mbedtls'
