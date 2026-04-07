@@ -25,6 +25,7 @@ $Manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptRoot 'deps.
 $Workspace = $Manifest.Workspace
 $Dependencies = @($Workspace.Dependencies)
 $AppRepo = $Workspace.AppRepo
+$TestTargets = $AppRepo.TestTargets
 $WorkspaceName = if ([string]::IsNullOrWhiteSpace($WorkspaceName)) { $Workspace.Name } else { $WorkspaceName }
 $EmuleWorkspaceRoot = if ([string]::IsNullOrWhiteSpace($EmuleWorkspaceRoot)) {
     if (-not [string]::IsNullOrWhiteSpace($env:EMULE_WORKSPACE_ROOT)) {
@@ -40,6 +41,20 @@ $ToolsetOverrideVariable = $Workspace.Toolchain.ToolsetOverrideVariable
 
 function Resolve-WorkspacePath([string]$RelativePath) {
     [System.IO.Path]::GetFullPath((Join-Path $EmuleWorkspaceRoot $RelativePath))
+}
+
+function Ensure-Directory([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) {
+        $null = New-Item -ItemType Directory -Path $Path -Force
+    }
+}
+
+function Get-WorkspaceRoot {
+    Resolve-WorkspacePath ("workspaces\{0}" -f $WorkspaceName)
+}
+
+function Get-WorkspaceStateRoot {
+    Resolve-WorkspacePath ("workspaces\{0}\state" -f $WorkspaceName)
 }
 
 function Resolve-Tool([string[]]$Names) {
@@ -251,28 +266,70 @@ function Get-TestBuildTag([string]$WorkspaceRoot, [string]$AppRoot) {
     (($segments -join '-') -replace '[^A-Za-z0-9._-]', '_')
 }
 
-function Get-ActiveApps {
+function Get-AppVariants {
     $apps = [System.Collections.Generic.List[object]]::new()
     foreach ($variant in $AppRepo.Variants) {
         $path = Resolve-WorkspacePath $variant.Path
-        if (-not (Test-Path -LiteralPath $path)) {
-            continue
-        }
         $apps.Add([pscustomobject]@{
             Name = $variant.Name
             Branch = $variant.Branch
             Path = $path
-            CurrentBranch = Get-RepoBranch $path
+            Exists = Test-Path -LiteralPath $path
+            CurrentBranch = if (Test-Path -LiteralPath $path) { Get-RepoBranch $path } else { $null }
         }) | Out-Null
     }
     $apps
 }
 
+function Get-ActiveApps {
+    @(Get-AppVariants | Where-Object { $_.Exists })
+}
+
+function Get-AppVariant([string]$Name) {
+    $variant = @(Get-AppVariants | Where-Object { $_.Name -eq $Name } | Select-Object -First 1)[0]
+    if ($null -eq $variant) {
+        throw "App variant '$Name' is not defined in deps.psd1."
+    }
+    $variant
+}
+
+function Resolve-AppVariantPath([string]$Name, [switch]$RequireExists) {
+    $variant = Get-AppVariant $Name
+    if ($RequireExists -and -not $variant.Exists) {
+        throw "App variant '$Name' is missing: $($variant.Path)"
+    }
+    $variant.Path
+}
+
 function Assert-AppLayout {
-    foreach ($app in Get-ActiveApps) {
+    $missing = @(Get-AppVariants | Where-Object { -not $_.Exists })
+    if ($missing.Count -gt 0) {
+        throw ("Missing app worktrees:`n{0}" -f (($missing | ForEach-Object { $_.Path }) -join [Environment]::NewLine))
+    }
+
+    foreach ($app in Get-AppVariants) {
         if ($app.CurrentBranch -ne $app.Branch) {
             throw "App checkout '$($app.Path)' is on branch '$($app.CurrentBranch)', expected '$($app.Branch)'."
         }
+    }
+}
+
+function Assert-RequiredWorkspacePaths {
+    $requiredPaths = [System.Collections.Generic.List[string]]::new()
+    $requiredPaths.Add($EmuleWorkspaceRoot) | Out-Null
+    $requiredPaths.Add((Get-WorkspaceRoot)) | Out-Null
+    $requiredPaths.Add((Resolve-WorkspacePath $AppRepo.SeedRepo.Path)) | Out-Null
+    $requiredPaths.Add((Resolve-WorkspacePath $Workspace.Repos.Tests)) | Out-Null
+    foreach ($dependency in $Dependencies) {
+        $requiredPaths.Add((Resolve-WorkspacePath $dependency.Path)) | Out-Null
+    }
+    foreach ($app in Get-AppVariants) {
+        $requiredPaths.Add($app.Path) | Out-Null
+    }
+
+    $missing = @($requiredPaths | Where-Object { -not (Test-Path -LiteralPath $_) } | Select-Object -Unique)
+    if ($missing.Count -gt 0) {
+        throw ("Missing required workspace paths:`n{0}" -f ($missing -join [Environment]::NewLine))
     }
 }
 
@@ -300,14 +357,15 @@ function Get-CryptoPpPlatformPropertyOverrides([string]$TargetPlatform) {
 }
 
 function Get-Arm64OverridesPropsPath {
-    Join-Path $EmuleWorkspaceRoot 'arm64-build-overrides.props'
+    Join-Path (Get-WorkspaceStateRoot) 'arm64-build-overrides.props'
 }
 
 function Get-Arm64OverridesTargetsPath {
-    Join-Path $EmuleWorkspaceRoot 'arm64-build-overrides.targets'
+    Join-Path (Get-WorkspaceStateRoot) 'arm64-build-overrides.targets'
 }
 
 function Ensure-Arm64OverridesTargets {
+    Ensure-Directory -Path (Get-WorkspaceStateRoot)
     $propsPath = Get-Arm64OverridesPropsPath
     $targetsPath = Get-Arm64OverridesTargetsPath
     $propsContent = @'
@@ -405,8 +463,8 @@ function Build-Apps {
 
 function Build-Tests {
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
-    $workspaceRoot = Resolve-WorkspacePath ("workspaces\{0}" -f $WorkspaceName)
-    $appRoot = Resolve-WorkspacePath 'workspaces\v0.72a\app\eMule-v0.72a-bugfix'
+    $workspaceRoot = Get-WorkspaceRoot
+    $appRoot = Resolve-AppVariantPath -Name $TestTargets.BuildVariant -RequireExists
     $scriptPath = Join-Path $testRepoRoot 'scripts\build-emule-tests.ps1'
 
     foreach ($entry in Get-TestBuildMatrix) {
@@ -433,9 +491,9 @@ function Build-Tests {
 
 function Invoke-TestRuns {
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
-    $workspaceRoot = Resolve-WorkspacePath ("workspaces\{0}" -f $WorkspaceName)
-    $bugfixAppRoot = Resolve-WorkspacePath 'workspaces\v0.72a\app\eMule-v0.72a-bugfix'
-    $buildAppRoot = Resolve-WorkspacePath 'workspaces\v0.72a\app\eMule-v0.72a-build'
+    $workspaceRoot = Get-WorkspaceRoot
+    $bugfixAppRoot = Resolve-AppVariantPath -Name $TestTargets.CoverageVariant -RequireExists
+    $buildAppRoot = Resolve-AppVariantPath -Name $TestTargets.OracleVariant -RequireExists
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $bugfixAppRoot
 
     $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run-native-coverage.ps1'
@@ -507,6 +565,23 @@ function Write-WorkspaceSummary {
     }
 }
 
+function Validate-Workspace {
+    & $PSCommandPath env-check -EmuleWorkspaceRoot $EmuleWorkspaceRoot -WorkspaceName $WorkspaceName -Config $Config -Platform $Platform
+    Assert-RequiredWorkspacePaths
+    Assert-AppLayout
+
+    $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
+    foreach ($scriptPath in @(
+        (Join-Path $testRepoRoot 'scripts\build-emule-tests.ps1'),
+        (Join-Path $testRepoRoot 'scripts\run-native-coverage.ps1'),
+        (Join-Path $testRepoRoot 'scripts\run-live-diff.ps1')
+    )) {
+        if (-not (Test-Path -LiteralPath $scriptPath)) {
+            throw "Missing required test helper: $scriptPath"
+        }
+    }
+}
+
 switch ($Command) {
     'env-check' {
         $vs = Get-VsInfo
@@ -532,8 +607,7 @@ switch ($Command) {
         }
     }
     'validate' {
-        & $PSCommandPath env-check -EmuleWorkspaceRoot $EmuleWorkspaceRoot -WorkspaceName $WorkspaceName -Config $Config -Platform $Platform
-        Assert-AppLayout
+        Validate-Workspace
     }
     'build-libs' {
         Build-Libs
