@@ -58,6 +58,6 @@ Supported build matrix:
 - app and dependencies: `Debug|x64`, `Release|x64`, `Debug|ARM64`, `Release|ARM64`
 - shared tests: `Debug|x64`, `Release|x64`
 
-The legacy batch files remain in the repo for historical compatibility, but the
-canonical maintained entrypoint is `workspace.ps1`. Legacy pre-canonical branch
-names are not part of the supported workflow.
+`workspace.ps1` and `workspace.cmd` are the only supported operational
+entrypoints. Legacy pre-canonical branch names are not part of the supported
+workflow.
