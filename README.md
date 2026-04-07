@@ -14,7 +14,7 @@ repo is responsible for:
 `workspace.ps1` and `workspace.cmd` are the only supported operational
 entrypoints.
 
-## Canonical Workspace Contract
+## Workspace Assumption
 
 ```text
 EMULE_WORKSPACE_ROOT\
@@ -39,6 +39,9 @@ EMULE_WORKSPACE_ROOT\
         eMule-v0.72a-bugfix\
       state\
 ```
+
+`eMulebb-setup` is the source of truth for workspace materialization and the full
+layout contract. This repo assumes that canonical workspace already exists.
 
 Canonical app branches:
 
