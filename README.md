@@ -16,32 +16,20 @@ entrypoints.
 
 ## Workspace Assumption
 
-```text
-EMULE_WORKSPACE_ROOT\
-  repos\
-    eMule\
-    eMule-build\
-    eMule-build-tests\
-    eMule-tooling\
-    eMule-remote\
-    third_party\
-      eMule-cryptopp\
-      eMule-id3lib\
-      eMule-mbedtls\
-      eMule-miniupnp\
-      eMule-ResizableLib\
-      eMule-zlib\
-  workspaces\
-    v0.72a\
-      app\
-        eMule-main\
-        eMule-v0.72a-build\
-        eMule-v0.72a-bugfix\
-      state\
-```
-
 `eMulebb-setup` is the source of truth for workspace materialization and the full
-layout contract. This repo assumes that canonical workspace already exists.
+layout contract. This repo assumes that canonical workspace already exists and
+uses the standard `EMULE_WORKSPACE_ROOT\repos\...` plus
+`EMULE_WORKSPACE_ROOT\workspaces\v0.72a\...` layout.
+
+In practice this repo needs:
+
+- `repos\eMule`
+- `repos\eMule-build`
+- `repos\eMule-build-tests`
+- `repos\third_party\...`
+- `workspaces\v0.72a\app\eMule-main`
+- `workspaces\v0.72a\app\eMule-v0.72a-build`
+- `workspaces\v0.72a\app\eMule-v0.72a-bugfix`
 
 Canonical app branches:
 
@@ -52,6 +40,9 @@ Canonical app branches:
 The active app layout is manifest-driven from `deps.psd1`. Test, coverage, and
 live-diff flows resolve their app roots from the configured variant names rather
 than duplicating hardcoded worktree paths in the script.
+
+For the full workspace topology and materialization behavior, use
+`eMulebb-setup\README.md`.
 
 ## Supported Commands
 
