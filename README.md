@@ -78,29 +78,33 @@ Command behavior:
 - `env-check` verifies the core toolchain discovery for Git, Visual Studio, and MSBuild.
 - `dep-status` reports branch and worktree status for the dependency repos and canonical app worktrees that exist locally.
 - `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, and required test helper scripts.
-- `build-libs` builds the shared dependency set for the supported matrix.
-- `build-app` builds all canonical app variants for the supported app matrix.
+- `build-libs` builds the shared dependency set for the selected `-Config` and `-Platform`.
+- `build-app` builds all canonical app variants for the selected `-Config` and `-Platform`.
 - `build-tests` builds the shared test harness against the configured build variant.
 - `test` runs parity tests, native coverage, and live diff using the configured test target variants.
 - `build-all` runs `build-libs`, `build-app`, and `build-tests`.
 - `full` runs `build-all`, then `test`, then prints a workspace summary.
 
-## Build Matrix
+## Build Scope
 
-Dependencies and app builds:
+Dependencies and app builds honor the selected invocation parameters:
 
-- `Debug|x64`
-- `Release|x64`
-- `Debug|ARM64`
-- `Release|ARM64`
+- `-Config Debug|Release`
+- `-Platform x64|ARM64`
 
-Shared test builds:
+Examples:
 
-- `Debug|x64`
-- `Release|x64`
+- `build-app -Config Debug -Platform x64` builds only `Debug|x64`
+- `build-libs -Config Release -Platform ARM64` builds only `Release|ARM64`
+- `build-all` and `full` use the same selected target instead of expanding to a hidden multi-target matrix
 
-ARM64 remains present in the build matrix, but x64 is still the primary
-stabilized acceptance path for the end-to-end canonical workflow.
+Shared test builds and test execution currently support `x64` only:
+
+- `build-tests -Platform ARM64` fails with a clear unsupported-platform error
+- `test -Platform ARM64` fails with a clear unsupported-platform error
+
+ARM64 remains available for dependency and app builds, but x64 is still the
+primary stabilized acceptance path for the end-to-end canonical workflow.
 
 ## Validation And Test Model
 
@@ -117,6 +121,9 @@ The test flows use the manifest-configured app variants:
 - test build target: `bugfix`
 - coverage target: `bugfix`
 - live-diff oracle target: `build`
+
+`build-tests` and `test` honor the selected `-Config` value, but require
+`-Platform x64`.
 
 ## Implementation Notes
 

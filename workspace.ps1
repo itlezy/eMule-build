@@ -233,20 +233,17 @@ function Invoke-MSBuildProject {
     Invoke-Native (Get-MSBuildPath) $argumentList "MSBuild $(Split-Path -Leaf $ProjectPath)" -EnvironmentOverrides $EnvironmentOverrides
 }
 
-function Get-AppBuildMatrix {
-    @(
-        @{ Configuration = 'Debug'; Platform = 'x64' }
-        @{ Configuration = 'Release'; Platform = 'x64' }
-        @{ Configuration = 'Debug'; Platform = 'ARM64' }
-        @{ Configuration = 'Release'; Platform = 'ARM64' }
-    )
+function Get-SelectedBuildTarget {
+    [pscustomobject]@{
+        Configuration = $Config
+        Platform = $Platform
+    }
 }
 
-function Get-TestBuildMatrix {
-    @(
-        @{ Configuration = 'Debug'; Platform = 'x64' }
-        @{ Configuration = 'Release'; Platform = 'x64' }
-    )
+function Assert-TestPlatformSupported {
+    if ($Platform -ne 'x64') {
+        throw "Shared test builds and test runs currently support x64 only. Requested platform: $Platform"
+    }
 }
 
 function Get-TestBuildTag([string]$WorkspaceRoot, [string]$AppRoot) {
@@ -427,85 +424,85 @@ function Build-Libs {
     $cmakePath = Get-CMakePath
     $perlPath = Get-PerlPath
 
-    Ensure-Arm64OverridesTargets
-
-    foreach ($entry in Get-AppBuildMatrix) {
-        Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-cryptopp\cryptopp\cryptlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-CryptoPpPlatformPropertyOverrides $entry.Platform) -Target Rebuild -EnvironmentOverrides (Get-CryptoPpEnvironmentOverrides $entry.Platform)
-        Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-id3lib\libprj\id3lib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-Id3libPropertyOverrides $entry.Configuration $entry.Platform) -Target Rebuild
-        Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target Rebuild
-        Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target Rebuild
-
-        if ($entry.Configuration -eq 'Debug' -and $entry.Platform -eq 'x64') {
-            Remove-StaleGeneratedArtifacts -RepoPath (Join-Path $thirdPartyRoot 'eMule-zlib') -Kind 'zlib'
-            Remove-StaleGeneratedArtifacts -RepoPath (Join-Path $thirdPartyRoot 'eMule-mbedtls') -Kind 'mbedtls'
-        }
-
-        Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-zlib\zlib\contrib\vstudio\vc\zlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath") -Target Rebuild
-        Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath", "/p:WorkspacePerlExe=$perlPath") -Target Rebuild
+    $entry = Get-SelectedBuildTarget
+    if ($entry.Platform -eq 'ARM64') {
+        Ensure-Arm64OverridesTargets
     }
+
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-cryptopp\cryptopp\cryptlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-CryptoPpPlatformPropertyOverrides $entry.Platform) -Target Rebuild -EnvironmentOverrides (Get-CryptoPpEnvironmentOverrides $entry.Platform)
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-id3lib\libprj\id3lib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-Id3libPropertyOverrides $entry.Configuration $entry.Platform) -Target Rebuild
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target Rebuild
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target Rebuild
+
+    if ($entry.Configuration -eq 'Debug' -and $entry.Platform -eq 'x64') {
+        Remove-StaleGeneratedArtifacts -RepoPath (Join-Path $thirdPartyRoot 'eMule-zlib') -Kind 'zlib'
+        Remove-StaleGeneratedArtifacts -RepoPath (Join-Path $thirdPartyRoot 'eMule-mbedtls') -Kind 'mbedtls'
+    }
+
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-zlib\zlib\contrib\vstudio\vc\zlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath") -Target Rebuild
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath", "/p:WorkspacePerlExe=$perlPath") -Target Rebuild
 }
 
 function Build-Apps {
     Assert-AppLayout
     $appProperties = Get-AppPropertyOverrides
+    $entry = Get-SelectedBuildTarget
     foreach ($app in Get-ActiveApps) {
         $project = Join-Path $app.Path 'srchybrid\emule.vcxproj'
-        foreach ($entry in Get-AppBuildMatrix) {
-            $extraProperties = @($appProperties)
-            $override = [Environment]::GetEnvironmentVariable($ToolsetOverrideVariable)
-            if ($override) {
-                $extraProperties += "/p:PlatformToolset=$override"
-            }
-            Invoke-MSBuildProject -ProjectPath $project -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties $extraProperties
+        $extraProperties = @($appProperties)
+        $override = [Environment]::GetEnvironmentVariable($ToolsetOverrideVariable)
+        if ($override) {
+            $extraProperties += "/p:PlatformToolset=$override"
         }
+        Invoke-MSBuildProject -ProjectPath $project -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties $extraProperties
     }
 }
 
 function Build-Tests {
+    Assert-TestPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
     $appRoot = Resolve-AppVariantPath -Name $TestTargets.BuildVariant -RequireExists
     $scriptPath = Join-Path $testRepoRoot 'scripts\build-emule-tests.ps1'
+    $entry = Get-SelectedBuildTarget
 
-    foreach ($entry in Get-TestBuildMatrix) {
-        Invoke-Native 'pwsh' @(
-            '-NoLogo',
-            '-NoProfile',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-File',
-            $scriptPath,
-            '-TestRepoRoot',
-            $testRepoRoot,
-            '-WorkspaceRoot',
-            $workspaceRoot,
-            '-AppRoot',
-            $appRoot,
-            '-Configuration',
-            $entry.Configuration,
-            '-Platform',
-            $entry.Platform
-        ) "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
-    }
+    Invoke-Native 'pwsh' @(
+        '-NoLogo',
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        $scriptPath,
+        '-TestRepoRoot',
+        $testRepoRoot,
+        '-WorkspaceRoot',
+        $workspaceRoot,
+        '-AppRoot',
+        $appRoot,
+        '-Configuration',
+        $entry.Configuration,
+        '-Platform',
+        $entry.Platform
+    ) "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
 }
 
 function Invoke-TestRuns {
+    Assert-TestPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
     $bugfixAppRoot = Resolve-AppVariantPath -Name $TestTargets.CoverageVariant -RequireExists
     $buildAppRoot = Resolve-AppVariantPath -Name $TestTargets.OracleVariant -RequireExists
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $bugfixAppRoot
+    $entry = Get-SelectedBuildTarget
 
     $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run-native-coverage.ps1'
     $liveDiffScriptPath = Join-Path $testRepoRoot 'scripts\run-live-diff.ps1'
 
-    foreach ($entry in Get-TestBuildMatrix) {
-        $binaryPath = Join-Path $testRepoRoot ("build\{0}\{1}\{2}\emule-tests.exe" -f $buildTag, $entry.Platform, $entry.Configuration)
-        if (-not (Test-Path -LiteralPath $binaryPath)) {
-            throw "Built test executable not found: $binaryPath"
-        }
-        Invoke-Native $binaryPath @('--test-suite=parity') "parity tests $($entry.Configuration)/$($entry.Platform)" $testRepoRoot
+    $binaryPath = Join-Path $testRepoRoot ("build\{0}\{1}\{2}\emule-tests.exe" -f $buildTag, $entry.Platform, $entry.Configuration)
+    if (-not (Test-Path -LiteralPath $binaryPath)) {
+        throw "Built test executable not found: $binaryPath"
     }
+    Invoke-Native $binaryPath @('--test-suite=parity') "parity tests $($entry.Configuration)/$($entry.Platform)" $testRepoRoot
 
     Invoke-Native 'pwsh' @(
         '-NoLogo',
@@ -521,9 +518,9 @@ function Invoke-TestRuns {
         '-AppRoot',
         $bugfixAppRoot,
         '-Configuration',
-        'Debug',
+        $entry.Configuration,
         '-Platform',
-        'x64'
+        $entry.Platform
     ) 'native coverage'
 
     Invoke-Native 'pwsh' @(
@@ -544,9 +541,9 @@ function Invoke-TestRuns {
         '-OracleAppRoot',
         $buildAppRoot,
         '-Configuration',
-        'Debug',
+        $entry.Configuration,
         '-Platform',
-        'x64'
+        $entry.Platform
     ) 'live diff'
 }
 
