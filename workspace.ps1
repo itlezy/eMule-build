@@ -354,6 +354,64 @@ function Get-AppPropertyOverrides {
     )
 }
 
+function Get-AppDependencyArtifacts([string]$Configuration, [string]$TargetPlatform) {
+    $thirdPartyRoot = Resolve-WorkspacePath 'repos\third_party'
+    @(
+        [pscustomobject]@{
+            Name = 'cryptopp'
+            Path = Join-Path $thirdPartyRoot ("eMule-cryptopp\{0}\Output\{1}\cryptlib.lib" -f $TargetPlatform, $Configuration)
+        }
+        [pscustomobject]@{
+            Name = 'id3lib'
+            Path = Join-Path $thirdPartyRoot ("eMule-id3lib\libprj\{0}\{1}\id3lib.lib" -f $TargetPlatform, $Configuration)
+        }
+        [pscustomobject]@{
+            Name = 'miniupnp'
+            Path = Join-Path $thirdPartyRoot ("eMule-miniupnp\miniupnpc\msvc\{0}\{1}\miniupnpc.lib" -f $TargetPlatform, $Configuration)
+        }
+        [pscustomobject]@{
+            Name = 'ResizableLib'
+            Path = Join-Path $thirdPartyRoot ("eMule-ResizableLib\ResizableLib\{0}\{1}\ResizableLib.lib" -f $TargetPlatform, $Configuration)
+        }
+        [pscustomobject]@{
+            Name = 'zlib'
+            Path = Join-Path $thirdPartyRoot ("eMule-zlib\contrib\vstudio\vc\{0}\{1}\zlib.lib" -f $TargetPlatform, $Configuration)
+        }
+        [pscustomobject]@{
+            Name = 'mbedtls'
+            Path = Join-Path $thirdPartyRoot ("eMule-mbedtls\visualc\VS2017-{0}\library\{1}\mbedtls.lib" -f $TargetPlatform, $Configuration)
+        }
+        [pscustomobject]@{
+            Name = 'mbedx509'
+            Path = Join-Path $thirdPartyRoot ("eMule-mbedtls\visualc\VS2017-{0}\library\{1}\mbedx509.lib" -f $TargetPlatform, $Configuration)
+        }
+        [pscustomobject]@{
+            Name = 'tfpsacrypto'
+            Path = Join-Path $thirdPartyRoot ("eMule-mbedtls\visualc\VS2017-{0}\library\tfpsacrypto.lib" -f $TargetPlatform)
+        }
+    )
+}
+
+function Get-MissingAppDependencyArtifacts([string]$Configuration, [string]$TargetPlatform) {
+    @(Get-AppDependencyArtifacts -Configuration $Configuration -TargetPlatform $TargetPlatform | Where-Object { -not (Test-Path -LiteralPath $_.Path) })
+}
+
+function Ensure-AppDependencyArtifacts([string]$Configuration, [string]$TargetPlatform) {
+    $missing = @(Get-MissingAppDependencyArtifacts -Configuration $Configuration -TargetPlatform $TargetPlatform)
+    if ($missing.Count -eq 0) {
+        return
+    }
+
+    Write-Host ("Missing dependency outputs for {0}|{1}; running build-libs." -f $Configuration, $TargetPlatform) -ForegroundColor Yellow
+    Build-Libs
+
+    $missing = @(Get-MissingAppDependencyArtifacts -Configuration $Configuration -TargetPlatform $TargetPlatform)
+    if ($missing.Count -gt 0) {
+        $details = ($missing | ForEach-Object { "{0}: {1}" -f $_.Name, $_.Path }) -join [Environment]::NewLine
+        throw "Required dependency outputs are still missing for ${Configuration}|${TargetPlatform}:`n$details"
+    }
+}
+
 function Get-CryptoPpPlatformPropertyOverrides([string]$TargetPlatform) {
     $properties = @()
     $override = [Environment]::GetEnvironmentVariable($ToolsetOverrideVariable)
@@ -467,6 +525,7 @@ function Build-Apps {
     Assert-AppLayout
     $appProperties = Get-AppPropertyOverrides
     $entry = Get-SelectedBuildTarget
+    Ensure-AppDependencyArtifacts -Configuration $entry.Configuration -TargetPlatform $entry.Platform
     foreach ($app in Get-ActiveApps) {
         $project = Join-Path $app.Path 'srchybrid\emule.vcxproj'
         $extraProperties = @($appProperties)
