@@ -343,14 +343,22 @@ function Get-AppPropertyOverrides {
 }
 
 function Get-CryptoPpPlatformPropertyOverrides([string]$TargetPlatform) {
-    if ($TargetPlatform -ne 'ARM64') {
-        return @()
+    $properties = @()
+    $override = [Environment]::GetEnvironmentVariable($ToolsetOverrideVariable)
+    if (-not [string]::IsNullOrWhiteSpace($override)) {
+        $properties += "/p:PlatformToolset=$override"
+    } else {
+        $properties += '/p:PlatformToolset=v143'
     }
 
-    @(
-        "/p:ForceImportAfterCppProps=$(Get-Arm64OverridesPropsPath)",
-        "/p:ForceImportAfterCppTargets=$(Get-Arm64OverridesTargetsPath)"
-    )
+    if ($TargetPlatform -eq 'ARM64') {
+        $properties += @(
+            "/p:ForceImportAfterCppProps=$(Get-Arm64OverridesPropsPath)",
+            "/p:ForceImportAfterCppTargets=$(Get-Arm64OverridesTargetsPath)"
+        )
+    }
+
+    $properties
 }
 
 function Get-Arm64OverridesPropsPath {
@@ -429,7 +437,7 @@ function Build-Libs {
         Ensure-Arm64OverridesTargets
     }
 
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-cryptopp\cryptopp\cryptlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-CryptoPpPlatformPropertyOverrides $entry.Platform) -Target Rebuild -EnvironmentOverrides (Get-CryptoPpEnvironmentOverrides $entry.Platform)
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-cryptopp\cryptlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-CryptoPpPlatformPropertyOverrides $entry.Platform) -Target Rebuild -EnvironmentOverrides (Get-CryptoPpEnvironmentOverrides $entry.Platform)
     Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-id3lib\libprj\id3lib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-Id3libPropertyOverrides $entry.Configuration $entry.Platform) -Target Rebuild
     Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target Rebuild
     Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target Rebuild

@@ -29,7 +29,7 @@
             @{
                 Name = 'cryptopp'
                 Path = 'repos\third_party\eMule-cryptopp'
-                Project = 'cryptopp\cryptlib.vcxproj'
+                Project = 'cryptlib.vcxproj'
             }
             @{
                 Name = 'id3lib'
