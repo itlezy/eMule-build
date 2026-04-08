@@ -298,6 +298,18 @@ function Resolve-AppVariantPath([string]$Name, [switch]$RequireExists) {
     $variant.Path
 }
 
+function Test-AppBranchAllowed([string]$ExpectedBranch, [string]$CurrentBranch) {
+    if ($CurrentBranch -eq $ExpectedBranch) {
+        return $true
+    }
+
+    if ($ExpectedBranch -eq 'main' -and $CurrentBranch -match '^(feature|fix|chore)/') {
+        return $true
+    }
+
+    $false
+}
+
 function Assert-AppLayout {
     $missing = @(Get-AppVariants | Where-Object { -not $_.Exists })
     if ($missing.Count -gt 0) {
@@ -305,7 +317,7 @@ function Assert-AppLayout {
     }
 
     foreach ($app in Get-AppVariants) {
-        if ($app.CurrentBranch -ne $app.Branch) {
+        if (-not (Test-AppBranchAllowed -ExpectedBranch $app.Branch -CurrentBranch $app.CurrentBranch)) {
             throw "App checkout '$($app.Path)' is on branch '$($app.CurrentBranch)', expected '$($app.Branch)'."
         }
     }
@@ -574,6 +586,22 @@ function Validate-Workspace {
     & $PSCommandPath env-check -EmuleWorkspaceRoot $EmuleWorkspaceRoot -WorkspaceName $WorkspaceName -Config $Config -Platform $Platform
     Assert-RequiredWorkspacePaths
     Assert-AppLayout
+
+    $toolingRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tooling
+    $buildPolicyScriptPath = Join-Path $toolingRepoRoot 'ci\check-build-policy.ps1'
+    if (-not (Test-Path -LiteralPath $buildPolicyScriptPath)) {
+        throw "Missing required build policy audit: $buildPolicyScriptPath"
+    }
+    Invoke-Native 'pwsh' @(
+        '-NoLogo',
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        $buildPolicyScriptPath,
+        '-EmuleWorkspaceRoot',
+        $EmuleWorkspaceRoot
+    ) 'build policy audit'
 
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     foreach ($scriptPath in @(
