@@ -646,20 +646,29 @@ function Validate-Workspace {
     Assert-AppLayout
 
     $toolingRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tooling
-    $buildPolicyScriptPath = Join-Path $toolingRepoRoot 'ci\check-build-policy.ps1'
-    if (-not (Test-Path -LiteralPath $buildPolicyScriptPath)) {
-        throw "Missing required build policy audit: $buildPolicyScriptPath"
+    $policyAudits = @(
+        @{ Name = 'build policy audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-build-policy.ps1') }
+        @{ Name = 'branch policy audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-branch-policy.ps1') }
+        @{ Name = 'dependency pin audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-dependency-pins.ps1') }
+        @{ Name = 'documentation path audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-doc-paths.ps1') }
+        @{ Name = 'project entrypoint audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-project-entrypoints.ps1') }
+        @{ Name = 'warning policy audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-warning-policy.ps1') }
+    )
+    foreach ($audit in $policyAudits) {
+        if (-not (Test-Path -LiteralPath $audit.Path)) {
+            throw "Missing required policy audit: $($audit.Path)"
+        }
+        Invoke-Native 'pwsh' @(
+            '-NoLogo',
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            $audit.Path,
+            '-EmuleWorkspaceRoot',
+            $EmuleWorkspaceRoot
+        ) $audit.Name
     }
-    Invoke-Native 'pwsh' @(
-        '-NoLogo',
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        $buildPolicyScriptPath,
-        '-EmuleWorkspaceRoot',
-        $EmuleWorkspaceRoot
-    ) 'build policy audit'
 
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     foreach ($scriptPath in @(

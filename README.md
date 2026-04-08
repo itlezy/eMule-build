@@ -68,7 +68,7 @@ Command behavior:
 
 - `env-check` verifies the core toolchain discovery for Git, Visual Studio, and MSBuild.
 - `dep-status` reports branch and worktree status for the dependency repos and canonical app worktrees that exist locally.
-- `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, and required test helper scripts.
+- `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, required test helper scripts, and the shared static policy audits from `eMule-tooling\ci`.
 - `build-libs` builds the shared dependency set for the selected `-Config` and `-Platform`.
 - `build-app` builds all canonical app variants for the selected `-Config` and `-Platform`.
 - `build-tests` builds the shared test harness against the configured build variant.
@@ -106,7 +106,15 @@ primary stabilized acceptance path for the end-to-end canonical workflow.
 - missing dependency repos
 - missing canonical app worktrees
 - app worktrees checked out on the wrong branches
+- dependency repos not aligned with their active local `origin/HEAD` pins
+- active documentation hardcoding machine-specific absolute paths
+- active workflow docs/scripts drifting back to `.sln` / `.slnx` entrypoints
+- active warning suppressions drifting beyond the approved narrow third-party exceptions
 - missing shared test helper scripts
+
+Tracked-file cleanliness is intentionally a separate explicit audit via
+`repos\eMule-tooling\ci\check-clean-worktree.ps1`, so in-progress feature work
+does not get blocked by routine `validate`.
 
 The test flows use the manifest-configured app variants:
 
