@@ -97,7 +97,6 @@ function Invoke-Native(
     if ($exitCode -ne 0 -and -not $AllowFailure) {
         throw "$Label failed with exit code $exitCode."
     }
-    $exitCode
 }
 
 function Invoke-Git([string]$Repo, [string[]]$Arguments, [string]$Label, [switch]$AllowFailure) {
