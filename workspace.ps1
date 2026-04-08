@@ -240,9 +240,9 @@ function Get-SelectedBuildTarget {
     }
 }
 
-function Assert-TestPlatformSupported {
+function Assert-TestExecutionPlatformSupported {
     if ($Platform -ne 'x64') {
-        throw "Shared test builds and test runs currently support x64 only. Requested platform: $Platform"
+        throw "Shared test execution currently supports x64 only. Requested platform: $Platform"
     }
 }
 
@@ -538,7 +538,6 @@ function Build-Apps {
 }
 
 function Build-Tests {
-    Assert-TestPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
     $appRoot = Resolve-AppVariantPath -Name $TestTargets.BuildVariant -RequireExists
@@ -566,7 +565,7 @@ function Build-Tests {
 }
 
 function Invoke-TestRuns {
-    Assert-TestPlatformSupported
+    Assert-TestExecutionPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
     $bugfixAppRoot = Resolve-AppVariantPath -Name $TestTargets.CoverageVariant -RequireExists

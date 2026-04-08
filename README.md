@@ -82,6 +82,7 @@ Dependencies and app builds honor the selected invocation parameters:
 
 - `-Config Debug|Release`
 - `-Platform x64|ARM64`
+- `Win32` is not part of the active workspace build matrix
 
 Examples:
 
@@ -89,9 +90,9 @@ Examples:
 - `build-libs -Config Release -Platform ARM64` builds only `Release|ARM64`
 - `build-all` and `full` use the same selected target instead of expanding to a hidden multi-target matrix
 
-Shared test builds and test execution currently support `x64` only:
+Shared test builds support `x64` and `ARM64`. Test execution remains `x64`
+only:
 
-- `build-tests -Platform ARM64` fails with a clear unsupported-platform error
 - `test -Platform ARM64` fails with a clear unsupported-platform error
 
 ARM64 remains available for dependency and app builds, but x64 is still the
@@ -113,8 +114,8 @@ The test flows use the manifest-configured app variants:
 - coverage target: `bugfix`
 - live-diff oracle target: `build`
 
-`build-tests` and `test` honor the selected `-Config` value, but require
-`-Platform x64`.
+`build-tests` honors the selected `-Config` value for both `x64` and `ARM64`.
+`test` honors the selected `-Config` value, but requires `-Platform x64`.
 
 ## Implementation Notes
 
