@@ -28,18 +28,24 @@ In practice this repo needs:
 - `repos\eMule-build-tests`
 - `repos\third_party\...`
 - `workspaces\v0.72a\app\eMule-main`
+- `workspaces\v0.72a\app\eMule-v0.72a-oracle`
 - `workspaces\v0.72a\app\eMule-v0.72a-build`
 - `workspaces\v0.72a\app\eMule-v0.72a-bugfix`
 
-Canonical app branches:
+Canonical managed app variants:
 
 - `main`
+- `oracle/v0.72a-build`
 - `release/v0.72a-build`
 - `release/v0.72a-bugfix`
 
 The active app layout is manifest-driven from `deps.psd1`. Test, coverage, and
 live-diff flows resolve their app roots from the configured variant names rather
 than duplicating hardcoded worktree paths in the script.
+
+`oracle/v0.72a-build` is a special-purpose seam-enabled oracle branch derived
+from `release/v0.72a-build`. It is built like the other canonical app variants,
+but it is not a normal feature-development line.
 
 For the full workspace topology and materialization behavior, use
 `eMulebb-setup\README.md`.
@@ -118,9 +124,9 @@ does not get blocked by routine `validate`.
 
 The test flows use the manifest-configured app variants:
 
-- test build target: `bugfix`
-- coverage target: `bugfix`
-- live-diff oracle target: `build`
+- test build target: `main`
+- coverage target: `main`
+- live-diff oracle target: `oracle`
 
 `build-tests` honors the selected `-Config` value for both `x64` and `ARM64`.
 `test` honors the selected `-Config` value, but requires `-Platform x64`.

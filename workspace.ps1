@@ -567,9 +567,9 @@ function Invoke-TestRuns {
     Assert-TestExecutionPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
-    $bugfixAppRoot = Resolve-AppVariantPath -Name $TestTargets.CoverageVariant -RequireExists
-    $buildAppRoot = Resolve-AppVariantPath -Name $TestTargets.OracleVariant -RequireExists
-    $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $bugfixAppRoot
+    $devAppRoot = Resolve-AppVariantPath -Name $TestTargets.CoverageVariant -RequireExists
+    $oracleAppRoot = Resolve-AppVariantPath -Name $TestTargets.OracleVariant -RequireExists
+    $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $devAppRoot
     $entry = Get-SelectedBuildTarget
 
     $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run-native-coverage.ps1'
@@ -593,7 +593,7 @@ function Invoke-TestRuns {
         '-WorkspaceRoot',
         $workspaceRoot,
         '-AppRoot',
-        $bugfixAppRoot,
+        $devAppRoot,
         '-Configuration',
         $entry.Configuration,
         '-Platform',
@@ -612,11 +612,11 @@ function Invoke-TestRuns {
         '-DevWorkspaceRoot',
         $workspaceRoot,
         '-DevAppRoot',
-        $bugfixAppRoot,
+        $devAppRoot,
         '-OracleWorkspaceRoot',
         $workspaceRoot,
         '-OracleAppRoot',
-        $buildAppRoot,
+        $oracleAppRoot,
         '-Configuration',
         $entry.Configuration,
         '-Platform',

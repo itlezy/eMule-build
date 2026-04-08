@@ -11,13 +11,14 @@
             }
             Variants = @(
                 @{ Name = 'main'; Branch = 'main'; Path = 'workspaces\v0.72a\app\eMule-main' }
+                @{ Name = 'oracle'; Branch = 'oracle/v0.72a-build'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-oracle' }
                 @{ Name = 'build'; Branch = 'release/v0.72a-build'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-build' }
                 @{ Name = 'bugfix'; Branch = 'release/v0.72a-bugfix'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-bugfix' }
             )
             TestTargets = @{
-                BuildVariant = 'bugfix'
-                CoverageVariant = 'bugfix'
-                OracleVariant = 'build'
+                BuildVariant = 'main'
+                CoverageVariant = 'main'
+                OracleVariant = 'oracle'
             }
         }
         Repos = @{
