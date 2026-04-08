@@ -60,6 +60,7 @@ pwsh -File .\workspace.ps1 build-libs  -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 build-app   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 build-tests -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 test        -EmuleWorkspaceRoot <workspace-root>
+pwsh -File .\workspace.ps1 live-diff   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 build-all   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 full        -EmuleWorkspaceRoot <workspace-root>
 ```
@@ -79,6 +80,7 @@ Command behavior:
 - `build-app` builds all canonical app variants for the selected `-Config` and `-Platform`.
 - `build-tests` builds the shared test harness against the configured build variant.
 - `test` runs parity tests, native coverage, and live diff using the configured test target variants.
+- `live-diff` runs parity and divergence comparison directly against any two configured app variants.
 - `build-all` runs `build-libs`, `build-app`, and `build-tests`.
 - `full` runs `build-all`, then `test`, then prints a workspace summary.
 
@@ -103,6 +105,12 @@ only:
 
 ARM64 remains available for dependency and app builds, but x64 is still the
 primary stabilized acceptance path for the end-to-end canonical workflow.
+
+Live-diff examples:
+
+- `live-diff -Config Debug -Platform x64` uses the manifest defaults (`main` vs `oracle`)
+- `live-diff -Config Debug -Platform x64 -DevVariant bugfix -OracleVariant build` compares the frozen release lines directly
+- `live-diff -Config Release -Platform x64 -DevVariant bugfix -OracleVariant oracle` compares bugfix behavior against the seam-enabled build-derived oracle
 
 ## Validation And Test Model
 

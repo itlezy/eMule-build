@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','test','build-all','full')]
+    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','test','live-diff','build-all','full')]
     [string]$Command,
 
     [string]$EmuleWorkspaceRoot,
@@ -13,7 +13,11 @@ param(
     [ValidateSet('x64', 'ARM64')]
     [string]$Platform = 'x64',
 
-    [string]$WorkspaceName
+    [string]$WorkspaceName,
+
+    [string]$DevVariant,
+
+    [string]$OracleVariant
 )
 
 Set-StrictMode -Version Latest
@@ -563,17 +567,53 @@ function Build-Tests {
     ) "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
 }
 
+function Invoke-LiveDiffRuns {
+    param(
+        [string]$DevVariantName = $TestTargets.CoverageVariant,
+        [string]$OracleVariantName = $TestTargets.OracleVariant
+    )
+
+    Assert-TestExecutionPlatformSupported
+    $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
+    $workspaceRoot = Get-WorkspaceRoot
+    $devAppRoot = Resolve-AppVariantPath -Name $DevVariantName -RequireExists
+    $oracleAppRoot = Resolve-AppVariantPath -Name $OracleVariantName -RequireExists
+    $entry = Get-SelectedBuildTarget
+    $liveDiffScriptPath = Join-Path $testRepoRoot 'scripts\run-live-diff.ps1'
+
+    Invoke-Native 'pwsh' @(
+        '-NoLogo',
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        $liveDiffScriptPath,
+        '-TestRepoRoot',
+        $testRepoRoot,
+        '-DevWorkspaceRoot',
+        $workspaceRoot,
+        '-DevAppRoot',
+        $devAppRoot,
+        '-OracleWorkspaceRoot',
+        $workspaceRoot,
+        '-OracleAppRoot',
+        $oracleAppRoot,
+        '-Configuration',
+        $entry.Configuration,
+        '-Platform',
+        $entry.Platform
+    ) ("live diff {0} vs {1}" -f $DevVariantName, $OracleVariantName)
+}
+
 function Invoke-TestRuns {
     Assert-TestExecutionPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
     $devAppRoot = Resolve-AppVariantPath -Name $TestTargets.CoverageVariant -RequireExists
-    $oracleAppRoot = Resolve-AppVariantPath -Name $TestTargets.OracleVariant -RequireExists
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $devAppRoot
     $entry = Get-SelectedBuildTarget
 
     $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run-native-coverage.ps1'
-    $liveDiffScriptPath = Join-Path $testRepoRoot 'scripts\run-live-diff.ps1'
 
     $binaryPath = Join-Path $testRepoRoot ("build\{0}\{1}\{2}\emule-tests.exe" -f $buildTag, $entry.Platform, $entry.Configuration)
     if (-not (Test-Path -LiteralPath $binaryPath)) {
@@ -600,28 +640,7 @@ function Invoke-TestRuns {
         $entry.Platform
     ) 'native coverage'
 
-    Invoke-Native 'pwsh' @(
-        '-NoLogo',
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        $liveDiffScriptPath,
-        '-TestRepoRoot',
-        $testRepoRoot,
-        '-DevWorkspaceRoot',
-        $workspaceRoot,
-        '-DevAppRoot',
-        $devAppRoot,
-        '-OracleWorkspaceRoot',
-        $workspaceRoot,
-        '-OracleAppRoot',
-        $oracleAppRoot,
-        '-Configuration',
-        $entry.Configuration,
-        '-Platform',
-        $entry.Platform
-    ) 'live diff'
+    Invoke-LiveDiffRuns -DevVariantName $TestTargets.CoverageVariant -OracleVariantName $TestTargets.OracleVariant
 }
 
 function Write-WorkspaceSummary {
@@ -719,6 +738,9 @@ switch ($Command) {
     }
     'test' {
         Invoke-TestRuns
+    }
+    'live-diff' {
+        Invoke-LiveDiffRuns -DevVariantName $(if ([string]::IsNullOrWhiteSpace($DevVariant)) { $TestTargets.CoverageVariant } else { $DevVariant }) -OracleVariantName $(if ([string]::IsNullOrWhiteSpace($OracleVariant)) { $TestTargets.OracleVariant } else { $OracleVariant })
     }
     'build-all' {
         Build-Libs
