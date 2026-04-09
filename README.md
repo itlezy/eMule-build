@@ -75,7 +75,7 @@ Command behavior:
 
 - `env-check` verifies the core toolchain discovery for Git, Visual Studio, and MSBuild.
 - `dep-status` reports branch and worktree status for the dependency repos and canonical app worktrees that exist locally.
-- `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, required test helper scripts, and the shared static policy audits from `eMule-tooling\ci`.
+- `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, required test helper scripts, modified tracked-file editorconfig compliance, and the shared static policy audits from `eMule-tooling\ci`.
 - `build-libs` builds the shared dependency set for the selected `-Config` and `-Platform`.
 - `build-app` builds all canonical app variants for the selected `-Config` and `-Platform`.
 - `build-tests` builds the shared test harness against the configured build variant.
@@ -124,6 +124,7 @@ Live-diff examples:
 - active documentation hardcoding machine-specific absolute paths
 - active workflow docs/scripts drifting back to `.sln` / `.slnx` entrypoints
 - active warning suppressions drifting beyond the approved narrow third-party exceptions
+- modified tracked text files drifting from repo `.editorconfig` / `.gitattributes`
 - missing shared test helper scripts
 
 Tracked-file cleanliness is intentionally a separate explicit audit via
