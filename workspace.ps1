@@ -452,6 +452,44 @@ function Get-MSBuildPath {
     $vs.MSBuild
 }
 
+<#
+.SYNOPSIS
+Resolves dumpbin.exe from the active Visual Studio toolchain.
+#>
+function Get-DumpbinPath {
+    $cmd = Get-Command 'dumpbin.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($cmd) {
+        return $cmd.Source
+    }
+
+    $vs = Get-VsInfo
+    if (-not $vs) {
+        throw 'Visual Studio 2022 with dumpbin.exe is required.'
+    }
+
+    $msvcRoot = Join-Path $vs.Root 'VC\Tools\MSVC'
+    if (-not (Test-Path -LiteralPath $msvcRoot -PathType Container)) {
+        throw "MSVC tools root not found: $msvcRoot"
+    }
+
+    $toolsets = @(Get-ChildItem -LiteralPath $msvcRoot -Directory | Sort-Object Name -Descending)
+    foreach ($toolset in $toolsets) {
+        foreach ($relativeCandidate in @(
+            'bin\Hostx64\x64\dumpbin.exe',
+            'bin\HostX64\x64\dumpbin.exe',
+            'bin\Hostx64\arm64\dumpbin.exe',
+            'bin\HostX64\arm64\dumpbin.exe'
+        )) {
+            $candidate = Join-Path $toolset.FullName $relativeCandidate
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                return $candidate
+            }
+        }
+    }
+
+    throw 'dumpbin.exe was not found in the active Visual Studio toolchain.'
+}
+
 function Get-CMakePath {
     $cmd = Get-Command 'cmake.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($cmd) {
@@ -540,6 +578,61 @@ function Invoke-MSBuildProject {
         $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
         $warningCount = Get-WarningCountFromLog -LogPath $logPath
         Add-BuildStepResult -StepName $StepName -Succeeded $false -LogPath $logPath -BinaryLogPath $binaryLogPath -DurationSeconds $durationSeconds -WarningCount $warningCount
+        Write-BuildStepSummary -StepName $StepName -Succeeded $false -LogPath $logPath -DurationSeconds $durationSeconds
+        throw
+    }
+}
+
+<#
+.SYNOPSIS
+Returns the built app binary path for a given app worktree/config/platform.
+#>
+function Get-AppBinaryPath([string]$AppRoot, [string]$Configuration, [string]$TargetPlatform) {
+    Join-Path $AppRoot ("srchybrid\{0}\{1}\emule.exe" -f $TargetPlatform, $Configuration)
+}
+
+<#
+.SYNOPSIS
+Verifies that the built app binary contains Control Flow Guard metadata.
+#>
+function Verify-AppControlFlowGuard {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BinaryPath,
+
+        [string]$StepName = 'APP main CFG'
+    )
+
+    $stepStartedAt = Get-Date
+    $relativeBinaryPath = [System.IO.Path]::GetRelativePath($EmuleWorkspaceRoot, $BinaryPath)
+    $logPath = Join-Path (Get-BuildLogDirectory) ("{0}-cfg.log" -f (Convert-ToFileToken ([System.IO.Path]::ChangeExtension($relativeBinaryPath, $null))))
+
+    try {
+        if (-not (Test-Path -LiteralPath $BinaryPath -PathType Leaf)) {
+            throw "Built app binary not found: $BinaryPath"
+        }
+
+        $dumpbin = Get-DumpbinPath
+        $output = @(& $dumpbin /headers /loadconfig $BinaryPath 2>&1)
+        $exitCode = $LASTEXITCODE
+        $output | Set-Content -LiteralPath $logPath -Encoding utf8
+        if ($exitCode -ne 0) {
+            throw "dumpbin failed with exit code $exitCode for $BinaryPath"
+        }
+
+        $text = $output -join "`n"
+        foreach ($pattern in @('CF Instrumented', 'FID table present')) {
+            if ($text -notmatch [regex]::Escape($pattern)) {
+                throw "CFG verification failed for ${BinaryPath}: missing '$pattern' in dumpbin output."
+            }
+        }
+
+        $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
+        Add-BuildStepResult -StepName $StepName -Succeeded $true -LogPath $logPath -BinaryLogPath '' -DurationSeconds $durationSeconds -WarningCount 0
+        Write-BuildStepSummary -StepName $StepName -Succeeded $true -LogPath $logPath -DurationSeconds $durationSeconds
+    } catch {
+        $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
+        Add-BuildStepResult -StepName $StepName -Succeeded $false -LogPath $logPath -BinaryLogPath '' -DurationSeconds $durationSeconds -WarningCount 0
         Write-BuildStepSummary -StepName $StepName -Succeeded $false -LogPath $logPath -DurationSeconds $durationSeconds
         throw
     }
@@ -861,6 +954,9 @@ function Build-Apps {
             $extraProperties += "/p:PlatformToolset=$override"
         }
         Invoke-MSBuildProject -ProjectPath $project -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties $extraProperties -Target $buildTarget -StepName ("APP {0}" -f $app.Name)
+        if ($app.Name -eq 'main') {
+            Verify-AppControlFlowGuard -BinaryPath (Get-AppBinaryPath -AppRoot $app.Path -Configuration $entry.Configuration -TargetPlatform $entry.Platform) -StepName ("APP {0} CFG" -f $app.Name)
+        }
     }
 }
 
