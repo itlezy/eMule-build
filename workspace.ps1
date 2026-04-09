@@ -614,7 +614,9 @@ function Build-Tests {
         '-Configuration',
         $entry.Configuration,
         '-Platform',
-        $entry.Platform
+        $entry.Platform,
+        '-BuildOutputMode',
+        $BuildOutputMode
     ) "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
 }
 
@@ -720,6 +722,7 @@ function Validate-Workspace {
         @{ Name = 'branch policy audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-branch-policy.ps1') }
         @{ Name = 'dependency pin audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-dependency-pins.ps1') }
         @{ Name = 'documentation path audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-doc-paths.ps1') }
+        @{ Name = 'editorconfig policy audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-editorconfig-policy.ps1') }
         @{ Name = 'project entrypoint audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-project-entrypoints.ps1') }
         @{ Name = 'warning policy audit'; Path = (Join-Path $toolingRepoRoot 'ci\check-warning-policy.ps1') }
     )
