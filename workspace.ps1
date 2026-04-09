@@ -16,6 +16,8 @@ param(
     [ValidateSet('Full', 'Warnings', 'ErrorsOnly')]
     [string]$BuildOutputMode = 'ErrorsOnly',
 
+    [switch]$Clean,
+
     [string]$WorkspaceName,
 
     [string]$DevVariant,
@@ -90,6 +92,10 @@ function Get-BuildLogDirectory {
     Ensure-Directory -Path $sessionDirectory
 
     $sessionDirectory
+}
+
+function Get-BuildRecapSummaryPath {
+    Join-Path (Get-BuildLogDirectory) 'summary.json'
 }
 
 function Get-WorkspaceCommandLockMetadataPath {
@@ -209,15 +215,37 @@ function Release-WorkspaceCommandLock {
 
 function Reset-BuildExecutionState {
     $script:BuildStepResults = [System.Collections.Generic.List[object]]::new()
-    if ($BuildOutputMode -ne 'Full') {
-        $null = Get-BuildLogDirectory
+    $script:BuildCommandStartedAt = Get-Date
+    $null = Get-BuildLogDirectory
+}
+
+function Get-WarningCountFromLog([string]$LogPath) {
+    if ([string]::IsNullOrWhiteSpace($LogPath) -or -not (Test-Path -LiteralPath $LogPath -PathType Leaf)) {
+        return 0
     }
+
+    $warningPattern = '(?i)\bwarning\b'
+    $summaryPattern = '(?i)^\s*\d+\s+warning\(s\)\s*$'
+    @(Get-Content -LiteralPath $LogPath | Where-Object {
+        $_ -match $warningPattern -and $_ -notmatch $summaryPattern
+    }).Count
+}
+
+function Format-Duration([double]$TotalSeconds) {
+    if ($TotalSeconds -lt 10) {
+        return ('{0:N1}s' -f $TotalSeconds)
+    }
+
+    ('{0:N0}s' -f [Math]::Round($TotalSeconds))
 }
 
 function Add-BuildStepResult(
     [string]$StepName,
     [bool]$Succeeded,
-    [string]$LogPath
+    [string]$LogPath,
+    [string]$BinaryLogPath,
+    [double]$DurationSeconds,
+    [int]$WarningCount
 ) {
     if (-not (Get-Variable -Name BuildStepResults -Scope Script -ErrorAction SilentlyContinue)) {
         $script:BuildStepResults = [System.Collections.Generic.List[object]]::new()
@@ -227,24 +255,29 @@ function Add-BuildStepResult(
         Name = $StepName
         Succeeded = $Succeeded
         LogPath = $LogPath
+        BinaryLogPath = $BinaryLogPath
+        DurationSeconds = $DurationSeconds
+        WarningCount = $WarningCount
     }) | Out-Null
 }
 
 function Write-BuildStepSummary(
     [string]$StepName,
     [bool]$Succeeded,
-    [string]$LogPath
+    [string]$LogPath,
+    [double]$DurationSeconds
 ) {
+    $durationText = Format-Duration $DurationSeconds
     if ($Succeeded) {
         if ($BuildOutputMode -eq 'Full') {
             return
         }
 
-        Write-Host ("OK   {0}" -f $StepName) -ForegroundColor Green
+        Write-Host ("OK   {0} ({1})" -f $StepName, $durationText) -ForegroundColor Green
         return
     }
 
-    $line = "FAIL {0}" -f $StepName
+    $line = "FAIL {0} ({1})" -f $StepName, $durationText
     if (-not [string]::IsNullOrWhiteSpace($LogPath)) {
         $line += " -> $LogPath"
     }
@@ -262,13 +295,49 @@ function Write-BuildCommandRecap([string]$CommandName) {
     }
 
     $failedCount = @($steps | Where-Object { -not $_.Succeeded }).Count
+    $totalDurationSeconds = (($steps | Measure-Object -Property DurationSeconds -Sum).Sum)
+    $totalWarningCount = (($steps | Measure-Object -Property WarningCount -Sum).Sum)
+    $summary = [ordered]@{
+        command = $CommandName
+        workspace_root = $EmuleWorkspaceRoot
+        workspace_name = $WorkspaceName
+        config = $Config
+        platform = $Platform
+        clean = [bool]$Clean
+        build_output_mode = $BuildOutputMode
+        started_utc = $script:BuildCommandStartedAt.ToUniversalTime().ToString('o')
+        completed_utc = (Get-Date).ToUniversalTime().ToString('o')
+        total_duration_seconds = [Math]::Round($totalDurationSeconds, 3)
+        total_warning_count = $totalWarningCount
+        log_directory = Get-BuildLogDirectory
+        failed_steps = $failedCount
+        step_count = $steps.Count
+        steps = @($steps | ForEach-Object {
+            [ordered]@{
+                name = $_.Name
+                succeeded = $_.Succeeded
+                duration_seconds = [Math]::Round($_.DurationSeconds, 3)
+                warning_count = $_.WarningCount
+                log_path = $_.LogPath
+                binary_log_path = $_.BinaryLogPath
+            }
+        })
+    }
+
+    $summary | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Get-BuildRecapSummaryPath) -Encoding utf8
+
     Write-Host ''
     Write-Host ("Build recap: {0}" -f $CommandName) -ForegroundColor Green
+    foreach ($step in $steps) {
+        $status = if ($step.Succeeded) { 'OK  ' } else { 'FAIL' }
+        Write-Host ("{0} {1} ({2}, {3} warnings)" -f $status, $step.Name, (Format-Duration $step.DurationSeconds), $step.WarningCount)
+    }
     Write-Host ("Steps: {0}" -f $steps.Count)
     Write-Host ("Failures: {0}" -f $failedCount)
-    if ($BuildOutputMode -ne 'Full') {
-        Write-Host ("Logs: {0}" -f (Get-BuildLogDirectory)) -ForegroundColor DarkGray
-    }
+    Write-Host ("Warnings: {0}" -f $totalWarningCount)
+    Write-Host ("Duration: {0}" -f (Format-Duration $totalDurationSeconds))
+    Write-Host ("Logs: {0}" -f (Get-BuildLogDirectory)) -ForegroundColor DarkGray
+    Write-Host ("Summary: {0}" -f (Get-BuildRecapSummaryPath)) -ForegroundColor DarkGray
 }
 
 function Resolve-Tool([string[]]$Names) {
@@ -436,36 +505,42 @@ function Invoke-MSBuildProject {
         [string]$StepName = (Split-Path -LeafBase $ProjectPath)
     )
 
+    $stepStartedAt = Get-Date
     $relativeProjectPath = [System.IO.Path]::GetRelativePath($EmuleWorkspaceRoot, $ProjectPath)
     $projectToken = Convert-ToFileToken ([System.IO.Path]::ChangeExtension($relativeProjectPath, $null))
-    $logPath = $null
+    $logPath = Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}-{3}.log" -f $projectToken, $Target.ToLowerInvariant(), $Configuration.ToLowerInvariant(), $Platform.ToLowerInvariant())
+    $binaryLogPath = Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}-{3}.binlog" -f $projectToken, $Target.ToLowerInvariant(), $Configuration.ToLowerInvariant(), $Platform.ToLowerInvariant())
     $argumentList = @(
         $ProjectPath,
         '/m',
         '/nologo',
         "/t:$Target",
         "/p:Configuration=$Configuration",
-        "/p:Platform=$Platform"
+        "/p:Platform=$Platform",
+        ("/flp:LogFile={0};Verbosity=normal;Encoding=UTF-8" -f $logPath),
+        ("/bl:{0}" -f $binaryLogPath)
     ) + $ExtraProperties
 
     if ($BuildOutputMode -ne 'Full') {
-        $logPath = Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}-{3}.log" -f $projectToken, $Target.ToLowerInvariant(), $Configuration.ToLowerInvariant(), $Platform.ToLowerInvariant())
         $argumentList += @(
             ("/clp:{0}" -f $(switch ($BuildOutputMode) {
                 'Warnings' { 'WarningsOnly' }
                 'ErrorsOnly' { 'ErrorsOnly' }
-            })),
-            ("/flp:LogFile={0};Verbosity=normal;Encoding=UTF-8" -f $logPath)
+            }))
         )
     }
 
     try {
         Invoke-Native (Get-MSBuildPath) $argumentList "MSBuild $(Split-Path -Leaf $ProjectPath)" -EnvironmentOverrides $EnvironmentOverrides
-        Add-BuildStepResult -StepName $StepName -Succeeded $true -LogPath $logPath
-        Write-BuildStepSummary -StepName $StepName -Succeeded $true -LogPath $logPath
+        $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
+        $warningCount = Get-WarningCountFromLog -LogPath $logPath
+        Add-BuildStepResult -StepName $StepName -Succeeded $true -LogPath $logPath -BinaryLogPath $binaryLogPath -DurationSeconds $durationSeconds -WarningCount $warningCount
+        Write-BuildStepSummary -StepName $StepName -Succeeded $true -LogPath $logPath -DurationSeconds $durationSeconds
     } catch {
-        Add-BuildStepResult -StepName $StepName -Succeeded $false -LogPath $logPath
-        Write-BuildStepSummary -StepName $StepName -Succeeded $false -LogPath $logPath
+        $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
+        $warningCount = Get-WarningCountFromLog -LogPath $logPath
+        Add-BuildStepResult -StepName $StepName -Succeeded $false -LogPath $logPath -BinaryLogPath $binaryLogPath -DurationSeconds $durationSeconds -WarningCount $warningCount
+        Write-BuildStepSummary -StepName $StepName -Succeeded $false -LogPath $logPath -DurationSeconds $durationSeconds
         throw
     }
 }
@@ -740,28 +815,30 @@ function Build-Libs {
     $perlPath = Get-PerlPath
 
     $entry = Get-SelectedBuildTarget
+    $buildTarget = if ($Clean) { 'Rebuild' } else { 'Build' }
     if ($entry.Platform -eq 'ARM64') {
         Ensure-Arm64OverridesTargets
     }
 
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-cryptopp\cryptlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-CryptoPpPlatformPropertyOverrides $entry.Platform) -EnvironmentOverrides (Get-CryptoPpEnvironmentOverrides $entry.Platform) -StepName 'DEP cryptopp'
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-id3lib\libprj\id3lib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-Id3libPropertyOverrides $entry.Configuration $entry.Platform) -StepName 'DEP id3lib'
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -StepName 'DEP miniupnp'
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -StepName 'DEP ResizableLib'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-cryptopp\cryptlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-CryptoPpPlatformPropertyOverrides $entry.Platform) -EnvironmentOverrides (Get-CryptoPpEnvironmentOverrides $entry.Platform) -Target $buildTarget -StepName 'DEP cryptopp'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-id3lib\libprj\id3lib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-Id3libPropertyOverrides $entry.Configuration $entry.Platform) -Target $buildTarget -StepName 'DEP id3lib'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target $buildTarget -StepName 'DEP miniupnp'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target $buildTarget -StepName 'DEP ResizableLib'
 
-    if ($entry.Configuration -eq 'Debug' -and $entry.Platform -eq 'x64') {
+    if ($Clean -and $entry.Configuration -eq 'Debug' -and $entry.Platform -eq 'x64') {
         Remove-StaleGeneratedArtifacts -RepoPath (Join-Path $thirdPartyRoot 'eMule-zlib') -Kind 'zlib'
         Remove-StaleGeneratedArtifacts -RepoPath (Join-Path $thirdPartyRoot 'eMule-mbedtls') -Kind 'mbedtls'
     }
 
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath") -StepName 'DEP zlib'
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath", "/p:WorkspacePerlExe=$perlPath") -StepName 'DEP mbedtls'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath") -Target $buildTarget -StepName 'DEP zlib'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath", "/p:WorkspacePerlExe=$perlPath") -Target $buildTarget -StepName 'DEP mbedtls'
 }
 
 function Build-Apps {
     Assert-AppLayout
     $appProperties = Get-AppPropertyOverrides
     $entry = Get-SelectedBuildTarget
+    $buildTarget = if ($Clean) { 'Rebuild' } else { 'Build' }
     Ensure-AppDependencyArtifacts -Configuration $entry.Configuration -TargetPlatform $entry.Platform
     foreach ($app in Get-ActiveApps) {
         $project = Join-Path $app.Path 'srchybrid\emule.vcxproj'
@@ -770,7 +847,7 @@ function Build-Apps {
         if ($override) {
             $extraProperties += "/p:PlatformToolset=$override"
         }
-        Invoke-MSBuildProject -ProjectPath $project -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties $extraProperties -StepName ("APP {0}" -f $app.Name)
+        Invoke-MSBuildProject -ProjectPath $project -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties $extraProperties -Target $buildTarget -StepName ("APP {0}" -f $app.Name)
     }
 }
 
@@ -781,14 +858,12 @@ function Build-Tests {
     $scriptPath = Join-Path $testRepoRoot 'scripts\build-emule-tests.ps1'
     $entry = Get-SelectedBuildTarget
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $appRoot
-    $logPath = if ($BuildOutputMode -ne 'Full') {
-        Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}.log" -f (Convert-ToFileToken ("emule-tests-{0}" -f $buildTag)), $entry.Configuration.ToLowerInvariant(), $entry.Platform.ToLowerInvariant())
-    } else {
-        $null
-    }
+    $logPath = Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}.log" -f (Convert-ToFileToken ("emule-tests-{0}" -f $buildTag)), $entry.Configuration.ToLowerInvariant(), $entry.Platform.ToLowerInvariant())
+    $binaryLogPath = Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}.binlog" -f (Convert-ToFileToken ("emule-tests-{0}" -f $buildTag)), $entry.Configuration.ToLowerInvariant(), $entry.Platform.ToLowerInvariant())
+    $stepStartedAt = Get-Date
 
     try {
-        Invoke-Native 'pwsh' @(
+        $buildTestArguments = @(
             '-NoLogo',
             '-NoProfile',
             '-ExecutionPolicy',
@@ -807,12 +882,18 @@ function Build-Tests {
             $entry.Platform,
             '-BuildOutputMode',
             $BuildOutputMode,
+            ("-Clean:{0}" -f $Clean.ToString().ToLowerInvariant()),
             '-BuildLogSessionStamp',
             (Get-BuildLogSessionStamp)
-        ) "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
-        Add-BuildStepResult -StepName 'TEST emule-tests' -Succeeded $true -LogPath $logPath
+        )
+        Invoke-Native 'pwsh' $buildTestArguments "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
+        $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
+        $warningCount = Get-WarningCountFromLog -LogPath $logPath
+        Add-BuildStepResult -StepName 'TEST emule-tests' -Succeeded $true -LogPath $logPath -BinaryLogPath $binaryLogPath -DurationSeconds $durationSeconds -WarningCount $warningCount
     } catch {
-        Add-BuildStepResult -StepName 'TEST emule-tests' -Succeeded $false -LogPath $logPath
+        $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
+        $warningCount = Get-WarningCountFromLog -LogPath $logPath
+        Add-BuildStepResult -StepName 'TEST emule-tests' -Succeeded $false -LogPath $logPath -BinaryLogPath $binaryLogPath -DurationSeconds $durationSeconds -WarningCount $warningCount
         throw
     }
 }

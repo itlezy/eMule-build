@@ -96,6 +96,7 @@ Dependencies and app builds honor the selected invocation parameters:
 - `-Config Debug|Release`
 - `-Platform x64|ARM64`
 - `-BuildOutputMode Full|Warnings|ErrorsOnly`
+- `-Clean`
 - `Win32` is not part of the active workspace build matrix
 
 Examples:
@@ -106,7 +107,9 @@ Examples:
 
 Build commands default to a quiet filtered console view plus a short step recap.
 Use `-BuildOutputMode Full` when you want raw MSBuild output for troubleshooting.
-Filtered runs write full logs under `workspaces\<workspace>\state\build-logs\`.
+Use `-Clean` when you explicitly want rebuild/cleanup behavior; normal runs stay incremental.
+Build runs write text logs, MSBuild binary logs, and a machine-readable recap under
+`workspaces\<workspace>\state\build-logs\`.
 
 Shared test builds support `x64` and `ARM64`. Test execution remains `x64`
 only:
