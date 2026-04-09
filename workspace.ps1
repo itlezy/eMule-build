@@ -13,6 +13,9 @@ param(
     [ValidateSet('x64', 'ARM64')]
     [string]$Platform = 'x64',
 
+    [ValidateSet('Full', 'Warnings', 'ErrorsOnly')]
+    [string]$BuildOutputMode = 'ErrorsOnly',
+
     [string]$WorkspaceName,
 
     [string]$DevVariant,
@@ -59,6 +62,34 @@ function Get-WorkspaceRoot {
 
 function Get-WorkspaceStateRoot {
     Resolve-WorkspacePath ("workspaces\{0}\state" -f $WorkspaceName)
+}
+
+function Convert-ToFileToken([string]$Value) {
+    $token = ($Value -replace '[\\/:*?"<>|\s]+', '-') -replace '[^A-Za-z0-9._-]+', '-'
+    $token = $token.Trim('-')
+    if ([string]::IsNullOrWhiteSpace($token)) {
+        return 'build'
+    }
+
+    $token
+}
+
+function Get-BuildLogSessionStamp {
+    if (-not (Get-Variable -Name BuildLogSessionStamp -Scope Script -ErrorAction SilentlyContinue)) {
+        $script:BuildLogSessionStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    }
+
+    $script:BuildLogSessionStamp
+}
+
+function Get-BuildLogDirectory {
+    $buildLogsRoot = Join-Path (Get-WorkspaceStateRoot) 'build-logs'
+    Ensure-Directory -Path $buildLogsRoot
+
+    $sessionDirectory = Join-Path $buildLogsRoot (Get-BuildLogSessionStamp)
+    Ensure-Directory -Path $sessionDirectory
+
+    $sessionDirectory
 }
 
 function Resolve-Tool([string[]]$Names) {
@@ -224,6 +255,9 @@ function Invoke-MSBuildProject {
         [hashtable]$EnvironmentOverrides
     )
 
+    $relativeProjectPath = [System.IO.Path]::GetRelativePath($EmuleWorkspaceRoot, $ProjectPath)
+    $projectToken = Convert-ToFileToken ([System.IO.Path]::ChangeExtension($relativeProjectPath, $null))
+    $logPath = $null
     $argumentList = @(
         $ProjectPath,
         '/m',
@@ -233,7 +267,24 @@ function Invoke-MSBuildProject {
         "/p:Platform=$Platform"
     ) + $ExtraProperties
 
-    Invoke-Native (Get-MSBuildPath) $argumentList "MSBuild $(Split-Path -Leaf $ProjectPath)" -EnvironmentOverrides $EnvironmentOverrides
+    if ($BuildOutputMode -ne 'Full') {
+        $logPath = Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}-{3}.log" -f $projectToken, $Target.ToLowerInvariant(), $Configuration.ToLowerInvariant(), $Platform.ToLowerInvariant())
+        $argumentList += @(
+            ("/clp:{0}" -f $(switch ($BuildOutputMode) {
+                'Warnings' { 'WarningsOnly' }
+                'ErrorsOnly' { 'ErrorsOnly' }
+            })),
+            ("/flp:LogFile={0};Verbosity=normal;Encoding=UTF-8" -f $logPath)
+        )
+    }
+
+    try {
+        Invoke-Native (Get-MSBuildPath) $argumentList "MSBuild $(Split-Path -Leaf $ProjectPath)" -EnvironmentOverrides $EnvironmentOverrides
+    } finally {
+        if ($logPath) {
+            Write-Host ("Full build log: {0}" -f $logPath) -ForegroundColor DarkGray
+        }
+    }
 }
 
 function Get-SelectedBuildTarget {
