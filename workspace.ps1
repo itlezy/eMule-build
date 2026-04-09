@@ -654,12 +654,25 @@ function Assert-RequiredWorkspacePaths {
     }
 }
 
-function Get-AppPropertyOverrides {
+function Get-MbedTlsProjectPath {
+    Join-Path (Resolve-WorkspacePath 'repos\third_party\eMule-mbedtls') 'visualc\VS2017\mbedTLS.vcxproj'
+}
+
+function Get-MbedTlsLibraryRoot([string]$TargetPlatform) {
+    $path = Join-Path (Resolve-WorkspacePath 'repos\third_party\eMule-mbedtls') ("visualc\VS2017-{0}\library" -f $TargetPlatform)
+    if (-not $path.EndsWith('\')) {
+        $path += '\'
+    }
+    $path
+}
+
+function Get-AppPropertyOverrides([string]$TargetPlatform) {
     @(
         "/p:WorkspaceRoot=$EmuleWorkspaceRoot\"
         "/p:CryptoPpRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-cryptopp')\"
         "/p:Id3libRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-id3lib')\"
         "/p:MbedTlsRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-mbedtls')\"
+        "/p:MbedTlsLibRoot=$(Get-MbedTlsLibraryRoot -TargetPlatform $TargetPlatform)"
         "/p:MiniUpnpRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-miniupnp')\"
         "/p:ResizableLibRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-ResizableLib')\"
         "/p:ZlibRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-zlib')\"
@@ -691,15 +704,15 @@ function Get-AppDependencyArtifacts([string]$Configuration, [string]$TargetPlatf
         }
         [pscustomobject]@{
             Name = 'mbedtls'
-            Path = Join-Path $thirdPartyRoot ("eMule-mbedtls\visualc\VS2017-{0}\library\{1}\mbedtls.lib" -f $TargetPlatform, $Configuration)
+            Path = Join-Path (Get-MbedTlsLibraryRoot -TargetPlatform $TargetPlatform) ("{0}\mbedtls.lib" -f $Configuration)
         }
         [pscustomobject]@{
             Name = 'mbedx509'
-            Path = Join-Path $thirdPartyRoot ("eMule-mbedtls\visualc\VS2017-{0}\library\{1}\mbedx509.lib" -f $TargetPlatform, $Configuration)
+            Path = Join-Path (Get-MbedTlsLibraryRoot -TargetPlatform $TargetPlatform) ("{0}\mbedx509.lib" -f $Configuration)
         }
         [pscustomobject]@{
             Name = 'tfpsacrypto'
-            Path = Join-Path $thirdPartyRoot ("eMule-mbedtls\visualc\VS2017-{0}\library\tfpsacrypto.lib" -f $TargetPlatform)
+            Path = Join-Path (Get-MbedTlsLibraryRoot -TargetPlatform $TargetPlatform) 'tfpsacrypto.lib'
         }
     )
 }
@@ -831,13 +844,13 @@ function Build-Libs {
     }
 
     Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath") -Target $buildTarget -StepName 'DEP zlib'
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath", "/p:WorkspacePerlExe=$perlPath") -Target $buildTarget -StepName 'DEP mbedtls'
+    Invoke-MSBuildProject -ProjectPath (Get-MbedTlsProjectPath) -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath", "/p:WorkspacePerlExe=$perlPath") -Target $buildTarget -StepName 'DEP mbedtls'
 }
 
 function Build-Apps {
     Assert-AppLayout
-    $appProperties = Get-AppPropertyOverrides
     $entry = Get-SelectedBuildTarget
+    $appProperties = Get-AppPropertyOverrides -TargetPlatform $entry.Platform
     $buildTarget = if ($Clean) { 'Rebuild' } else { 'Build' }
     Ensure-AppDependencyArtifacts -Configuration $entry.Configuration -TargetPlatform $entry.Platform
     foreach ($app in Get-ActiveApps) {
