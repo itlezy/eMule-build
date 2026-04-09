@@ -92,6 +92,185 @@ function Get-BuildLogDirectory {
     $sessionDirectory
 }
 
+function Get-WorkspaceCommandLockMetadataPath {
+    Join-Path (Get-WorkspaceStateRoot) 'active-command-lock.json'
+}
+
+function Get-WorkspaceCommandLockName {
+    $normalizedRoot = $EmuleWorkspaceRoot.TrimEnd('\').ToLowerInvariant()
+    $hashBytes = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes($normalizedRoot))
+    $hash = [System.Convert]::ToHexString($hashBytes)
+    "Global\eMuleBuild-$hash"
+}
+
+function Get-WorkspaceCommandLockMetadata {
+    $metadataPath = Get-WorkspaceCommandLockMetadataPath
+    if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+        return $null
+    }
+
+    try {
+        Get-Content -Raw -LiteralPath $metadataPath | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        $null
+    }
+}
+
+function Set-WorkspaceCommandLockMetadata {
+    Ensure-Directory -Path (Get-WorkspaceStateRoot)
+    $metadata = [ordered]@{
+        command = $Command
+        pid = $PID
+        machine_name = $env:COMPUTERNAME
+        started_utc = (Get-Date).ToUniversalTime().ToString('o')
+        workspace_root = $EmuleWorkspaceRoot
+        workspace_name = $WorkspaceName
+        config = $Config
+        platform = $Platform
+    }
+
+    $metadata | ConvertTo-Json | Set-Content -LiteralPath (Get-WorkspaceCommandLockMetadataPath) -Encoding utf8
+}
+
+function Remove-WorkspaceCommandLockMetadata {
+    $metadataPath = Get-WorkspaceCommandLockMetadataPath
+    if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+        return
+    }
+
+    try {
+        Remove-Item -LiteralPath $metadataPath -Force
+    } catch {
+    }
+}
+
+function Write-WorkspaceCommandLockConflict {
+    $metadata = Get-WorkspaceCommandLockMetadata
+    if ($metadata) {
+        Write-Host ("Workspace busy: command '{0}' cannot start for {1}. Active owner: '{2}' (PID {3} on {4}, started {5})." -f $Command, $EmuleWorkspaceRoot, $metadata.command, $metadata.pid, $metadata.machine_name, $metadata.started_utc) -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host ("Workspace busy: command '{0}' cannot start for {1} because another eMule-build command already holds the workspace lock." -f $Command, $EmuleWorkspaceRoot) -ForegroundColor Yellow
+}
+
+function Acquire-WorkspaceCommandLock {
+    $script:WorkspaceCommandMutex = [System.Threading.Mutex]::new($false, (Get-WorkspaceCommandLockName))
+    $acquired = $false
+    try {
+        try {
+            $acquired = $script:WorkspaceCommandMutex.WaitOne(0)
+        } catch [System.Threading.AbandonedMutexException] {
+            $acquired = $true
+        }
+
+        if (-not $acquired) {
+            Write-WorkspaceCommandLockConflict
+            $script:WorkspaceCommandMutex.Dispose()
+            $script:WorkspaceCommandMutex = $null
+            return $false
+        }
+
+        Set-WorkspaceCommandLockMetadata
+        $script:WorkspaceCommandLockAcquired = $true
+        return $true
+    } catch {
+        if ($acquired) {
+            try {
+                $script:WorkspaceCommandMutex.ReleaseMutex()
+            } catch {
+            }
+        }
+        if ($script:WorkspaceCommandMutex) {
+            $script:WorkspaceCommandMutex.Dispose()
+            $script:WorkspaceCommandMutex = $null
+        }
+        throw
+    }
+}
+
+function Release-WorkspaceCommandLock {
+    if (-not (Get-Variable -Name WorkspaceCommandLockAcquired -Scope Script -ErrorAction SilentlyContinue)) {
+        return
+    }
+
+    if ($script:WorkspaceCommandLockAcquired -and $script:WorkspaceCommandMutex) {
+        Remove-WorkspaceCommandLockMetadata
+        try {
+            $script:WorkspaceCommandMutex.ReleaseMutex()
+        } catch {
+        }
+        $script:WorkspaceCommandMutex.Dispose()
+    }
+
+    $script:WorkspaceCommandMutex = $null
+    $script:WorkspaceCommandLockAcquired = $false
+}
+
+function Reset-BuildExecutionState {
+    $script:BuildStepResults = [System.Collections.Generic.List[object]]::new()
+    if ($BuildOutputMode -ne 'Full') {
+        $null = Get-BuildLogDirectory
+    }
+}
+
+function Add-BuildStepResult(
+    [string]$StepName,
+    [bool]$Succeeded,
+    [string]$LogPath
+) {
+    if (-not (Get-Variable -Name BuildStepResults -Scope Script -ErrorAction SilentlyContinue)) {
+        $script:BuildStepResults = [System.Collections.Generic.List[object]]::new()
+    }
+
+    $script:BuildStepResults.Add([pscustomobject]@{
+        Name = $StepName
+        Succeeded = $Succeeded
+        LogPath = $LogPath
+    }) | Out-Null
+}
+
+function Write-BuildStepSummary(
+    [string]$StepName,
+    [bool]$Succeeded,
+    [string]$LogPath
+) {
+    if ($Succeeded) {
+        if ($BuildOutputMode -eq 'Full') {
+            return
+        }
+
+        Write-Host ("OK   {0}" -f $StepName) -ForegroundColor Green
+        return
+    }
+
+    $line = "FAIL {0}" -f $StepName
+    if (-not [string]::IsNullOrWhiteSpace($LogPath)) {
+        $line += " -> $LogPath"
+    }
+    Write-Host $line -ForegroundColor Red
+}
+
+function Write-BuildCommandRecap([string]$CommandName) {
+    if (-not (Get-Variable -Name BuildStepResults -Scope Script -ErrorAction SilentlyContinue)) {
+        return
+    }
+
+    $steps = @($script:BuildStepResults)
+    if ($steps.Count -eq 0) {
+        return
+    }
+
+    $failedCount = @($steps | Where-Object { -not $_.Succeeded }).Count
+    Write-Host ''
+    Write-Host ("Build recap: {0}" -f $CommandName) -ForegroundColor Green
+    Write-Host ("Steps: {0}" -f $steps.Count)
+    Write-Host ("Failures: {0}" -f $failedCount)
+    if ($BuildOutputMode -ne 'Full') {
+        Write-Host ("Logs: {0}" -f (Get-BuildLogDirectory)) -ForegroundColor DarkGray
+    }
+}
+
 function Resolve-Tool([string[]]$Names) {
     foreach ($name in $Names) {
         $command = Get-Command $name -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -252,7 +431,9 @@ function Invoke-MSBuildProject {
         [ValidateSet('Build','Rebuild')]
         [string]$Target = 'Build',
 
-        [hashtable]$EnvironmentOverrides
+        [hashtable]$EnvironmentOverrides,
+
+        [string]$StepName = (Split-Path -LeafBase $ProjectPath)
     )
 
     $relativeProjectPath = [System.IO.Path]::GetRelativePath($EmuleWorkspaceRoot, $ProjectPath)
@@ -280,10 +461,12 @@ function Invoke-MSBuildProject {
 
     try {
         Invoke-Native (Get-MSBuildPath) $argumentList "MSBuild $(Split-Path -Leaf $ProjectPath)" -EnvironmentOverrides $EnvironmentOverrides
-    } finally {
-        if ($logPath) {
-            Write-Host ("Full build log: {0}" -f $logPath) -ForegroundColor DarkGray
-        }
+        Add-BuildStepResult -StepName $StepName -Succeeded $true -LogPath $logPath
+        Write-BuildStepSummary -StepName $StepName -Succeeded $true -LogPath $logPath
+    } catch {
+        Add-BuildStepResult -StepName $StepName -Succeeded $false -LogPath $logPath
+        Write-BuildStepSummary -StepName $StepName -Succeeded $false -LogPath $logPath
+        throw
     }
 }
 
@@ -561,18 +744,18 @@ function Build-Libs {
         Ensure-Arm64OverridesTargets
     }
 
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-cryptopp\cryptlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-CryptoPpPlatformPropertyOverrides $entry.Platform) -Target Rebuild -EnvironmentOverrides (Get-CryptoPpEnvironmentOverrides $entry.Platform)
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-id3lib\libprj\id3lib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-Id3libPropertyOverrides $entry.Configuration $entry.Platform) -Target Rebuild
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target Rebuild
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target Rebuild
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-cryptopp\cryptlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-CryptoPpPlatformPropertyOverrides $entry.Platform) -EnvironmentOverrides (Get-CryptoPpEnvironmentOverrides $entry.Platform) -StepName 'DEP cryptopp'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-id3lib\libprj\id3lib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-Id3libPropertyOverrides $entry.Configuration $entry.Platform) -StepName 'DEP id3lib'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -StepName 'DEP miniupnp'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -StepName 'DEP ResizableLib'
 
     if ($entry.Configuration -eq 'Debug' -and $entry.Platform -eq 'x64') {
         Remove-StaleGeneratedArtifacts -RepoPath (Join-Path $thirdPartyRoot 'eMule-zlib') -Kind 'zlib'
         Remove-StaleGeneratedArtifacts -RepoPath (Join-Path $thirdPartyRoot 'eMule-mbedtls') -Kind 'mbedtls'
     }
 
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath") -Target Rebuild
-    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath", "/p:WorkspacePerlExe=$perlPath") -Target Rebuild
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-zlib\contrib\vstudio\vc\zlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath") -StepName 'DEP zlib'
+    Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-mbedtls\visualc\VS2017\mbedTLS.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties @("/p:WorkspaceCMakeExe=$cmakePath", "/p:WorkspacePerlExe=$perlPath") -StepName 'DEP mbedtls'
 }
 
 function Build-Apps {
@@ -587,7 +770,7 @@ function Build-Apps {
         if ($override) {
             $extraProperties += "/p:PlatformToolset=$override"
         }
-        Invoke-MSBuildProject -ProjectPath $project -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties $extraProperties
+        Invoke-MSBuildProject -ProjectPath $project -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties $extraProperties -StepName ("APP {0}" -f $app.Name)
     }
 }
 
@@ -597,27 +780,41 @@ function Build-Tests {
     $appRoot = Resolve-AppVariantPath -Name $TestTargets.BuildVariant -RequireExists
     $scriptPath = Join-Path $testRepoRoot 'scripts\build-emule-tests.ps1'
     $entry = Get-SelectedBuildTarget
+    $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $appRoot
+    $logPath = if ($BuildOutputMode -ne 'Full') {
+        Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}.log" -f (Convert-ToFileToken ("emule-tests-{0}" -f $buildTag)), $entry.Configuration.ToLowerInvariant(), $entry.Platform.ToLowerInvariant())
+    } else {
+        $null
+    }
 
-    Invoke-Native 'pwsh' @(
-        '-NoLogo',
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        $scriptPath,
-        '-TestRepoRoot',
-        $testRepoRoot,
-        '-WorkspaceRoot',
-        $workspaceRoot,
-        '-AppRoot',
-        $appRoot,
-        '-Configuration',
-        $entry.Configuration,
-        '-Platform',
-        $entry.Platform,
-        '-BuildOutputMode',
-        $BuildOutputMode
-    ) "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
+    try {
+        Invoke-Native 'pwsh' @(
+            '-NoLogo',
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            $scriptPath,
+            '-TestRepoRoot',
+            $testRepoRoot,
+            '-WorkspaceRoot',
+            $workspaceRoot,
+            '-AppRoot',
+            $appRoot,
+            '-Configuration',
+            $entry.Configuration,
+            '-Platform',
+            $entry.Platform,
+            '-BuildOutputMode',
+            $BuildOutputMode,
+            '-BuildLogSessionStamp',
+            (Get-BuildLogSessionStamp)
+        ) "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
+        Add-BuildStepResult -StepName 'TEST emule-tests' -Succeeded $true -LogPath $logPath
+    } catch {
+        Add-BuildStepResult -StepName 'TEST emule-tests' -Succeeded $false -LogPath $logPath
+        throw
+    }
 }
 
 function Invoke-LiveDiffRuns {
@@ -754,58 +951,73 @@ function Validate-Workspace {
     }
 }
 
-switch ($Command) {
-    'env-check' {
-        $vs = Get-VsInfo
-        if (-not $vs) { throw 'Visual Studio 2022 with MSBuild is required.' }
-        if (-not (Resolve-Tool @('git.exe','git'))) { throw 'git not found on PATH.' }
-        Write-Host "Visual Studio: $($vs.Root)"
-        Write-Host "MSBuild: $($vs.MSBuild)"
-        if (-not [string]::IsNullOrWhiteSpace($ToolsetOverrideVariable)) {
-            Write-Host "Toolset override variable: $ToolsetOverrideVariable"
-        }
-    }
-    'dep-status' {
-        foreach ($dependency in $Dependencies) {
-            $repoPath = Resolve-WorkspacePath $dependency.Path
-            if (-not (Test-Path -LiteralPath $repoPath)) {
-                Write-Host ("MISSING {0} -> {1}" -f $dependency.Name, $repoPath)
-                continue
+if (-not (Acquire-WorkspaceCommandLock)) {
+    exit 1
+}
+
+if ($Command -in @('build-libs', 'build-app', 'build-tests', 'build-all', 'full')) {
+    Reset-BuildExecutionState
+}
+
+try {
+    switch ($Command) {
+        'env-check' {
+            $vs = Get-VsInfo
+            if (-not $vs) { throw 'Visual Studio 2022 with MSBuild is required.' }
+            if (-not (Resolve-Tool @('git.exe','git'))) { throw 'git not found on PATH.' }
+            Write-Host "Visual Studio: $($vs.Root)"
+            Write-Host "MSBuild: $($vs.MSBuild)"
+            if (-not [string]::IsNullOrWhiteSpace($ToolsetOverrideVariable)) {
+                Write-Host "Toolset override variable: $ToolsetOverrideVariable"
             }
-            Write-Host ("DEP {0} [{1}] {2}" -f $dependency.Name, (Get-RepoBranch $repoPath), ((Get-RepoStatus $repoPath) -join '; '))
         }
-        foreach ($app in Get-ActiveApps) {
-            Write-Host ("APP {0} [{1}] {2}" -f $app.Path, $app.CurrentBranch, ((Get-RepoStatus $app.Path) -join '; '))
+        'dep-status' {
+            foreach ($dependency in $Dependencies) {
+                $repoPath = Resolve-WorkspacePath $dependency.Path
+                if (-not (Test-Path -LiteralPath $repoPath)) {
+                    Write-Host ("MISSING {0} -> {1}" -f $dependency.Name, $repoPath)
+                    continue
+                }
+                Write-Host ("DEP {0} [{1}] {2}" -f $dependency.Name, (Get-RepoBranch $repoPath), ((Get-RepoStatus $repoPath) -join '; '))
+            }
+            foreach ($app in Get-ActiveApps) {
+                Write-Host ("APP {0} [{1}] {2}" -f $app.Path, $app.CurrentBranch, ((Get-RepoStatus $app.Path) -join '; '))
+            }
+        }
+        'validate' {
+            Validate-Workspace
+        }
+        'build-libs' {
+            Build-Libs
+        }
+        'build-app' {
+            Build-Apps
+        }
+        'build-tests' {
+            Build-Tests
+        }
+        'test' {
+            Invoke-TestRuns
+        }
+        'live-diff' {
+            Invoke-LiveDiffRuns -DevVariantName $(if ([string]::IsNullOrWhiteSpace($DevVariant)) { $TestTargets.CoverageVariant } else { $DevVariant }) -OracleVariantName $(if ([string]::IsNullOrWhiteSpace($OracleVariant)) { $TestTargets.OracleVariant } else { $OracleVariant })
+        }
+        'build-all' {
+            Build-Libs
+            Build-Apps
+            Build-Tests
+        }
+        'full' {
+            Build-Libs
+            Build-Apps
+            Build-Tests
+            Invoke-TestRuns
+            Write-WorkspaceSummary
         }
     }
-    'validate' {
-        Validate-Workspace
+} finally {
+    if ($Command -in @('build-libs', 'build-app', 'build-tests', 'build-all', 'full')) {
+        Write-BuildCommandRecap -CommandName $Command
     }
-    'build-libs' {
-        Build-Libs
-    }
-    'build-app' {
-        Build-Apps
-    }
-    'build-tests' {
-        Build-Tests
-    }
-    'test' {
-        Invoke-TestRuns
-    }
-    'live-diff' {
-        Invoke-LiveDiffRuns -DevVariantName $(if ([string]::IsNullOrWhiteSpace($DevVariant)) { $TestTargets.CoverageVariant } else { $DevVariant }) -OracleVariantName $(if ([string]::IsNullOrWhiteSpace($OracleVariant)) { $TestTargets.OracleVariant } else { $OracleVariant })
-    }
-    'build-all' {
-        Build-Libs
-        Build-Apps
-        Build-Tests
-    }
-    'full' {
-        Build-Libs
-        Build-Apps
-        Build-Tests
-        Invoke-TestRuns
-        Write-WorkspaceSummary
-    }
+    Release-WorkspaceCommandLock
 }

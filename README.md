@@ -84,12 +84,18 @@ Command behavior:
 - `build-all` runs `build-libs`, `build-app`, and `build-tests`.
 - `full` runs `build-all`, then `test`, then prints a workspace summary.
 
+All top-level `workspace.ps1` commands are serialized per workspace root. If
+another command already owns the workspace lock, the next command fails fast
+with a clear owner message instead of running concurrently against the same
+workspace.
+
 ## Build Scope
 
 Dependencies and app builds honor the selected invocation parameters:
 
 - `-Config Debug|Release`
 - `-Platform x64|ARM64`
+- `-BuildOutputMode Full|Warnings|ErrorsOnly`
 - `Win32` is not part of the active workspace build matrix
 
 Examples:
@@ -97,6 +103,10 @@ Examples:
 - `build-app -Config Debug -Platform x64` builds only `Debug|x64`
 - `build-libs -Config Release -Platform ARM64` builds only `Release|ARM64`
 - `build-all` and `full` use the same selected target instead of expanding to a hidden multi-target matrix
+
+Build commands default to a quiet filtered console view plus a short step recap.
+Use `-BuildOutputMode Full` when you want raw MSBuild output for troubleshooting.
+Filtered runs write full logs under `workspaces\<workspace>\state\build-logs\`.
 
 Shared test builds support `x64` and `ARM64`. Test execution remains `x64`
 only:
