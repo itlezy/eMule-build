@@ -31,6 +31,8 @@ In practice this repo needs:
 - `workspaces\v0.72a\app\eMule-v0.72a-oracle`
 - `workspaces\v0.72a\app\eMule-v0.72a-build`
 - `workspaces\v0.72a\app\eMule-v0.72a-bugfix`
+- `workspaces\v0.72a\app\eMule-v0.72a-tracing`
+- `workspaces\v0.72a\app\eMule-v0.72a-tracing-harness`
 
 Canonical managed app variants:
 
@@ -38,14 +40,20 @@ Canonical managed app variants:
 - `oracle/v0.72a-build`
 - `release/v0.72a-build`
 - `release/v0.72a-bugfix`
+- `tracing/v0.72a`
+- `tracing-harness/v0.72a`
 
-The active app layout is manifest-driven from `deps.psd1`. Test, coverage, and
-live-diff flows resolve their app roots from the configured variant names rather
-than duplicating hardcoded worktree paths in the script.
+The active app layout is topology-driven from the generated workspace manifest
+at `workspaces\v0.72a\deps.psd1`, with build-specific settings kept in this
+repo's `deps.psd1`. Test, coverage, and live-diff flows resolve their app roots
+from the configured variant names rather than duplicating hardcoded worktree
+paths in the script.
 
 `oracle/v0.72a-build` is a special-purpose seam-enabled oracle branch derived
 from `release/v0.72a-build`. It is built like the other canonical app variants,
-but it is not a normal feature-development line.
+but it is not a normal feature-development line. `tracing/v0.72a` is the
+observability-only derivative of oracle, and `tracing-harness/v0.72a` is the
+behavior-changing experimental harness layer derived from tracing.
 
 For the full workspace topology and materialization behavior, use
 `eMulebb-setup\README.md`.
@@ -149,6 +157,9 @@ The test flows use the manifest-configured app variants:
 - test build target: `main`
 - coverage target: `main`
 - live-diff oracle target: `oracle`
+
+The tracing variants are part of the canonical buildable app set, but they are
+not the default coverage or oracle targets unless explicitly selected.
 
 `build-tests` honors the selected `-Config` value for both `x64` and `ARM64`.
 `test` honors the selected `-Config` value, but requires `-Platform x64`.

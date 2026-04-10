@@ -32,9 +32,6 @@ $PSNativeCommandUseErrorActionPreference = $false
 $ScriptRoot = Split-Path -Parent $PSCommandPath
 $Manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptRoot 'deps.psd1')
 $Workspace = $Manifest.Workspace
-$Dependencies = @($Workspace.Dependencies)
-$AppRepo = $Workspace.AppRepo
-$TestTargets = $AppRepo.TestTargets
 $WorkspaceName = if ([string]::IsNullOrWhiteSpace($WorkspaceName)) { $Workspace.Name } else { $WorkspaceName }
 $EmuleWorkspaceRoot = if ([string]::IsNullOrWhiteSpace($EmuleWorkspaceRoot)) {
     if (-not [string]::IsNullOrWhiteSpace($env:EMULE_WORKSPACE_ROOT)) {
@@ -46,6 +43,56 @@ $EmuleWorkspaceRoot = if ([string]::IsNullOrWhiteSpace($EmuleWorkspaceRoot)) {
     $EmuleWorkspaceRoot
 }
 $EmuleWorkspaceRoot = [System.IO.Path]::GetFullPath($EmuleWorkspaceRoot)
+$WorkspaceRootPath = [System.IO.Path]::GetFullPath((Join-Path $EmuleWorkspaceRoot ("workspaces\{0}" -f $WorkspaceName)))
+
+$WorkspaceManifestPath = Join-Path $EmuleWorkspaceRoot ("workspaces\{0}\deps.psd1" -f $WorkspaceName)
+if (Test-Path -LiteralPath $WorkspaceManifestPath -PathType Leaf) {
+    $WorkspaceManifest = Import-PowerShellDataFile -LiteralPath $WorkspaceManifestPath
+    $WorkspaceTopology = if ($WorkspaceManifest.ContainsKey('Workspace')) { $WorkspaceManifest.Workspace } else { $null }
+    $convertWorkspaceRelativePathToRootRelative = {
+        param([string]$RelativePath)
+
+        if ([string]::IsNullOrWhiteSpace($RelativePath)) {
+            return $RelativePath
+        }
+
+        $absolutePath = [System.IO.Path]::GetFullPath((Join-Path $WorkspaceRootPath $RelativePath))
+        [System.IO.Path]::GetRelativePath($EmuleWorkspaceRoot, $absolutePath)
+    }
+
+    if ($null -ne $WorkspaceTopology) {
+        if ($WorkspaceTopology.ContainsKey('AppRepo')) {
+            if ($WorkspaceTopology.AppRepo.ContainsKey('SeedRepo')) {
+                $seedRepo = @{} + $WorkspaceTopology.AppRepo.SeedRepo
+                if ($seedRepo.ContainsKey('Path')) {
+                    $seedRepo.Path = & $convertWorkspaceRelativePathToRootRelative $seedRepo.Path
+                }
+                $Workspace.AppRepo.SeedRepo = $seedRepo
+            }
+            if ($WorkspaceTopology.AppRepo.ContainsKey('Variants')) {
+                $normalizedVariants = [System.Collections.Generic.List[hashtable]]::new()
+                foreach ($variant in @($WorkspaceTopology.AppRepo.Variants)) {
+                    $normalizedVariant = @{} + $variant
+                    if ($normalizedVariant.ContainsKey('Path')) {
+                        $normalizedVariant.Path = & $convertWorkspaceRelativePathToRootRelative $normalizedVariant.Path
+                    }
+                    $normalizedVariants.Add($normalizedVariant) | Out-Null
+                }
+                $Workspace.AppRepo.Variants = @($normalizedVariants)
+            }
+        }
+
+        if ($WorkspaceTopology.ContainsKey('Repos')) {
+            foreach ($repoKey in $WorkspaceTopology.Repos.Keys) {
+                $Workspace.Repos[$repoKey] = & $convertWorkspaceRelativePathToRootRelative $WorkspaceTopology.Repos[$repoKey]
+            }
+        }
+    }
+}
+
+$Dependencies = @($Workspace.Dependencies)
+$AppRepo = $Workspace.AppRepo
+$TestTargets = $AppRepo.TestTargets
 $ToolsetOverrideVariable = $Workspace.Toolchain.ToolsetOverrideVariable
 
 function Resolve-WorkspacePath([string]$RelativePath) {

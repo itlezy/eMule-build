@@ -14,6 +14,8 @@
                 @{ Name = 'oracle'; Branch = 'oracle/v0.72a-build'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-oracle' }
                 @{ Name = 'build'; Branch = 'release/v0.72a-build'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-build' }
                 @{ Name = 'bugfix'; Branch = 'release/v0.72a-bugfix'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-bugfix' }
+                @{ Name = 'tracing'; Branch = 'tracing/v0.72a'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-tracing' }
+                @{ Name = 'tracing-harness'; Branch = 'tracing-harness/v0.72a'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-tracing-harness' }
             )
             TestTargets = @{
                 BuildVariant = 'main'
