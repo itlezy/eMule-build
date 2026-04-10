@@ -5,28 +5,11 @@
             ToolsetOverrideVariable = 'EMULE_V072_PLATFORM_TOOLSET'
         }
         AppRepo = @{
-            SeedRepo = @{
-                Path = 'repos\eMule'
-                Branch = 'main'
-            }
-            Variants = @(
-                @{ Name = 'main'; Branch = 'main'; Path = 'workspaces\v0.72a\app\eMule-main' }
-                @{ Name = 'oracle'; Branch = 'oracle/v0.72a-build'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-oracle' }
-                @{ Name = 'build'; Branch = 'release/v0.72a-build'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-build' }
-                @{ Name = 'bugfix'; Branch = 'release/v0.72a-bugfix'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-bugfix' }
-                @{ Name = 'tracing'; Branch = 'tracing/v0.72a'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-tracing' }
-                @{ Name = 'tracing-harness'; Branch = 'tracing-harness/v0.72a'; Path = 'workspaces\v0.72a\app\eMule-v0.72a-tracing-harness' }
-            )
             TestTargets = @{
                 BuildVariant = 'main'
                 CoverageVariant = 'main'
                 OracleVariant = 'oracle'
             }
-        }
-        Repos = @{
-            Tests = 'repos\eMule-build-tests'
-            Tooling = 'repos\eMule-tooling'
-            Remote = 'repos\eMule-remote'
         }
         Dependencies = @(
             @{

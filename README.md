@@ -3,8 +3,8 @@
 `eMule-build` is the canonical build and test orchestration layer for the
 workspace rooted at `EMULE_WORKSPACE_ROOT`.
 
-`eMulebb-setup` owns workspace materialization. Once the workspace exists, this
-repo is responsible for:
+`eMulebb-setup` owns workspace materialization and generated workspace topology.
+Once the workspace exists, this repo is responsible for:
 
 - dependency builds under `repos\third_party`
 - app builds for the canonical 0.72a app worktrees
@@ -43,11 +43,11 @@ Canonical managed app variants:
 - `tracing/v0.72a`
 - `tracing-harness/v0.72a`
 
-The active app layout is topology-driven from the generated workspace manifest
-at `workspaces\v0.72a\deps.psd1`, with build-specific settings kept in this
-repo's `deps.psd1`. Test, coverage, and live-diff flows resolve their app roots
-from the configured variant names rather than duplicating hardcoded worktree
-paths in the script.
+The active app layout and workspace repo paths are topology-driven from the
+generated workspace manifest at `workspaces\v0.72a\deps.psd1`, with
+build-specific settings kept in this repo's `deps.psd1`. Test, coverage, and
+live-diff flows resolve their app roots from configured variant names rather
+than duplicating hardcoded worktree paths in the script.
 
 `oracle/v0.72a-build` is a special-purpose seam-enabled oracle branch derived
 from `release/v0.72a-build`. It is built like the other canonical app variants,

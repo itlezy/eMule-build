@@ -46,48 +46,56 @@ $EmuleWorkspaceRoot = [System.IO.Path]::GetFullPath($EmuleWorkspaceRoot)
 $WorkspaceRootPath = [System.IO.Path]::GetFullPath((Join-Path $EmuleWorkspaceRoot ("workspaces\{0}" -f $WorkspaceName)))
 
 $WorkspaceManifestPath = Join-Path $EmuleWorkspaceRoot ("workspaces\{0}\deps.psd1" -f $WorkspaceName)
-if (Test-Path -LiteralPath $WorkspaceManifestPath -PathType Leaf) {
-    $WorkspaceManifest = Import-PowerShellDataFile -LiteralPath $WorkspaceManifestPath
-    $WorkspaceTopology = if ($WorkspaceManifest.ContainsKey('Workspace')) { $WorkspaceManifest.Workspace } else { $null }
-    $convertWorkspaceRelativePathToRootRelative = {
-        param([string]$RelativePath)
+if (-not (Test-Path -LiteralPath $WorkspaceManifestPath -PathType Leaf)) {
+    throw "Workspace manifest is missing: $WorkspaceManifestPath. Run eMulebb-setup init/materialize/sync for this workspace."
+}
 
-        if ([string]::IsNullOrWhiteSpace($RelativePath)) {
-            return $RelativePath
-        }
+$WorkspaceManifest = Import-PowerShellDataFile -LiteralPath $WorkspaceManifestPath
+$WorkspaceTopology = if ($WorkspaceManifest.ContainsKey('Workspace')) { $WorkspaceManifest.Workspace } else { $null }
+if ($null -eq $WorkspaceTopology) {
+    throw "Workspace manifest '$WorkspaceManifestPath' does not define a Workspace block."
+}
 
-        $absolutePath = [System.IO.Path]::GetFullPath((Join-Path $WorkspaceRootPath $RelativePath))
-        [System.IO.Path]::GetRelativePath($EmuleWorkspaceRoot, $absolutePath)
+$convertWorkspaceRelativePathToRootRelative = {
+    param([string]$RelativePath)
+
+    if ([string]::IsNullOrWhiteSpace($RelativePath)) {
+        return $RelativePath
     }
 
-    if ($null -ne $WorkspaceTopology) {
-        if ($WorkspaceTopology.ContainsKey('AppRepo')) {
-            if ($WorkspaceTopology.AppRepo.ContainsKey('SeedRepo')) {
-                $seedRepo = @{} + $WorkspaceTopology.AppRepo.SeedRepo
-                if ($seedRepo.ContainsKey('Path')) {
-                    $seedRepo.Path = & $convertWorkspaceRelativePathToRootRelative $seedRepo.Path
-                }
-                $Workspace.AppRepo.SeedRepo = $seedRepo
-            }
-            if ($WorkspaceTopology.AppRepo.ContainsKey('Variants')) {
-                $normalizedVariants = [System.Collections.Generic.List[hashtable]]::new()
-                foreach ($variant in @($WorkspaceTopology.AppRepo.Variants)) {
-                    $normalizedVariant = @{} + $variant
-                    if ($normalizedVariant.ContainsKey('Path')) {
-                        $normalizedVariant.Path = & $convertWorkspaceRelativePathToRootRelative $normalizedVariant.Path
-                    }
-                    $normalizedVariants.Add($normalizedVariant) | Out-Null
-                }
-                $Workspace.AppRepo.Variants = @($normalizedVariants)
-            }
-        }
+    $absolutePath = [System.IO.Path]::GetFullPath((Join-Path $WorkspaceRootPath $RelativePath))
+    [System.IO.Path]::GetRelativePath($EmuleWorkspaceRoot, $absolutePath)
+}
 
-        if ($WorkspaceTopology.ContainsKey('Repos')) {
-            foreach ($repoKey in $WorkspaceTopology.Repos.Keys) {
-                $Workspace.Repos[$repoKey] = & $convertWorkspaceRelativePathToRootRelative $WorkspaceTopology.Repos[$repoKey]
-            }
-        }
+if (-not ($WorkspaceTopology.ContainsKey('AppRepo') -and $WorkspaceTopology.AppRepo.ContainsKey('SeedRepo') -and $WorkspaceTopology.AppRepo.ContainsKey('Variants'))) {
+    throw "Workspace manifest '$WorkspaceManifestPath' is missing AppRepo.SeedRepo or AppRepo.Variants."
+}
+
+if (-not $WorkspaceTopology.ContainsKey('Repos')) {
+    throw "Workspace manifest '$WorkspaceManifestPath' is missing Repos."
+}
+
+$Workspace.AppRepo.SeedRepo = @{} + $WorkspaceTopology.AppRepo.SeedRepo
+if ($Workspace.AppRepo.SeedRepo.ContainsKey('Path')) {
+    $Workspace.AppRepo.SeedRepo.Path = & $convertWorkspaceRelativePathToRootRelative $Workspace.AppRepo.SeedRepo.Path
+}
+
+$normalizedVariants = [System.Collections.Generic.List[hashtable]]::new()
+foreach ($variant in @($WorkspaceTopology.AppRepo.Variants)) {
+    $normalizedVariant = @{} + $variant
+    if ($normalizedVariant.ContainsKey('Path')) {
+        $normalizedVariant.Path = & $convertWorkspaceRelativePathToRootRelative $normalizedVariant.Path
     }
+    $normalizedVariants.Add($normalizedVariant) | Out-Null
+}
+$Workspace.AppRepo.Variants = @($normalizedVariants)
+
+if (-not $Workspace.ContainsKey('Repos') -or $null -eq $Workspace.Repos) {
+    $Workspace.Repos = @{}
+}
+
+foreach ($repoKey in $WorkspaceTopology.Repos.Keys) {
+    $Workspace.Repos[$repoKey] = & $convertWorkspaceRelativePathToRootRelative $WorkspaceTopology.Repos[$repoKey]
 }
 
 $Dependencies = @($Workspace.Dependencies)
