@@ -22,7 +22,9 @@ param(
 
     [string]$DevVariant,
 
-    [string]$OracleVariant
+    [string]$OracleVariant,
+
+    [string[]]$AppVariant
 )
 
 Set-StrictMode -Version Latest
@@ -739,7 +741,23 @@ function Get-AppVariants {
 }
 
 function Get-ActiveApps {
-    @(Get-AppVariants | Where-Object { $_.Exists })
+    $apps = @(Get-AppVariants | Where-Object { $_.Exists })
+    if ($null -eq $AppVariant -or $AppVariant.Count -eq 0) {
+        return $apps
+    }
+
+    $selectedNames = @($AppVariant | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() } | Select-Object -Unique)
+    if ($selectedNames.Count -eq 0) {
+        return $apps
+    }
+
+    $selectedApps = @($apps | Where-Object { $_.Name -in $selectedNames })
+    $missingVariants = @($selectedNames | Where-Object { $_ -notin $selectedApps.Name })
+    if ($missingVariants.Count -gt 0) {
+        throw ("Unknown or unavailable app variant(s): {0}" -f ($missingVariants -join ', '))
+    }
+
+    $selectedApps
 }
 
 function Get-AppVariant([string]$Name) {
