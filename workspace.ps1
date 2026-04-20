@@ -210,11 +210,11 @@ function Remove-WorkspaceCommandLockMetadata {
 function Write-WorkspaceCommandLockConflict {
     $metadata = Get-WorkspaceCommandLockMetadata
     if ($metadata) {
-        Write-Host ("Workspace busy: command '{0}' cannot start for {1}. Active owner: '{2}' (PID {3} on {4}, started {5})." -f $Command, $EmuleWorkspaceRoot, $metadata.command, $metadata.pid, $metadata.machine_name, $metadata.started_utc) -ForegroundColor Yellow
+        Write-Host ("Workspace busy: command '{0}' cannot start for {1}. This single-owner workspace lock is intentional. Active owner: '{2}' (PID {3} on {4}, started {5}). Wait for that command to finish and retry." -f $Command, $EmuleWorkspaceRoot, $metadata.command, $metadata.pid, $metadata.machine_name, $metadata.started_utc) -ForegroundColor Yellow
         return
     }
 
-    Write-Host ("Workspace busy: command '{0}' cannot start for {1} because another eMule-build command already holds the workspace lock." -f $Command, $EmuleWorkspaceRoot) -ForegroundColor Yellow
+    Write-Host ("Workspace busy: command '{0}' cannot start for {1} because another eMule-build command intentionally holds the single-owner workspace lock. Wait briefly and retry." -f $Command, $EmuleWorkspaceRoot) -ForegroundColor Yellow
 }
 
 function Acquire-WorkspaceCommandLock {
@@ -1354,6 +1354,9 @@ function Validate-Workspace {
     }
 }
 
+# All top-level workspace commands are serialized behind one per-workspace lock.
+# That lock is intentional: it prevents overlapping env-check/build/test flows
+# from trampling the same state, logs, and outputs.
 if (-not (Acquire-WorkspaceCommandLock)) {
     exit 1
 }

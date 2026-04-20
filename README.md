@@ -99,10 +99,16 @@ Command behavior:
 - `build-all` runs `build-libs`, `build-app`, and `build-tests`.
 - `full` runs `build-all`, then `test`, then prints a workspace summary.
 
-All top-level `workspace.ps1` commands are serialized per workspace root. If
-another command already owns the workspace lock, the next command fails fast
+All top-level `workspace.ps1` commands are serialized per workspace root. This
+single-owner workspace lock is intentional. It prevents overlapping
+`env-check`, build, test, and live-diff commands from trampling shared state,
+logs, and outputs in the same workspace.
+
+If another command already owns the workspace lock, the next command fails fast
 with a clear owner message instead of running concurrently against the same
-workspace.
+workspace. When commands are launched back-to-back, the second command may need
+to wait briefly for the first command's lock window to close fully before it
+can start.
 
 ## Build Scope
 
