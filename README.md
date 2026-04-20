@@ -34,6 +34,11 @@ In practice this repo needs:
 - `workspaces\v0.72a\app\eMule-v0.72a-tracing`
 - `workspaces\v0.72a\app\eMule-v0.72a-tracing-harness`
 
+`repos\eMule` is not a normal development checkout. `eMulebb-setup` owns it as
+the canonical app anchor, and it is expected to stay detached at
+`origin/main`. Active app development belongs in the managed worktrees under
+`workspaces\v0.72a\app\...`, especially `eMule-main` for the mainline branch.
+
 Canonical managed app variants:
 
 - `main`
@@ -84,7 +89,9 @@ Command behavior:
 - `env-check` verifies the core toolchain discovery for Git, Visual Studio, and MSBuild.
 - `dep-status` reports branch and worktree status for the dependency repos and canonical app worktrees that exist locally.
 - `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, required test helper scripts, modified tracked-file editorconfig compliance, and the shared static policy audits from `eMule-tooling\ci`.
+- `validate` may reanchor a clean `repos\eMule` checkout back to detached `origin/main` before running branch policy audits. It does not rewrite managed app worktrees.
 - `build-libs` builds the shared dependency set for the selected `-Config` and `-Platform`.
+- `build-libs` includes the CMake-built `libpcpnatpmp` static library, and the current `main` app build now links it for the PCP/NAT-PMP NAT-mapping backend.
 - `build-app` builds all canonical app variants for the selected `-Config` and `-Platform`.
 - `build-tests` builds the shared test harness against the configured build variant.
 - `test` runs parity tests, native coverage, and live diff using the configured test target variants.
@@ -140,6 +147,7 @@ Live-diff examples:
 - missing `repos` or `workspaces` roots
 - missing dependency repos
 - missing canonical app worktrees
+- stale canonical app anchor state in `repos\eMule`
 - app worktrees checked out on the wrong branches
 - dependency repos not aligned with their active local `origin/HEAD` pins
 - active documentation hardcoding machine-specific absolute paths
@@ -151,6 +159,11 @@ Live-diff examples:
 Tracked-file cleanliness is intentionally a separate explicit audit via
 `repos\eMule-tooling\ci\check-clean-worktree.ps1`, so in-progress feature work
 does not get blocked by routine `validate`.
+
+The setup/build contract is intentionally narrow:
+
+- `eMulebb-setup` owns workspace topology, managed app worktree creation, and full `sync` reconciliation.
+- `eMule-build` assumes that topology exists and only self-heals the clean setup-owned `repos\eMule` anchor when validation needs it to match current `origin/main`.
 
 The test flows use the manifest-configured app variants:
 

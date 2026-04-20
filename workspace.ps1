@@ -464,6 +464,29 @@ function Get-RepoStatus([string]$Repo) {
     @((Invoke-Git $Repo @('status','--short','--branch') 'git status') | Where-Object { $_ })
 }
 
+function Ensure-CanonicalAppAnchor {
+    $canonicalRepoPath = Resolve-WorkspacePath $AppRepo.SeedRepo.Path
+    if (-not (Test-Path -LiteralPath $canonicalRepoPath -PathType Container)) {
+        throw "Canonical app repo is missing: $canonicalRepoPath"
+    }
+
+    $statusLines = @(Get-RepoStatus $canonicalRepoPath)
+    if ($statusLines.Count -gt 1) {
+        throw "Canonical app repo has local changes and cannot be re-anchored automatically: $canonicalRepoPath"
+    }
+
+    $expectedAnchorRevision = "refs/remotes/origin/{0}" -f $AppRepo.SeedRepo.Branch
+    $expectedAnchorHead = ((Invoke-Git $canonicalRepoPath @('rev-parse', $expectedAnchorRevision) 'git rev-parse') -join "`n").Trim()
+    $canonicalBranch = Get-RepoBranch $canonicalRepoPath
+    $canonicalHead = ((Invoke-Git $canonicalRepoPath @('rev-parse', 'HEAD') 'git rev-parse') -join "`n").Trim()
+    if ($canonicalBranch -eq 'HEAD' -and $canonicalHead -eq $expectedAnchorHead) {
+        return
+    }
+
+    Write-Host ("Reanchoring canonical app repo to detached {0} at {1}" -f ("origin/{0}" -f $AppRepo.SeedRepo.Branch), $expectedAnchorHead)
+    $null = Invoke-Git $canonicalRepoPath @('checkout', '--detach', $expectedAnchorRevision) 'git checkout --detach'
+}
+
 function Get-VsInfo {
     $vswhere = Resolve-Tool @('vswhere.exe', 'vswhere')
     if (-not $vswhere) {
@@ -635,6 +658,93 @@ function Invoke-MSBuildProject {
         $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
         $warningCount = Get-WarningCountFromLog -LogPath $logPath
         Add-BuildStepResult -StepName $StepName -Succeeded $false -LogPath $logPath -BinaryLogPath $binaryLogPath -DurationSeconds $durationSeconds -WarningCount $warningCount
+        Write-BuildStepSummary -StepName $StepName -Succeeded $false -LogPath $logPath -DurationSeconds $durationSeconds
+        throw
+    }
+}
+
+<#
+.SYNOPSIS
+Configures and builds a CMake dependency while publishing a standard build-step recap entry.
+#>
+function Invoke-CMakeDependencyBuild {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$BuildDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Configuration,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Platform,
+
+        [Parameter(Mandatory = $true)]
+        [string]$StepName,
+
+        [string]$TargetName = '',
+
+        [string[]]$ConfigureArguments = @()
+    )
+
+    $stepStartedAt = Get-Date
+    $relativeSourceDirectory = [System.IO.Path]::GetRelativePath($EmuleWorkspaceRoot, $SourceDirectory)
+    $projectToken = Convert-ToFileToken ($relativeSourceDirectory + '-cmake')
+    $logPath = Join-Path (Get-BuildLogDirectory) ("{0}-build-{1}-{2}.log" -f $projectToken, $Configuration.ToLowerInvariant(), $Platform.ToLowerInvariant())
+
+    try {
+        Ensure-Directory -Path $BuildDirectory
+        if (Test-Path -LiteralPath $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+
+        $cmakePath = Get-CMakePath
+        @(
+            '== Configure ==',
+            "$cmakePath -S $SourceDirectory -B $BuildDirectory -G Visual Studio 17 2022 -A $Platform -DBUILD_SHARED_LIBS=OFF",
+            ''
+        ) | Set-Content -LiteralPath $logPath -Encoding utf8
+
+        & $cmakePath @(
+            '-S', $SourceDirectory,
+            '-B', $BuildDirectory,
+            '-G', 'Visual Studio 17 2022',
+            '-A', $Platform,
+            '-DBUILD_SHARED_LIBS=OFF'
+        ) + $ConfigureArguments *>> $logPath
+        if ($LASTEXITCODE -ne 0) {
+            throw "cmake configure failed with exit code $LASTEXITCODE."
+        }
+
+        @(
+            '',
+            '== Build ==',
+            "$cmakePath --build $BuildDirectory --config $Configuration"
+        ) | Add-Content -LiteralPath $logPath -Encoding utf8
+
+        $buildArguments = @(
+            '--build', $BuildDirectory,
+            '--config', $Configuration
+        )
+        if (-not [string]::IsNullOrWhiteSpace($TargetName)) {
+            $buildArguments += @('--target', $TargetName)
+        }
+
+        & $cmakePath $buildArguments *>> $logPath
+        if ($LASTEXITCODE -ne 0) {
+            throw "cmake build failed with exit code $LASTEXITCODE."
+        }
+
+        $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
+        $warningCount = Get-WarningCountFromLog -LogPath $logPath
+        Add-BuildStepResult -StepName $StepName -Succeeded $true -LogPath $logPath -BinaryLogPath '' -DurationSeconds $durationSeconds -WarningCount $warningCount
+        Write-BuildStepSummary -StepName $StepName -Succeeded $true -LogPath $logPath -DurationSeconds $durationSeconds
+    } catch {
+        $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
+        $warningCount = Get-WarningCountFromLog -LogPath $logPath
+        Add-BuildStepResult -StepName $StepName -Succeeded $false -LogPath $logPath -BinaryLogPath '' -DurationSeconds $durationSeconds -WarningCount $warningCount
         Write-BuildStepSummary -StepName $StepName -Succeeded $false -LogPath $logPath -DurationSeconds $durationSeconds
         throw
     }
@@ -832,6 +942,22 @@ function Get-MbedTlsLibraryRoot([string]$TargetPlatform) {
     $path
 }
 
+<#
+.SYNOPSIS
+Returns the canonical CMake build root for the libpcpnatpmp dependency.
+#>
+function Get-LibPcpNatPmpBuildRoot([string]$TargetPlatform) {
+    Join-Path (Resolve-WorkspacePath 'repos\third_party\eMule-libpcpnatpmp') ("cmake-build-{0}" -f $TargetPlatform.ToLowerInvariant())
+}
+
+<#
+.SYNOPSIS
+Returns the static-library path produced for libpcpnatpmp for a given configuration and platform.
+#>
+function Get-LibPcpNatPmpLibraryPath([string]$Configuration, [string]$TargetPlatform) {
+    Join-Path (Get-LibPcpNatPmpBuildRoot -TargetPlatform $TargetPlatform) ("lib\{0}\pcpnatpmp.lib" -f $Configuration)
+}
+
 function Get-AppPropertyOverrides([string]$TargetPlatform) {
     @(
         "/p:WorkspaceRoot=$EmuleWorkspaceRoot\"
@@ -840,6 +966,8 @@ function Get-AppPropertyOverrides([string]$TargetPlatform) {
         "/p:MbedTlsRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-mbedtls')\"
         "/p:MbedTlsLibRoot=$(Get-MbedTlsLibraryRoot -TargetPlatform $TargetPlatform)"
         "/p:MiniUpnpRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-miniupnp')\"
+        "/p:PcpNatPmpRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-libpcpnatpmp')\"
+        "/p:PcpNatPmpLibRoot=$(Join-Path (Get-LibPcpNatPmpBuildRoot -TargetPlatform $TargetPlatform) 'lib')\"
         "/p:ResizableLibRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-ResizableLib')\"
         "/p:ZlibRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-zlib')\"
     )
@@ -859,6 +987,10 @@ function Get-AppDependencyArtifacts([string]$Configuration, [string]$TargetPlatf
         [pscustomobject]@{
             Name = 'miniupnp'
             Path = Join-Path $thirdPartyRoot ("eMule-miniupnp\miniupnpc\msvc\{0}\{1}\miniupnpc.lib" -f $TargetPlatform, $Configuration)
+        }
+        [pscustomobject]@{
+            Name = 'libpcpnatpmp'
+            Path = Get-LibPcpNatPmpLibraryPath -Configuration $Configuration -TargetPlatform $TargetPlatform
         }
         [pscustomobject]@{
             Name = 'ResizableLib'
@@ -1002,6 +1134,13 @@ function Build-Libs {
     Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-cryptopp\cryptlib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-CryptoPpPlatformPropertyOverrides $entry.Platform) -EnvironmentOverrides (Get-CryptoPpEnvironmentOverrides $entry.Platform) -Target $buildTarget -StepName 'DEP cryptopp'
     Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-id3lib\libprj\id3lib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties (Get-Id3libPropertyOverrides $entry.Configuration $entry.Platform) -Target $buildTarget -StepName 'DEP id3lib'
     Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-miniupnp\miniupnpc\msvc\miniupnpc.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target $buildTarget -StepName 'DEP miniupnp'
+    if ($Clean) {
+        $libPcpNatPmpBuildRoot = Get-LibPcpNatPmpBuildRoot -TargetPlatform $entry.Platform
+        if (Test-Path -LiteralPath $libPcpNatPmpBuildRoot) {
+            Remove-Item -LiteralPath $libPcpNatPmpBuildRoot -Recurse -Force
+        }
+    }
+    Invoke-CMakeDependencyBuild -SourceDirectory (Join-Path $thirdPartyRoot 'eMule-libpcpnatpmp') -BuildDirectory (Get-LibPcpNatPmpBuildRoot -TargetPlatform $entry.Platform) -Configuration $entry.Configuration -Platform $entry.Platform -TargetName 'pcpnatpmp' -StepName 'DEP libpcpnatpmp'
     Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target $buildTarget -StepName 'DEP ResizableLib'
 
     if ($Clean -and $entry.Configuration -eq 'Debug' -and $entry.Platform -eq 'x64') {
@@ -1175,6 +1314,7 @@ function Validate-Workspace {
     & $PSCommandPath env-check -EmuleWorkspaceRoot $EmuleWorkspaceRoot -WorkspaceName $WorkspaceName -Config $Config -Platform $Platform
     Assert-RequiredWorkspacePaths
     Assert-AppLayout
+    Ensure-CanonicalAppAnchor
 
     $toolingRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tooling
     $policyAudits = @(

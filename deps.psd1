@@ -23,6 +23,11 @@
                 Project = 'libprj\id3lib.vcxproj'
             }
             @{
+                Name = 'libpcpnatpmp'
+                Path = 'repos\third_party\eMule-libpcpnatpmp'
+                Project = 'CMakeLists.txt'
+            }
+            @{
                 Name = 'miniupnp'
                 Path = 'repos\third_party\eMule-miniupnp'
                 Project = 'miniupnpc\msvc\miniupnpc.vcxproj'
