@@ -1281,7 +1281,8 @@ function Invoke-TestRuns {
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $devAppRoot
     $entry = Get-SelectedBuildTarget
 
-    $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run-native-coverage.ps1'
+    $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run_native_coverage.py'
+    $pythonInvocation = Get-PythonInvocation
 
     $binaryPath = Join-Path $testRepoRoot ("build\{0}\{1}\{2}\emule-tests.exe" -f $buildTag, $entry.Platform, $entry.Configuration)
     if (-not (Test-Path -LiteralPath $binaryPath)) {
@@ -1289,24 +1290,19 @@ function Invoke-TestRuns {
     }
     Invoke-Native $binaryPath @('--test-suite=parity') "parity tests $($entry.Configuration)/$($entry.Platform)" $testRepoRoot
 
-    Invoke-Native 'pwsh' @(
-        '-NoLogo',
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
+    Invoke-Native $pythonInvocation.FilePath @($pythonInvocation.Prefix + @(
         $coverageScriptPath,
-        '-TestRepoRoot',
+        '--test-repo-root',
         $testRepoRoot,
-        '-WorkspaceRoot',
+        '--workspace-root',
         $workspaceRoot,
-        '-AppRoot',
+        '--app-root',
         $devAppRoot,
-        '-Configuration',
+        '--configuration',
         $entry.Configuration,
-        '-Platform',
+        '--platform',
         $entry.Platform
-    ) 'native coverage'
+    )) 'native coverage'
 
     Invoke-LiveDiffRuns -DevVariantName $TestTargets.CoverageVariant -OracleVariantName $TestTargets.OracleVariant
 }
@@ -1361,7 +1357,7 @@ function Validate-Workspace {
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     foreach ($scriptPath in @(
         (Join-Path $testRepoRoot 'scripts\build-emule-tests.ps1'),
-        (Join-Path $testRepoRoot 'scripts\run-native-coverage.ps1'),
+        (Join-Path $testRepoRoot 'scripts\run_native_coverage.py'),
         (Join-Path $testRepoRoot 'scripts\run_live_diff.py')
     )) {
         if (-not (Test-Path -LiteralPath $scriptPath)) {
