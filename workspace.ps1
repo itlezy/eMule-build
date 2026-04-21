@@ -1196,38 +1196,37 @@ function Build-Tests {
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
     $appRoot = Resolve-AppVariantPath -Name $TestTargets.BuildVariant -RequireExists
-    $scriptPath = Join-Path $testRepoRoot 'scripts\build-emule-tests.ps1'
+    $scriptPath = Join-Path $testRepoRoot 'scripts\build_emule_tests.py'
     $entry = Get-SelectedBuildTarget
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $appRoot
     $logPath = Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}.log" -f (Convert-ToFileToken ("emule-tests-{0}" -f $buildTag)), $entry.Configuration.ToLowerInvariant(), $entry.Platform.ToLowerInvariant())
     $binaryLogPath = Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}.binlog" -f (Convert-ToFileToken ("emule-tests-{0}" -f $buildTag)), $entry.Configuration.ToLowerInvariant(), $entry.Platform.ToLowerInvariant())
     $stepStartedAt = Get-Date
+    $pythonInvocation = Get-PythonInvocation
 
     try {
         $buildTestArguments = @(
-            '-NoLogo',
-            '-NoProfile',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-File',
+            $pythonInvocation.Prefix
             $scriptPath,
-            '-TestRepoRoot',
+            '--test-repo-root',
             $testRepoRoot,
-            '-WorkspaceRoot',
+            '--workspace-root',
             $workspaceRoot,
-            '-AppRoot',
+            '--app-root',
             $appRoot,
-            '-Configuration',
+            '--configuration',
             $entry.Configuration,
-            '-Platform',
+            '--platform',
             $entry.Platform,
-            '-BuildOutputMode',
+            '--build-output-mode',
             $BuildOutputMode,
-            ("-Clean:{0}" -f $Clean.ToString().ToLowerInvariant()),
-            '-BuildLogSessionStamp',
+            '--build-log-session-stamp',
             (Get-BuildLogSessionStamp)
         )
-        Invoke-Native 'pwsh' $buildTestArguments "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
+        if ($Clean) {
+            $buildTestArguments += '--clean'
+        }
+        Invoke-Native $pythonInvocation.FilePath $buildTestArguments "build-emule-tests $($entry.Configuration)/$($entry.Platform)"
         $durationSeconds = ((Get-Date) - $stepStartedAt).TotalSeconds
         $warningCount = Get-WarningCountFromLog -LogPath $logPath
         Add-BuildStepResult -StepName 'TEST emule-tests' -Succeeded $true -LogPath $logPath -BinaryLogPath $binaryLogPath -DurationSeconds $durationSeconds -WarningCount $warningCount
@@ -1356,7 +1355,7 @@ function Validate-Workspace {
 
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     foreach ($scriptPath in @(
-        (Join-Path $testRepoRoot 'scripts\build-emule-tests.ps1'),
+        (Join-Path $testRepoRoot 'scripts\build_emule_tests.py'),
         (Join-Path $testRepoRoot 'scripts\run_native_coverage.py'),
         (Join-Path $testRepoRoot 'scripts\run_live_diff.py')
     )) {
