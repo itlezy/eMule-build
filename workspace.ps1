@@ -407,6 +407,26 @@ function Resolve-Tool([string[]]$Names) {
     $null
 }
 
+function Get-PythonInvocation {
+    $python = Resolve-Tool @('python.exe', 'python')
+    if ($python) {
+        return @{
+            FilePath = $python
+            Prefix = @()
+        }
+    }
+
+    $py = Resolve-Tool @('py.exe', 'py')
+    if ($py) {
+        return @{
+            FilePath = $py
+            Prefix = @('-3')
+        }
+    }
+
+    throw 'Python 3 was not found on PATH.'
+}
+
 function Invoke-Native(
     [string]$FilePath,
     [string[]]$Arguments,
@@ -1231,30 +1251,26 @@ function Invoke-LiveDiffRuns {
     $devAppRoot = Resolve-AppVariantPath -Name $DevVariantName -RequireExists
     $oracleAppRoot = Resolve-AppVariantPath -Name $OracleVariantName -RequireExists
     $entry = Get-SelectedBuildTarget
-    $liveDiffScriptPath = Join-Path $testRepoRoot 'scripts\run-live-diff.ps1'
+    $liveDiffScriptPath = Join-Path $testRepoRoot 'scripts\run_live_diff.py'
+    $pythonInvocation = Get-PythonInvocation
 
-    Invoke-Native 'pwsh' @(
-        '-NoLogo',
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
+    Invoke-Native $pythonInvocation.FilePath @($pythonInvocation.Prefix + @(
         $liveDiffScriptPath,
-        '-TestRepoRoot',
+        '--test-repo-root',
         $testRepoRoot,
-        '-DevWorkspaceRoot',
+        '--dev-workspace-root',
         $workspaceRoot,
-        '-DevAppRoot',
+        '--dev-app-root',
         $devAppRoot,
-        '-OracleWorkspaceRoot',
+        '--oracle-workspace-root',
         $workspaceRoot,
-        '-OracleAppRoot',
+        '--oracle-app-root',
         $oracleAppRoot,
-        '-Configuration',
+        '--configuration',
         $entry.Configuration,
-        '-Platform',
+        '--platform',
         $entry.Platform
-    ) ("live diff {0} vs {1}" -f $DevVariantName, $OracleVariantName)
+    )) ("live diff {0} vs {1}" -f $DevVariantName, $OracleVariantName)
 }
 
 function Invoke-TestRuns {
@@ -1346,7 +1362,7 @@ function Validate-Workspace {
     foreach ($scriptPath in @(
         (Join-Path $testRepoRoot 'scripts\build-emule-tests.ps1'),
         (Join-Path $testRepoRoot 'scripts\run-native-coverage.ps1'),
-        (Join-Path $testRepoRoot 'scripts\run-live-diff.ps1')
+        (Join-Path $testRepoRoot 'scripts\run_live_diff.py')
     )) {
         if (-not (Test-Path -LiteralPath $scriptPath)) {
             throw "Missing required test helper: $scriptPath"
