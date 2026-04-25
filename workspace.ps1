@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','test','live-diff','build-all','full')]
+    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','test','live-diff','live-e2e','build-all','full')]
     [string]$Command,
 
     [string]$EmuleWorkspaceRoot,
@@ -24,7 +24,26 @@ param(
 
     [string]$OracleVariant,
 
-    [string[]]$AppVariant
+    [string[]]$AppVariant,
+
+    [string[]]$LiveSuite,
+
+    [switch]$LiveFailFast,
+
+    [switch]$SkipLiveSeedRefresh,
+
+    [switch]$DisableLiveUpnp,
+
+    [int]$RestServerSearchCount = 1,
+
+    [int]$RestKadSearchCount = 1,
+
+    [ValidateSet('required', 'optional')]
+    [string]$StartupProfileMode = 'required',
+
+    [string]$SharedRoot,
+
+    [string]$AutoBrowseP2PBindInterfaceName = 'hide.me'
 )
 
 Set-StrictMode -Version Latest
@@ -1306,6 +1325,56 @@ function Invoke-TestRuns {
     Invoke-LiveDiffRuns -DevVariantName $TestTargets.CoverageVariant -OracleVariantName $TestTargets.OracleVariant
 }
 
+function Invoke-LiveE2eSuite {
+    Assert-TestExecutionPlatformSupported
+    $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
+    $workspaceRoot = Get-WorkspaceRoot
+    $appRoot = Resolve-AppVariantPath -Name $TestTargets.CoverageVariant -RequireExists
+    $entry = Get-SelectedBuildTarget
+    $liveE2eScriptPath = Join-Path $testRepoRoot 'scripts\run_live_e2e_suite.py'
+    if (-not (Test-Path -LiteralPath $liveE2eScriptPath -PathType Leaf)) {
+        throw "Missing live E2E suite runner: $liveE2eScriptPath"
+    }
+
+    $pythonInvocation = Get-PythonInvocation
+    $arguments = @(
+        $pythonInvocation.Prefix
+        $liveE2eScriptPath
+        '--workspace-root'
+        $workspaceRoot
+        '--app-root'
+        $appRoot
+        '--configuration'
+        $entry.Configuration
+        '--startup-profile-mode'
+        $StartupProfileMode
+        '--rest-server-search-count'
+        $RestServerSearchCount
+        '--rest-kad-search-count'
+        $RestKadSearchCount
+        '--auto-browse-p2p-bind-interface-name'
+        $AutoBrowseP2PBindInterfaceName
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($SharedRoot)) {
+        $arguments += @('--shared-root', $SharedRoot)
+    }
+    foreach ($suiteName in @($LiveSuite | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+        $arguments += @('--suite', $suiteName)
+    }
+    if ($LiveFailFast) {
+        $arguments += '--fail-fast'
+    }
+    if ($SkipLiveSeedRefresh) {
+        $arguments += '--skip-live-seed-refresh'
+    }
+    if ($DisableLiveUpnp) {
+        $arguments += '--disable-upnp'
+    }
+
+    Invoke-Native $pythonInvocation.FilePath $arguments 'live E2E suite'
+}
+
 function Write-WorkspaceSummary {
     Write-Host ''
     Write-Host 'Workspace summary' -ForegroundColor Green
@@ -1357,7 +1426,8 @@ function Validate-Workspace {
     foreach ($scriptPath in @(
         (Join-Path $testRepoRoot 'scripts\build_emule_tests.py'),
         (Join-Path $testRepoRoot 'scripts\run_native_coverage.py'),
-        (Join-Path $testRepoRoot 'scripts\run_live_diff.py')
+        (Join-Path $testRepoRoot 'scripts\run_live_diff.py'),
+        (Join-Path $testRepoRoot 'scripts\run_live_e2e_suite.py')
     )) {
         if (-not (Test-Path -LiteralPath $scriptPath)) {
             throw "Missing required test helper: $scriptPath"
@@ -1418,6 +1488,9 @@ try {
         }
         'live-diff' {
             Invoke-LiveDiffRuns -DevVariantName $(if ([string]::IsNullOrWhiteSpace($DevVariant)) { $TestTargets.CoverageVariant } else { $DevVariant }) -OracleVariantName $(if ([string]::IsNullOrWhiteSpace($OracleVariant)) { $TestTargets.OracleVariant } else { $OracleVariant })
+        }
+        'live-e2e' {
+            Invoke-LiveE2eSuite
         }
         'build-all' {
             Build-Libs

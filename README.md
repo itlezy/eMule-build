@@ -74,6 +74,7 @@ pwsh -File .\workspace.ps1 build-app   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 build-tests -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 test        -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 live-diff   -EmuleWorkspaceRoot <workspace-root>
+pwsh -File .\workspace.ps1 live-e2e    -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 build-all   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 full        -EmuleWorkspaceRoot <workspace-root>
 ```
@@ -96,6 +97,7 @@ Command behavior:
 - `build-tests` builds the shared test harness against the configured build variant.
 - `test` runs parity tests, native coverage, and live diff using the configured test target variants.
 - `live-diff` runs parity and divergence comparison directly against any two configured app variants.
+- `live-e2e` runs the aggregate UI, REST API, and live-wire E2E suite from `eMule-build-tests`.
 - `build-all` runs `build-libs`, `build-app`, and `build-tests`.
 - `full` runs `build-all`, then `test`, then prints a workspace summary.
 
@@ -145,6 +147,12 @@ Live-diff examples:
 - `live-diff -Config Debug -Platform x64` uses the manifest defaults (`main` vs `oracle`)
 - `live-diff -Config Debug -Platform x64 -DevVariant bugfix -OracleVariant build` compares the frozen release lines directly
 - `live-diff -Config Release -Platform x64 -DevVariant bugfix -OracleVariant oracle` compares bugfix behavior against the seam-enabled build-derived oracle
+
+Live E2E examples:
+
+- `live-e2e -Config Release -Platform x64` runs the full maintained UI, REST API, and live-wire lane
+- `live-e2e -Config Release -Platform x64 -LiveSuite preference-ui -LiveSuite rest-api` runs a focused subset
+- `live-e2e -Config Release -Platform x64 -SkipLiveSeedRefresh` reuses the checked-in live seed files for offline diagnosis
 
 ## Validation And Test Model
 
