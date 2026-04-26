@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','test','live-diff','live-e2e','build-all','full')]
+    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','python-tests','test','live-diff','live-e2e','build-all','full')]
     [string]$Command,
 
     [string]$EmuleWorkspaceRoot,
@@ -27,6 +27,14 @@ param(
     [string[]]$AppVariant,
 
     [string[]]$LiveSuite,
+
+    [string[]]$PythonTestPath,
+
+    [string]$PythonTestExpression,
+
+    [switch]$PythonTestQuiet,
+
+    [string[]]$PythonTestArgs,
 
     [switch]$LiveFailFast,
 
@@ -1325,6 +1333,23 @@ function Invoke-TestRuns {
     Invoke-LiveDiffRuns -DevVariantName $TestTargets.CoverageVariant -OracleVariantName $TestTargets.OracleVariant
 }
 
+function Invoke-PythonTestRuns {
+    $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
+    $pythonInvocation = Get-PythonInvocation
+    $pytestArguments = @()
+    if ($PythonTestQuiet) {
+        $pytestArguments += '-q'
+    }
+    $pytestArguments += @($PythonTestPath | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if (-not [string]::IsNullOrWhiteSpace($PythonTestExpression)) {
+        $pytestArguments += @('-k', $PythonTestExpression)
+    }
+    $pytestArguments += @($PythonTestArgs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $arguments = @($pythonInvocation.Prefix + @('-m', 'pytest') + $pytestArguments)
+
+    Invoke-Native $pythonInvocation.FilePath $arguments 'python tests' $testRepoRoot
+}
+
 function Invoke-LiveE2eSuite {
     Assert-TestExecutionPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
@@ -1482,6 +1507,9 @@ try {
         }
         'build-tests' {
             Build-Tests
+        }
+        'python-tests' {
+            Invoke-PythonTestRuns
         }
         'test' {
             Invoke-TestRuns

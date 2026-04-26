@@ -72,6 +72,7 @@ pwsh -File .\workspace.ps1 validate    -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 build-libs  -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 build-app   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 build-tests -EmuleWorkspaceRoot <workspace-root>
+pwsh -File .\workspace.ps1 python-tests -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 test        -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 live-diff   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 live-e2e    -EmuleWorkspaceRoot <workspace-root>
@@ -95,6 +96,7 @@ Command behavior:
 - `build-libs` includes the CMake-built `libpcpnatpmp` static library, and the current `main` app build now links it for the PCP/NAT-PMP NAT-mapping backend.
 - `build-app` builds all canonical app variants for the selected `-Config` and `-Platform`.
 - `build-tests` builds the shared test harness against the configured build variant.
+- `python-tests` runs the fast pytest harness suite from `eMule-build-tests`; use `-PythonTestPath`, `-PythonTestExpression`, and `-PythonTestQuiet` to narrow the pytest selection.
 - `test` runs parity tests, native coverage, and live diff using the configured test target variants.
 - `live-diff` runs parity and divergence comparison directly against any two configured app variants.
 - `live-e2e` runs the aggregate UI, REST API, and live-wire E2E suite from `eMule-build-tests`.
@@ -153,6 +155,11 @@ Live E2E examples:
 - `live-e2e -Config Release -Platform x64` runs the full maintained UI, REST API, and live-wire lane
 - `live-e2e -Config Release -Platform x64 -LiveSuite preference-ui -LiveSuite rest-api` runs a focused subset
 - `live-e2e -Config Release -Platform x64 -SkipLiveSeedRefresh` reuses the checked-in live seed files for offline diagnosis
+
+Python test examples:
+
+- `python-tests` runs the default fast pytest collection
+- `python-tests -PythonTestPath tests/python/test_auto_browse_live.py -PythonTestExpression pending -PythonTestQuiet` runs one focused pytest expression
 
 ## Validation And Test Model
 
