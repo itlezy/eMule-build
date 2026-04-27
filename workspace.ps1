@@ -20,9 +20,9 @@ param(
 
     [string]$WorkspaceName,
 
-    [string]$DevVariant,
+    [string]$TestRunVariant,
 
-    [string]$OracleVariant,
+    [string]$BaselineVariant,
 
     [string[]]$AppVariant,
 
@@ -909,7 +909,8 @@ function Get-ActiveApps {
     }
 
     $selectedApps = @($apps | Where-Object { $_.Name -in $selectedNames })
-    $missingVariants = @($selectedNames | Where-Object { $_ -notin $selectedApps.Name })
+    $selectedAppNames = @($selectedApps | ForEach-Object { $_.Name })
+    $missingVariants = @($selectedNames | Where-Object { $_ -notin $selectedAppNames })
     if ($missingVariants.Count -gt 0) {
         throw ("Unknown or unavailable app variant(s): {0}" -f ($missingVariants -join ', '))
     }
@@ -1222,7 +1223,7 @@ function Build-Apps {
 function Build-Tests {
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
-    $appRoot = Resolve-AppVariantPath -Name $TestTargets.BuildVariant -RequireExists
+    $appRoot = Resolve-AppVariantPath -Name $TestTargets.TestBuildVariant -RequireExists
     $scriptPath = Join-Path $testRepoRoot 'scripts\build_emule_tests.py'
     $entry = Get-SelectedBuildTarget
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $appRoot
@@ -1267,15 +1268,15 @@ function Build-Tests {
 
 function Invoke-LiveDiffRuns {
     param(
-        [string]$DevVariantName = $TestTargets.CoverageVariant,
-        [string]$OracleVariantName = $TestTargets.OracleVariant
+        [string]$TestRunVariantName = $TestTargets.TestRunVariant,
+        [string]$BaselineVariantName = $TestTargets.BaselineVariant
     )
 
     Assert-TestExecutionPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
-    $devAppRoot = Resolve-AppVariantPath -Name $DevVariantName -RequireExists
-    $oracleAppRoot = Resolve-AppVariantPath -Name $OracleVariantName -RequireExists
+    $testRunAppRoot = Resolve-AppVariantPath -Name $TestRunVariantName -RequireExists
+    $baselineAppRoot = Resolve-AppVariantPath -Name $BaselineVariantName -RequireExists
     $entry = Get-SelectedBuildTarget
     $liveDiffScriptPath = Join-Path $testRepoRoot 'scripts\run_live_diff.py'
     $pythonInvocation = Get-PythonInvocation
@@ -1284,27 +1285,27 @@ function Invoke-LiveDiffRuns {
         $liveDiffScriptPath,
         '--test-repo-root',
         $testRepoRoot,
-        '--dev-workspace-root',
+        '--test-run-workspace-root',
         $workspaceRoot,
-        '--dev-app-root',
-        $devAppRoot,
-        '--oracle-workspace-root',
+        '--test-run-app-root',
+        $testRunAppRoot,
+        '--baseline-workspace-root',
         $workspaceRoot,
-        '--oracle-app-root',
-        $oracleAppRoot,
+        '--baseline-app-root',
+        $baselineAppRoot,
         '--configuration',
         $entry.Configuration,
         '--platform',
         $entry.Platform
-    )) ("live diff {0} vs {1}" -f $DevVariantName, $OracleVariantName)
+    )) ("live diff {0} vs {1}" -f $TestRunVariantName, $BaselineVariantName)
 }
 
 function Invoke-TestRuns {
     Assert-TestExecutionPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
-    $devAppRoot = Resolve-AppVariantPath -Name $TestTargets.CoverageVariant -RequireExists
-    $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $devAppRoot
+    $testRunAppRoot = Resolve-AppVariantPath -Name $TestTargets.TestRunVariant -RequireExists
+    $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $testRunAppRoot
     $entry = Get-SelectedBuildTarget
 
     $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run_native_coverage.py'
@@ -1323,14 +1324,14 @@ function Invoke-TestRuns {
         '--workspace-root',
         $workspaceRoot,
         '--app-root',
-        $devAppRoot,
+        $testRunAppRoot,
         '--configuration',
         $entry.Configuration,
         '--platform',
         $entry.Platform
     )) 'native coverage'
 
-    Invoke-LiveDiffRuns -DevVariantName $TestTargets.CoverageVariant -OracleVariantName $TestTargets.OracleVariant
+    Invoke-LiveDiffRuns -TestRunVariantName $TestTargets.TestRunVariant -BaselineVariantName $TestTargets.BaselineVariant
 }
 
 function Invoke-PythonTestRuns {
@@ -1354,7 +1355,7 @@ function Invoke-LiveE2eSuite {
     Assert-TestExecutionPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
-    $appRoot = Resolve-AppVariantPath -Name $TestTargets.CoverageVariant -RequireExists
+    $appRoot = Resolve-AppVariantPath -Name $TestTargets.TestRunVariant -RequireExists
     $entry = Get-SelectedBuildTarget
     $liveE2eScriptPath = Join-Path $testRepoRoot 'scripts\run_live_e2e_suite.py'
     if (-not (Test-Path -LiteralPath $liveE2eScriptPath -PathType Leaf)) {
@@ -1515,7 +1516,7 @@ try {
             Invoke-TestRuns
         }
         'live-diff' {
-            Invoke-LiveDiffRuns -DevVariantName $(if ([string]::IsNullOrWhiteSpace($DevVariant)) { $TestTargets.CoverageVariant } else { $DevVariant }) -OracleVariantName $(if ([string]::IsNullOrWhiteSpace($OracleVariant)) { $TestTargets.OracleVariant } else { $OracleVariant })
+            Invoke-LiveDiffRuns -TestRunVariantName $(if ([string]::IsNullOrWhiteSpace($TestRunVariant)) { $TestTargets.TestRunVariant } else { $TestRunVariant }) -BaselineVariantName $(if ([string]::IsNullOrWhiteSpace($BaselineVariant)) { $TestTargets.BaselineVariant } else { $BaselineVariant })
         }
         'live-e2e' {
             Invoke-LiveE2eSuite

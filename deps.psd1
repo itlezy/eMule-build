@@ -6,9 +6,9 @@
         }
         AppRepo = @{
             TestTargets = @{
-                BuildVariant = 'main'
-                CoverageVariant = 'main'
-                OracleVariant = 'oracle'
+                TestBuildVariant = 'community'
+                TestRunVariant = 'main'
+                BaselineVariant = 'community'
             }
         }
         Dependencies = @(

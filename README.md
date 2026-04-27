@@ -28,11 +28,9 @@ In practice this repo needs:
 - `repos\eMule-build-tests`
 - `repos\third_party\...`
 - `workspaces\v0.72a\app\eMule-main`
-- `workspaces\v0.72a\app\eMule-v0.72a-oracle`
-- `workspaces\v0.72a\app\eMule-v0.72a-build`
-- `workspaces\v0.72a\app\eMule-v0.72a-bugfix`
-- `workspaces\v0.72a\app\eMule-v0.72a-tracing`
-- `workspaces\v0.72a\app\eMule-v0.72a-tracing-harness`
+- `workspaces\v0.72a\app\eMule-v0.72a-community`
+- `workspaces\v0.72a\app\eMule-v0.72a-broadband`
+- `workspaces\v0.72a\app\eMule-v0.72a-tracing-harness-community`
 
 `repos\eMule` is not a normal development checkout. `eMulebb-setup` owns it as
 the canonical app anchor, and it is expected to stay detached at
@@ -42,11 +40,9 @@ the canonical app anchor, and it is expected to stay detached at
 Canonical managed app variants:
 
 - `main`
-- `oracle/v0.72a-build`
-- `release/v0.72a-build`
-- `release/v0.72a-bugfix`
-- `tracing/v0.72a`
-- `tracing-harness/v0.72a`
+- `release/v0.72a-community`
+- `release/v0.72a-broadband`
+- `tracing-harness/v0.72a-community`
 
 The active app layout and workspace repo paths are topology-driven from the
 generated workspace manifest at `workspaces\v0.72a\deps.psd1`, with
@@ -54,11 +50,10 @@ build-specific settings kept in this repo's `deps.psd1`. Test, coverage, and
 live-diff flows resolve their app roots from configured variant names rather
 than duplicating hardcoded worktree paths in the script.
 
-`oracle/v0.72a-build` is a special-purpose seam-enabled oracle branch derived
-from `release/v0.72a-build`. It is built like the other canonical app variants,
-but it is not a normal feature-development line. `tracing/v0.72a` is the
-observability-only derivative of oracle, and `tracing-harness/v0.72a` is the
-behavior-changing experimental harness layer derived from tracing.
+`release/v0.72a-community` is the seam-enabled community baseline used by
+comparison tests. `release/v0.72a-broadband` is the active broadband release
+line. `tracing-harness/v0.72a-community` is the behavior-changing parity
+harness layer derived directly from the community baseline.
 
 For the full workspace topology and materialization behavior, use
 `eMulebb-setup\README.md`.
@@ -146,9 +141,9 @@ primary stabilized acceptance path for the end-to-end canonical workflow.
 
 Live-diff examples:
 
-- `live-diff -Config Debug -Platform x64` uses the manifest defaults (`main` vs `oracle`)
-- `live-diff -Config Debug -Platform x64 -DevVariant bugfix -OracleVariant build` compares the frozen release lines directly
-- `live-diff -Config Release -Platform x64 -DevVariant bugfix -OracleVariant oracle` compares bugfix behavior against the seam-enabled build-derived oracle
+- `live-diff -Config Debug -Platform x64` uses the configured defaults (`main` vs `community`)
+- `live-diff -Config Debug -Platform x64 -TestRunVariant main -BaselineVariant community` compares main against the community baseline
+- `live-diff -Config Release -Platform x64 -TestRunVariant broadband -BaselineVariant community` compares broadband behavior against the community baseline
 
 Live E2E examples:
 
@@ -188,12 +183,12 @@ The setup/build contract is intentionally narrow:
 
 The test flows use the manifest-configured app variants:
 
-- test build target: `main`
-- coverage target: `main`
-- live-diff oracle target: `oracle`
+- test build target: `community`
+- test run target: `main`
+- live-diff baseline target: `community`
 
-The tracing variants are part of the canonical buildable app set, but they are
-not the default coverage or oracle targets unless explicitly selected.
+The tracing harness variant is part of the canonical buildable app set, but it
+is not the default test-run or baseline target unless explicitly selected.
 
 `build-tests` honors the selected `-Config` value for both `x64` and `ARM64`.
 `test` honors the selected `-Config` value, but requires `-Platform x64`.
