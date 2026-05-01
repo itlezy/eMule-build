@@ -42,9 +42,9 @@ param(
 
     [switch]$DisableLiveUpnp,
 
-    [int]$RestServerSearchCount = 1,
+    [int]$RestServerSearchCount = 6,
 
-    [int]$RestKadSearchCount = 1,
+    [int]$RestKadSearchCount = 6,
 
     [ValidateSet('required', 'optional')]
     [string]$StartupProfileMode = 'required',
