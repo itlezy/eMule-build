@@ -38,6 +38,12 @@
                 Project = 'ResizableLib\ResizableLib.vcxproj'
             }
             @{
+                Name = 'nlohmann-json'
+                Path = 'repos\third_party\eMule-nlohmann-json'
+                Project = 'single_include\nlohmann\json.hpp'
+                HeaderOnly = $true
+            }
+            @{
                 Name = 'zlib'
                 Path = 'repos\third_party\eMule-zlib'
                 Project = 'contrib\vstudio\vc\zlib.vcxproj'

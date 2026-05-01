@@ -1014,6 +1014,7 @@ function Get-AppPropertyOverrides([string]$TargetPlatform) {
         "/p:MbedTlsRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-mbedtls')\"
         "/p:MbedTlsLibRoot=$(Get-MbedTlsLibraryRoot -TargetPlatform $TargetPlatform)"
         "/p:MiniUpnpRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-miniupnp')\"
+        "/p:NlohmannJsonRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-nlohmann-json\single_include')\"
         "/p:PcpNatPmpRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-libpcpnatpmp')\"
         "/p:PcpNatPmpLibRoot=$(Join-Path (Get-LibPcpNatPmpBuildRoot -TargetPlatform $TargetPlatform) 'lib')\"
         "/p:ResizableLibRoot=$(Resolve-WorkspacePath 'repos\third_party\eMule-ResizableLib')\"
