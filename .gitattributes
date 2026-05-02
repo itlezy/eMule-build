@@ -1,10 +1,4 @@
-* text=auto eol=crlf
+* text=auto eol=lf
 
-.editorconfig text eol=lf
-.gitattributes text eol=lf
-.gitignore text eol=lf
-
-*.ps1 text eol=crlf
+*.bat text eol=crlf
 *.cmd text eol=crlf
-*.md text eol=lf
-*.psd1 text eol=crlf
