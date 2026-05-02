@@ -748,19 +748,20 @@ function Invoke-CMakeDependencyBuild {
         }
 
         $cmakePath = Get-CMakePath
-        @(
-            '== Configure ==',
-            "$cmakePath -S $SourceDirectory -B $BuildDirectory -G Visual Studio 17 2022 -A $Platform -DBUILD_SHARED_LIBS=OFF",
-            ''
-        ) | Set-Content -LiteralPath $logPath -Encoding utf8
-
-        & $cmakePath @(
+        $configureArgumentsList = @(
             '-S', $SourceDirectory,
             '-B', $BuildDirectory,
             '-G', 'Visual Studio 17 2022',
             '-A', $Platform,
             '-DBUILD_SHARED_LIBS=OFF'
-        ) + $ConfigureArguments *>> $logPath
+        ) + $ConfigureArguments
+        @(
+            '== Configure ==',
+            ("{0} {1}" -f $cmakePath, ($configureArgumentsList -join ' ')),
+            ''
+        ) | Set-Content -LiteralPath $logPath -Encoding utf8
+
+        & $cmakePath $configureArgumentsList *>> $logPath
         if ($LASTEXITCODE -ne 0) {
             throw "cmake configure failed with exit code $LASTEXITCODE."
         }
@@ -795,6 +796,17 @@ function Invoke-CMakeDependencyBuild {
         Write-BuildStepSummary -StepName $StepName -Succeeded $false -LogPath $logPath -DurationSeconds $durationSeconds
         throw
     }
+}
+
+<#
+.SYNOPSIS
+Returns the CMake arguments that align MSVC dependency builds with the app's static CRT policy.
+#>
+function Get-StaticMsvcRuntimeCMakeArguments {
+    @(
+        '-DCMAKE_POLICY_DEFAULT_CMP0091=NEW',
+        '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>'
+    )
 }
 
 <#
@@ -1189,7 +1201,7 @@ function Build-Libs {
             Remove-Item -LiteralPath $libPcpNatPmpBuildRoot -Recurse -Force
         }
     }
-    Invoke-CMakeDependencyBuild -SourceDirectory (Join-Path $thirdPartyRoot 'eMule-libpcpnatpmp') -BuildDirectory (Get-LibPcpNatPmpBuildRoot -TargetPlatform $entry.Platform) -Configuration $entry.Configuration -Platform $entry.Platform -TargetName 'pcpnatpmp' -StepName 'DEP libpcpnatpmp'
+    Invoke-CMakeDependencyBuild -SourceDirectory (Join-Path $thirdPartyRoot 'eMule-libpcpnatpmp') -BuildDirectory (Get-LibPcpNatPmpBuildRoot -TargetPlatform $entry.Platform) -Configuration $entry.Configuration -Platform $entry.Platform -TargetName 'pcpnatpmp' -StepName 'DEP libpcpnatpmp' -ConfigureArguments (Get-StaticMsvcRuntimeCMakeArguments)
     Invoke-MSBuildProject -ProjectPath (Join-Path $thirdPartyRoot 'eMule-ResizableLib\ResizableLib\ResizableLib.vcxproj') -Configuration $entry.Configuration -Platform $entry.Platform -Target $buildTarget -StepName 'DEP ResizableLib'
 
     if ($Clean -and $entry.Configuration -eq 'Debug' -and $entry.Platform -eq 'x64') {
