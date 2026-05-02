@@ -1071,7 +1071,7 @@ function Get-AppDependencyArtifacts([string]$Configuration, [string]$TargetPlatf
         }
         [pscustomobject]@{
             Name = 'tfpsacrypto'
-            Path = Join-Path (Get-MbedTlsLibraryRoot -TargetPlatform $TargetPlatform) 'tfpsacrypto.lib'
+            Path = Join-Path (Split-Path -Parent (Get-MbedTlsLibraryRoot -TargetPlatform $TargetPlatform)) ("tf-psa-crypto\core\{0}\tfpsacrypto.lib" -f $Configuration)
         }
     )
 }
