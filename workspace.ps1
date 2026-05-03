@@ -48,6 +48,20 @@ param(
 
     [int]$RestDownloadTriggerCount = 1,
 
+    [ValidateSet('smoke', 'contract', 'contract-stress')]
+    [string]$RestCoverageProfile = 'contract',
+
+    [ValidateSet('off', 'smoke', 'soak')]
+    [string]$RestStressProfile = 'smoke',
+
+    [double]$RestStressDurationSeconds = 30.0,
+
+    [int]$RestStressConcurrency = 4,
+
+    [int]$RestStressMaxFailures = 1,
+
+    [double]$RestStressRequestTimeoutSeconds = 5.0,
+
     [ValidateSet('required', 'optional')]
     [string]$StartupProfileMode = 'required',
 
@@ -1395,6 +1409,18 @@ function Invoke-LiveE2eSuite {
         $RestKadSearchCount
         '--rest-download-trigger-count'
         $RestDownloadTriggerCount
+        '--rest-coverage-profile'
+        $RestCoverageProfile
+        '--rest-stress-profile'
+        $RestStressProfile
+        '--rest-stress-duration-seconds'
+        $RestStressDurationSeconds
+        '--rest-stress-concurrency'
+        $RestStressConcurrency
+        '--rest-stress-max-failures'
+        $RestStressMaxFailures
+        '--rest-stress-request-timeout-seconds'
+        $RestStressRequestTimeoutSeconds
         '--auto-browse-p2p-bind-interface-name'
         $AutoBrowseP2PBindInterfaceName
     )
