@@ -48,6 +48,9 @@ param(
 
     [int]$RestDownloadTriggerCount = 1,
 
+    [ValidateSet('', 'automatic', 'server', 'global', 'kad')]
+    [string]$RestSearchMethodOverride = '',
+
     [ValidateSet('smoke', 'contract', 'contract-stress')]
     [string]$RestCoverageProfile = 'contract',
 
@@ -1427,6 +1430,9 @@ function Invoke-LiveE2eSuite {
 
     if (-not [string]::IsNullOrWhiteSpace($SharedRoot)) {
         $arguments += @('--shared-root', $SharedRoot)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($RestSearchMethodOverride)) {
+        $arguments += @('--rest-search-method-override', $RestSearchMethodOverride)
     }
     foreach ($suiteName in @($LiveSuite | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
         $arguments += @('--suite', $suiteName)
