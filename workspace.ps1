@@ -46,6 +46,8 @@ param(
 
     [int]$RestKadSearchCount = 6,
 
+    [int]$RestDownloadTriggerCount = 1,
+
     [ValidateSet('required', 'optional')]
     [string]$StartupProfileMode = 'required',
 
@@ -1391,6 +1393,8 @@ function Invoke-LiveE2eSuite {
         $RestServerSearchCount
         '--rest-kad-search-count'
         $RestKadSearchCount
+        '--rest-download-trigger-count'
+        $RestDownloadTriggerCount
         '--auto-browse-p2p-bind-interface-name'
         $AutoBrowseP2PBindInterfaceName
     )

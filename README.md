@@ -147,7 +147,8 @@ Live-diff examples:
 
 Live E2E examples:
 
-- `live-e2e -Config Release -Platform x64` runs the full maintained UI, REST API, and live-wire lane, including the default six-term server/Kad release search matrix
+- `live-e2e -Config Release -Platform x64` runs the full maintained UI, REST API, and live-wire lane, including the default six-term server/Kad release search matrix and one paused live search-result download trigger
+- `live-e2e -Config Release -Platform x64 -RestDownloadTriggerCount 0` disables the REST live download trigger for diagnosis
 - `live-e2e -Config Release -Platform x64 -LiveSuite preference-ui -LiveSuite rest-api` runs a focused subset
 - `live-e2e -Config Release -Platform x64 -SkipLiveSeedRefresh` reuses the checked-in live seed files for offline diagnosis
 
