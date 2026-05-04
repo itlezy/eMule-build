@@ -52,10 +52,10 @@ param(
     [string]$RestSearchMethodOverride = '',
 
     [ValidateSet('smoke', 'contract', 'contract-stress')]
-    [string]$RestCoverageProfile = 'contract',
+    [string]$RestCoverageBudget = 'contract',
 
     [ValidateSet('off', 'smoke', 'soak')]
-    [string]$RestStressProfile = 'smoke',
+    [string]$RestStressBudget = 'smoke',
 
     [double]$RestStressDurationSeconds = 30.0,
 
@@ -66,7 +66,7 @@ param(
     [double]$RestStressRequestTimeoutSeconds = 5.0,
 
     [ValidateSet('required', 'optional')]
-    [string]$StartupProfileMode = 'required',
+    [string]$StartupTraceMode = 'required',
 
     [string]$SharedRoot,
 
@@ -1256,7 +1256,7 @@ function Build-Tests {
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
     $appRoot = Resolve-AppVariantPath -Name $TestTargets.TestBuildVariant -RequireExists
-    $scriptPath = Join-Path $testRepoRoot 'scripts\build_emule_tests.py'
+    $scriptPath = Join-Path $testRepoRoot 'scripts\build-emule-tests.py'
     $entry = Get-SelectedBuildTarget
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $appRoot
     $logPath = Join-Path (Get-BuildLogDirectory) ("{0}-{1}-{2}.log" -f (Convert-ToFileToken ("emule-tests-{0}" -f $buildTag)), $entry.Configuration.ToLowerInvariant(), $entry.Platform.ToLowerInvariant())
@@ -1310,7 +1310,7 @@ function Invoke-LiveDiffRuns {
     $testRunAppRoot = Resolve-AppVariantPath -Name $TestRunVariantName -RequireExists
     $baselineAppRoot = Resolve-AppVariantPath -Name $BaselineVariantName -RequireExists
     $entry = Get-SelectedBuildTarget
-    $liveDiffScriptPath = Join-Path $testRepoRoot 'scripts\run_live_diff.py'
+    $liveDiffScriptPath = Join-Path $testRepoRoot 'scripts\run-live-diff.py'
     $pythonInvocation = Get-PythonInvocation
 
     Invoke-Native $pythonInvocation.FilePath @($pythonInvocation.Prefix + @(
@@ -1340,7 +1340,7 @@ function Invoke-TestRuns {
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $testRunAppRoot
     $entry = Get-SelectedBuildTarget
 
-    $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run_native_coverage.py'
+    $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run-native-coverage.py'
     $pythonInvocation = Get-PythonInvocation
 
     $binaryPath = Join-Path $testRepoRoot ("build\{0}\{1}\{2}\emule-tests.exe" -f $buildTag, $entry.Platform, $entry.Configuration)
@@ -1389,7 +1389,7 @@ function Invoke-LiveE2eSuite {
     $workspaceRoot = Get-WorkspaceRoot
     $appRoot = Resolve-AppVariantPath -Name $TestTargets.TestRunVariant -RequireExists
     $entry = Get-SelectedBuildTarget
-    $liveE2eScriptPath = Join-Path $testRepoRoot 'scripts\run_live_e2e_suite.py'
+    $liveE2eScriptPath = Join-Path $testRepoRoot 'scripts\run-live-e2e-suite.py'
     if (-not (Test-Path -LiteralPath $liveE2eScriptPath -PathType Leaf)) {
         throw "Missing live E2E suite runner: $liveE2eScriptPath"
     }
@@ -1404,18 +1404,18 @@ function Invoke-LiveE2eSuite {
         $appRoot
         '--configuration'
         $entry.Configuration
-        '--startup-profile-mode'
-        $StartupProfileMode
+        '--startup-trace-mode'
+        $StartupTraceMode
         '--rest-server-search-count'
         $RestServerSearchCount
         '--rest-kad-search-count'
         $RestKadSearchCount
         '--rest-download-trigger-count'
         $RestDownloadTriggerCount
-        '--rest-coverage-profile'
-        $RestCoverageProfile
-        '--rest-stress-profile'
-        $RestStressProfile
+        '--rest-coverage-budget'
+        $RestCoverageBudget
+        '--rest-stress-budget'
+        $RestStressBudget
         '--rest-stress-duration-seconds'
         $RestStressDurationSeconds
         '--rest-stress-concurrency'
@@ -1499,10 +1499,10 @@ function Validate-Workspace {
 
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     foreach ($scriptPath in @(
-        (Join-Path $testRepoRoot 'scripts\build_emule_tests.py'),
-        (Join-Path $testRepoRoot 'scripts\run_native_coverage.py'),
-        (Join-Path $testRepoRoot 'scripts\run_live_diff.py'),
-        (Join-Path $testRepoRoot 'scripts\run_live_e2e_suite.py')
+        (Join-Path $testRepoRoot 'scripts\build-emule-tests.py'),
+        (Join-Path $testRepoRoot 'scripts\run-native-coverage.py'),
+        (Join-Path $testRepoRoot 'scripts\run-live-diff.py'),
+        (Join-Path $testRepoRoot 'scripts\run-live-e2e-suite.py')
     )) {
         if (-not (Test-Path -LiteralPath $scriptPath)) {
             throw "Missing required test helper: $scriptPath"
