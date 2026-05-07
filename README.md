@@ -50,10 +50,11 @@ build-specific settings kept in this repo's `deps.psd1`. Test, coverage, and
 live-diff flows resolve their app roots from configured variant names rather
 than duplicating hardcoded worktree paths in the script.
 
-`release/v0.72a-community` is the seam-enabled community baseline used by
-comparison tests. `release/v0.72a-broadband` is the active broadband release
-line. `tracing-harness/v0.72a-community` is the behavior-changing parity
-harness layer derived directly from the community baseline.
+`release/v0.72a-community` is the seam-enabled parity and regression baseline
+used by comparison tests; it is test-only. The only release-intent branch is
+`release/v0.72a-broadband`, and it remains pre-release stabilization until the
+Release 1.0 gates and operator steps are complete.
+`tracing-harness/v0.72a-community` is the variant-client parity harness layer.
 
 For the full workspace topology and materialization behavior, use
 `eMulebb-setup\README.md`.
@@ -142,8 +143,8 @@ primary stabilized acceptance path for the end-to-end canonical workflow.
 Live-diff examples:
 
 - `live-diff -Config Debug -Platform x64` uses the configured defaults (`main` vs `community`)
-- `live-diff -Config Debug -Platform x64 -TestRunVariant main -BaselineVariant community` compares main against the community baseline
-- `live-diff -Config Release -Platform x64 -TestRunVariant broadband -BaselineVariant community` compares broadband behavior against the community baseline
+- `live-diff -Config Debug -Platform x64 -TestRunVariant main -BaselineVariant community` compares main against the parity/regression baseline
+- `live-diff -Config Release -Platform x64 -TestRunVariant broadband -BaselineVariant community` compares broadband behavior against the parity/regression baseline
 
 Live E2E examples:
 
