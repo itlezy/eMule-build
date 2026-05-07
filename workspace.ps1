@@ -1255,7 +1255,8 @@ function Build-Apps {
 function Build-Tests {
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
     $workspaceRoot = Get-WorkspaceRoot
-    $appRoot = Resolve-AppVariantPath -Name $TestTargets.TestBuildVariant -RequireExists
+    $testBuildVariant = if ([string]::IsNullOrWhiteSpace($TestRunVariant)) { $TestTargets.TestBuildVariant } else { $TestRunVariant }
+    $appRoot = Resolve-AppVariantPath -Name $testBuildVariant -RequireExists
     $scriptPath = Join-Path $testRepoRoot 'scripts\build-emule-tests.py'
     $entry = Get-SelectedBuildTarget
     $buildTag = Get-TestBuildTag -WorkspaceRoot $workspaceRoot -AppRoot $appRoot
@@ -1342,12 +1343,15 @@ function Invoke-TestRuns {
 
     $coverageScriptPath = Join-Path $testRepoRoot 'scripts\run-native-coverage.py'
     $pythonInvocation = Get-PythonInvocation
+    $nativeTestSuites = @('parity', 'web_api')
 
     $binaryPath = Join-Path $testRepoRoot ("build\{0}\{1}\{2}\emule-tests.exe" -f $buildTag, $entry.Platform, $entry.Configuration)
     if (-not (Test-Path -LiteralPath $binaryPath)) {
         throw "Built test executable not found: $binaryPath"
     }
-    Invoke-Native $binaryPath @('--test-suite=parity') "parity tests $($entry.Configuration)/$($entry.Platform)" $testRepoRoot
+    foreach ($suiteName in $nativeTestSuites) {
+        Invoke-Native $binaryPath @("--test-suite=$suiteName") "$suiteName tests $($entry.Configuration)/$($entry.Platform)" $testRepoRoot
+    }
 
     Invoke-Native $pythonInvocation.FilePath @($pythonInvocation.Prefix + @(
         $coverageScriptPath,
@@ -1360,7 +1364,11 @@ function Invoke-TestRuns {
         '--configuration',
         $entry.Configuration,
         '--platform',
-        $entry.Platform
+        $entry.Platform,
+        '--suite-name',
+        'parity',
+        '--suite-name',
+        'web_api'
     )) 'native coverage'
 
     Invoke-LiveDiffRuns -TestRunVariantName $TestTargets.TestRunVariant -BaselineVariantName $TestTargets.BaselineVariant
