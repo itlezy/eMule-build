@@ -44,17 +44,14 @@ Canonical managed app variants:
 - `release/v0.72a-broadband`
 - `tracing-harness/v0.72a-community`
 
+Branch roles, release intent, and baseline rules are owned by
+`EMULE_WORKSPACE_ROOT\repos\eMule-tooling\docs\WORKSPACE_POLICY.md`.
+
 The active app layout and workspace repo paths are topology-driven from the
 generated workspace manifest at `workspaces\v0.72a\deps.psd1`, with
 build-specific settings kept in this repo's `deps.psd1`. Test, coverage, and
 live-diff flows resolve their app roots from configured variant names rather
 than duplicating hardcoded worktree paths in the script.
-
-`release/v0.72a-community` is the seam-enabled parity and regression baseline
-used by comparison tests; it is test-only. The only release-intent branch is
-`release/v0.72a-broadband`, and it remains pre-release stabilization until the
-Release 1.0 gates and operator steps are complete.
-`tracing-harness/v0.72a-community` is the variant-client parity harness layer.
 
 For the full workspace topology and materialization behavior, use
 `eMulebb-setup\README.md`.
