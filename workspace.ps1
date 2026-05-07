@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','python-tests','test','live-diff','live-e2e','build-all','full')]
+    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','python-tests','test','live-diff','live-e2e','community-core-coverage','build-all','full')]
     [string]$Command,
 
     [string]$EmuleWorkspaceRoot,
@@ -1333,6 +1333,43 @@ function Invoke-LiveDiffRuns {
     )) ("live diff {0} vs {1}" -f $TestRunVariantName, $BaselineVariantName)
 }
 
+function Invoke-CommunityCoreCoverage {
+    param(
+        [string]$TestRunVariantName = $TestTargets.TestRunVariant,
+        [string]$BaselineVariantName = $TestTargets.BaselineVariant
+    )
+
+    Assert-TestExecutionPlatformSupported
+    $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
+    $workspaceRoot = Get-WorkspaceRoot
+    $testRunAppRoot = Resolve-AppVariantPath -Name $TestRunVariantName -RequireExists
+    $baselineAppRoot = Resolve-AppVariantPath -Name $BaselineVariantName -RequireExists
+    $entry = Get-SelectedBuildTarget
+    $communityCoreCoverageScriptPath = Join-Path $testRepoRoot 'scripts\run-community-core-coverage.py'
+    $pythonInvocation = Get-PythonInvocation
+
+    Invoke-Native $pythonInvocation.FilePath @($pythonInvocation.Prefix + @(
+        $communityCoreCoverageScriptPath,
+        '--test-repo-root',
+        $testRepoRoot,
+        '--workspace-root',
+        $workspaceRoot,
+        '--main-app-root',
+        $testRunAppRoot,
+        '--community-app-root',
+        $baselineAppRoot,
+        '--configuration',
+        $entry.Configuration,
+        '--platform',
+        $entry.Platform,
+        '--include-live-rest-e2e',
+        '--rest-coverage-budget',
+        $RestCoverageBudget,
+        '--rest-stress-budget',
+        $RestStressBudget
+    )) ("community core coverage {0} vs {1}" -f $TestRunVariantName, $BaselineVariantName)
+}
+
 function Invoke-TestRuns {
     Assert-TestExecutionPlatformSupported
     $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
@@ -1510,6 +1547,7 @@ function Validate-Workspace {
         (Join-Path $testRepoRoot 'scripts\build-emule-tests.py'),
         (Join-Path $testRepoRoot 'scripts\run-native-coverage.py'),
         (Join-Path $testRepoRoot 'scripts\run-live-diff.py'),
+        (Join-Path $testRepoRoot 'scripts\run-community-core-coverage.py'),
         (Join-Path $testRepoRoot 'scripts\run-live-e2e-suite.py')
     )) {
         if (-not (Test-Path -LiteralPath $scriptPath)) {
@@ -1577,6 +1615,9 @@ try {
         }
         'live-e2e' {
             Invoke-LiveE2eSuite
+        }
+        'community-core-coverage' {
+            Invoke-CommunityCoreCoverage -TestRunVariantName $(if ([string]::IsNullOrWhiteSpace($TestRunVariant)) { $TestTargets.TestRunVariant } else { $TestRunVariant }) -BaselineVariantName $(if ([string]::IsNullOrWhiteSpace($BaselineVariant)) { $TestTargets.BaselineVariant } else { $BaselineVariant })
         }
         'build-all' {
             Build-Libs
