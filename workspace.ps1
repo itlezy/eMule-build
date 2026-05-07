@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','python-tests','test','live-diff','live-e2e','community-core-coverage','build-all','full')]
+    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','python-tests','test','live-diff','live-e2e','amutorrent-session','community-core-coverage','build-all','full')]
     [string]$Command,
 
     [string]$EmuleWorkspaceRoot,
@@ -41,6 +41,8 @@ param(
     [switch]$SkipLiveSeedRefresh,
 
     [switch]$DisableLiveUpnp,
+
+    [switch]$LiveNetwork,
 
     [int]$RestServerSearchCount = 6,
 
@@ -1495,6 +1497,35 @@ function Invoke-LiveE2eSuite {
     Invoke-Native $pythonInvocation.FilePath $arguments 'live E2E suite'
 }
 
+function Invoke-AmutorrentInteractiveSession {
+    Assert-TestExecutionPlatformSupported
+    $testRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tests
+    $workspaceRoot = Get-WorkspaceRoot
+    $appRoot = Resolve-AppVariantPath -Name $TestTargets.TestRunVariant -RequireExists
+    $entry = Get-SelectedBuildTarget
+    $sessionScriptPath = Join-Path $testRepoRoot 'scripts\amutorrent-interactive-session.py'
+    if (-not (Test-Path -LiteralPath $sessionScriptPath -PathType Leaf)) {
+        throw "Missing aMuTorrent interactive session runner: $sessionScriptPath"
+    }
+
+    $pythonInvocation = Get-PythonInvocation
+    $arguments = @(
+        $pythonInvocation.Prefix
+        $sessionScriptPath
+        '--workspace-root'
+        $workspaceRoot
+        '--app-root'
+        $appRoot
+        '--configuration'
+        $entry.Configuration
+    )
+    if ($LiveNetwork) {
+        $arguments += '--live-network'
+    }
+
+    Invoke-Native $pythonInvocation.FilePath $arguments 'aMuTorrent interactive session'
+}
+
 function Write-WorkspaceSummary {
     Write-Host ''
     Write-Host 'Workspace summary' -ForegroundColor Green
@@ -1548,7 +1579,8 @@ function Validate-Workspace {
         (Join-Path $testRepoRoot 'scripts\run-native-coverage.py'),
         (Join-Path $testRepoRoot 'scripts\run-live-diff.py'),
         (Join-Path $testRepoRoot 'scripts\run-community-core-coverage.py'),
-        (Join-Path $testRepoRoot 'scripts\run-live-e2e-suite.py')
+        (Join-Path $testRepoRoot 'scripts\run-live-e2e-suite.py'),
+        (Join-Path $testRepoRoot 'scripts\amutorrent-interactive-session.py')
     )) {
         if (-not (Test-Path -LiteralPath $scriptPath)) {
             throw "Missing required test helper: $scriptPath"
@@ -1615,6 +1647,9 @@ try {
         }
         'live-e2e' {
             Invoke-LiveE2eSuite
+        }
+        'amutorrent-session' {
+            Invoke-AmutorrentInteractiveSession
         }
         'community-core-coverage' {
             Invoke-CommunityCoreCoverage -TestRunVariantName $(if ([string]::IsNullOrWhiteSpace($TestRunVariant)) { $TestTargets.TestRunVariant } else { $TestRunVariant }) -BaselineVariantName $(if ([string]::IsNullOrWhiteSpace($BaselineVariant)) { $TestTargets.BaselineVariant } else { $BaselineVariant })
