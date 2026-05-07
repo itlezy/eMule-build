@@ -40,8 +40,6 @@ param(
 
     [switch]$SkipLiveSeedRefresh,
 
-    [switch]$DisableLiveUpnp,
-
     [switch]$LiveNetwork,
 
     [int]$RestServerSearchCount = 6,
@@ -72,7 +70,7 @@ param(
 
     [string]$SharedRoot,
 
-    [string]$AutoBrowseP2PBindInterfaceName = 'hide.me'
+    [string]$P2PBindInterfaceName = 'hide.me'
 )
 
 Set-StrictMode -Version Latest
@@ -1471,8 +1469,8 @@ function Invoke-LiveE2eSuite {
         $RestStressMaxFailures
         '--rest-stress-request-timeout-seconds'
         $RestStressRequestTimeoutSeconds
-        '--auto-browse-p2p-bind-interface-name'
-        $AutoBrowseP2PBindInterfaceName
+        '--p2p-bind-interface-name'
+        $P2PBindInterfaceName
     )
 
     if (-not [string]::IsNullOrWhiteSpace($SharedRoot)) {
@@ -1490,10 +1488,6 @@ function Invoke-LiveE2eSuite {
     if ($SkipLiveSeedRefresh) {
         $arguments += '--skip-live-seed-refresh'
     }
-    if ($DisableLiveUpnp) {
-        $arguments += '--disable-upnp'
-    }
-
     Invoke-Native $pythonInvocation.FilePath $arguments 'live E2E suite'
 }
 
