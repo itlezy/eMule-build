@@ -68,6 +68,11 @@ param(
     [ValidateSet('off', 'smoke')]
     [string]$RestSocketAdversityBudget = 'off',
 
+    [ValidateSet('off', 'smoke', 'soak')]
+    [string]$RestLeakChurnBudget = 'off',
+
+    [int]$RestLeakChurnCycles = -1,
+
     [ValidateSet('required', 'optional')]
     [string]$StartupTraceMode = 'required',
 
@@ -1474,10 +1479,15 @@ function Invoke-LiveE2eSuite {
         $RestStressRequestTimeoutSeconds
         '--rest-socket-adversity-budget'
         $RestSocketAdversityBudget
+        '--rest-leak-churn-budget'
+        $RestLeakChurnBudget
         '--p2p-bind-interface-name'
         $P2PBindInterfaceName
     )
 
+    if ($RestLeakChurnCycles -ge 0) {
+        $arguments += @('--rest-leak-churn-cycles', $RestLeakChurnCycles)
+    }
     if (-not [string]::IsNullOrWhiteSpace($SharedRoot)) {
         $arguments += @('--shared-root', $SharedRoot)
     }
