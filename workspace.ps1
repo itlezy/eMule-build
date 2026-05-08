@@ -79,6 +79,8 @@ param(
 
     [int]$RestLeakChurnCycles = -1,
 
+    [switch]$RestStopStartAfterChurn,
+
     [ValidateSet('required', 'optional')]
     [string]$StartupTraceMode = 'required',
 
@@ -1497,6 +1499,9 @@ function Invoke-LiveE2eSuite {
 
     if ($RestLeakChurnCycles -ge 0) {
         $arguments += @('--rest-leak-churn-cycles', $RestLeakChurnCycles)
+    }
+    if ($RestStopStartAfterChurn) {
+        $arguments += '--rest-stop-start-after-churn'
     }
     if (-not [string]::IsNullOrWhiteSpace($SharedRoot)) {
         $arguments += @('--shared-root', $SharedRoot)
