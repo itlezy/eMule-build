@@ -71,6 +71,9 @@ param(
     [ValidateSet('off', 'smoke')]
     [string]$RestSocketAdversityBudget = 'off',
 
+    [ValidateSet('off', 'smoke')]
+    [string]$RestTlsHandshakeAdversityBudget = 'off',
+
     [ValidateSet('off', 'smoke', 'soak')]
     [string]$RestLeakChurnBudget = 'off',
 
@@ -1484,6 +1487,8 @@ function Invoke-LiveE2eSuite {
         $RestStressRequestTimeoutSeconds
         '--rest-socket-adversity-budget'
         $RestSocketAdversityBudget
+        '--rest-tls-handshake-adversity-budget'
+        $RestTlsHandshakeAdversityBudget
         '--rest-leak-churn-budget'
         $RestLeakChurnBudget
         '--p2p-bind-interface-name'
