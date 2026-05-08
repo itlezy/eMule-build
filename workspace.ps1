@@ -65,6 +65,9 @@ param(
 
     [double]$RestStressRequestTimeoutSeconds = 5.0,
 
+    [ValidateSet('off', 'smoke')]
+    [string]$RestSocketAdversityBudget = 'off',
+
     [ValidateSet('required', 'optional')]
     [string]$StartupTraceMode = 'required',
 
@@ -1469,6 +1472,8 @@ function Invoke-LiveE2eSuite {
         $RestStressMaxFailures
         '--rest-stress-request-timeout-seconds'
         $RestStressRequestTimeoutSeconds
+        '--rest-socket-adversity-budget'
+        $RestSocketAdversityBudget
         '--p2p-bind-interface-name'
         $P2PBindInterfaceName
     )
