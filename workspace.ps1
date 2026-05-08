@@ -51,6 +51,9 @@ param(
     [ValidateSet('', 'automatic', 'server', 'global', 'kad')]
     [string]$RestSearchMethodOverride = '',
 
+    [ValidateSet('http', 'https')]
+    [string]$RestWebServerScheme = 'http',
+
     [ValidateSet('smoke', 'contract', 'contract-stress')]
     [string]$RestCoverageBudget = 'contract',
 
@@ -1499,6 +1502,7 @@ function Invoke-LiveE2eSuite {
     if (-not [string]::IsNullOrWhiteSpace($RestSearchMethodOverride)) {
         $arguments += @('--rest-search-method-override', $RestSearchMethodOverride)
     }
+    $arguments += @('--rest-webserver-scheme', $RestWebServerScheme)
     foreach ($suiteName in @($LiveSuite | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
         $arguments += @('--suite', $suiteName)
     }
