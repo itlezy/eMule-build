@@ -78,6 +78,8 @@ param(
 
     [string]$SharedRoot,
 
+    [int]$SharedFilesTreeStressChurnCycles = -1,
+
     [string]$P2PBindInterfaceName = 'hide.me'
 )
 
@@ -1490,6 +1492,9 @@ function Invoke-LiveE2eSuite {
     }
     if (-not [string]::IsNullOrWhiteSpace($SharedRoot)) {
         $arguments += @('--shared-root', $SharedRoot)
+    }
+    if ($SharedFilesTreeStressChurnCycles -ge 0) {
+        $arguments += @('--shared-files-tree-stress-churn-cycles', $SharedFilesTreeStressChurnCycles)
     }
     if (-not [string]::IsNullOrWhiteSpace($RestSearchMethodOverride)) {
         $arguments += @('--rest-search-method-override', $RestSearchMethodOverride)
