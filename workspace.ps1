@@ -103,7 +103,7 @@ param(
 
     [double]$RestColdStartDumpStressPostDrainSeconds = 30.0,
 
-    [double]$RestColdStartDumpStressToolTimeoutSeconds = 120.0,
+    [double]$RestColdStartDumpStressToolTimeoutSeconds = 300.0,
 
     [switch]$RestColdStartDumpStressEnableUmdh,
 
