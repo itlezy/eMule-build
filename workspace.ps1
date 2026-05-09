@@ -1,9 +1,21 @@
 #Requires -Version 7.6
+<#
+.SYNOPSIS
+Canonical build, validation, test, live-test, and release-package entrypoint for
+an already materialized eMule BB workspace.
+
+.DESCRIPTION
+This script owns operational build/test orchestration for the canonical
+workspace. It assumes eMulebb-setup has already materialized the repo pool,
+managed app worktrees, generated workspace manifest, and dependency layout.
+Run `pwsh -File .\workspace.ps1 help` for supported commands and common
+options.
+#>
 [CmdletBinding()]
 param(
-    [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','python-tests','test','live-diff','live-e2e','amutorrent-session','community-core-coverage','package-release','build-all','full')]
-    [string]$Command,
+    [Parameter(Position = 0)]
+    [ValidateSet('help','env-check','dep-status','validate','build-libs','build-app','build-tests','python-tests','test','live-diff','live-e2e','amutorrent-session','community-core-coverage','package-release','build-all','full')]
+    [string]$Command = 'help',
 
     [string]$EmuleWorkspaceRoot,
 
@@ -90,12 +102,60 @@ param(
 
     [string]$ReleaseVersion = '1.0.0',
 
-    [string]$P2PBindInterfaceName = 'hide.me'
+    [string]$P2PBindInterfaceName = 'hide.me',
+
+    [switch]$Help
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
+
+function Write-WorkspaceHelp {
+    @'
+eMule-build workspace orchestration
+
+Purpose:
+  Build, validate, test, live-test, and package an already materialized
+  canonical eMule BB workspace.
+
+Usage:
+  pwsh -File .\workspace.ps1 help
+  pwsh -File .\workspace.ps1 <command> -EmuleWorkspaceRoot <workspace-root> [options]
+
+Commands:
+  help                     Show this help.
+  env-check                Verify Git, Visual Studio, and MSBuild discovery.
+  dep-status               Report dependency and app worktree status.
+  validate                 Run workspace validation and shared policy audits.
+  build-libs               Build shared dependencies.
+  build-app                Build canonical app variants.
+  build-tests              Build the shared test harness.
+  python-tests             Run pytest-based harness checks.
+  test                     Run parity, coverage, and live-diff checks.
+  live-diff                Compare two configured app variants.
+  live-e2e                 Run aggregate live E2E suites.
+  amutorrent-session       Start an interactive aMuTorrent test session.
+  community-core-coverage  Run community-core coverage checks.
+  package-release          Create release package artifacts.
+  build-all                Run build-libs, build-app, and build-tests.
+  full                     Run build-all, test, and a workspace summary.
+
+Common options:
+  -EmuleWorkspaceRoot <path>  Workspace root. Defaults to EMULE_WORKSPACE_ROOT.
+  -WorkspaceName <name>       Workspace name. Defaults to deps.psd1.
+  -Config Debug|Release       Build configuration. Default: Release.
+  -Platform x64|ARM64         Build platform. Default: x64.
+  -BuildOutputMode <mode>     Full, Warnings, or ErrorsOnly. Default: ErrorsOnly.
+  -Clean                      Clean selected build outputs before building.
+  -Help                       Show this help.
+'@ | Write-Host
+}
+
+if ($Help -or $Command -eq 'help') {
+    Write-WorkspaceHelp
+    return
+}
 
 $ScriptRoot = Split-Path -Parent $PSCommandPath
 $Manifest = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptRoot 'deps.psd1')

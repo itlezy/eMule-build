@@ -11,8 +11,13 @@ Once the workspace exists, this repo is responsible for:
 - shared test builds from `repos\eMule-build-tests`
 - parity, coverage, and live-diff execution against the canonical app variants
 
-`workspace.ps1` and `workspace.cmd` are the only supported operational
-entrypoints.
+`workspace.ps1` is the only supported operational entrypoint.
+
+## Purpose
+
+Use `workspace.ps1` after `eMulebb-setup` has materialized the workspace. It
+builds dependencies and app variants, validates workspace policy, runs the
+shared test and live-test suites, and creates release package artifacts.
 
 ## Workspace Assumption
 
@@ -59,6 +64,7 @@ For the full workspace topology and materialization behavior, use
 ## Supported Commands
 
 ```powershell
+pwsh -File .\workspace.ps1 help
 pwsh -File .\workspace.ps1 env-check   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 dep-status  -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 validate    -EmuleWorkspaceRoot <workspace-root>
@@ -74,14 +80,9 @@ pwsh -File .\workspace.ps1 build-all   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 full        -EmuleWorkspaceRoot <workspace-root>
 ```
 
-From `cmd.exe`:
-
-```cmd
-workspace.cmd build-app -EmuleWorkspaceRoot <workspace-root>
-```
-
 Command behavior:
 
+- `help` prints supported commands and common options.
 - `env-check` verifies the core toolchain discovery for Git, Visual Studio, and MSBuild.
 - `dep-status` reports branch and worktree status for the dependency repos and canonical app worktrees that exist locally.
 - `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, required test helper scripts, modified tracked-file editorconfig compliance, and the shared static policy audits from `eMule-tooling\ci`.
