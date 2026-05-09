@@ -936,6 +936,36 @@ function Copy-DirectoryContents([string]$SourcePath, [string]$DestinationPath) {
 
 <#
 .SYNOPSIS
+Copies one release package file into a relative path under the package root.
+#>
+function Copy-PackageFile([string]$SourcePath, [string]$PackageRoot, [string]$RelativeDestinationPath) {
+    if (-not (Test-Path -LiteralPath $SourcePath -PathType Leaf)) {
+        throw "Cannot package missing file: $SourcePath"
+    }
+
+    $destinationPath = [System.IO.Path]::GetFullPath((Join-Path $PackageRoot $RelativeDestinationPath))
+    Assert-PathUnderRoot -Path $destinationPath -Root $PackageRoot -Label 'release package file'
+    Ensure-Directory (Split-Path -Parent $destinationPath)
+    Copy-Item -LiteralPath $SourcePath -Destination $destinationPath -Force
+}
+
+<#
+.SYNOPSIS
+Writes the release package license notice that accompanies the GPL application binary.
+#>
+function New-PackageLicenseNotice([string]$PackageRoot) {
+    $noticePath = [System.IO.Path]::GetFullPath((Join-Path $PackageRoot 'LICENSE-NOTICE.txt'))
+    Assert-PathUnderRoot -Path $noticePath -Root $PackageRoot -Label 'release package license notice'
+    @(
+        'eMule broadband edition contains eMule-derived application code licensed under GPL-2.0-or-later.'
+        'The source tree retains the per-file GPL notices from the original eMule project and eMule BB changes.'
+        'Third-party libraries are linked from the canonical workspace dependency pins and retain their upstream licenses.'
+        'For complete corresponding source, use the eMule BB source repositories at the app commit recorded in the package manifest.'
+    ) | Set-Content -LiteralPath $noticePath -Encoding utf8
+}
+
+<#
+.SYNOPSIS
 Returns the active MSVC platform-toolset property used by release packaging helpers.
 #>
 function Get-DefaultPlatformToolsetProperty {
@@ -1027,6 +1057,13 @@ function New-ReleasePackage {
     Copy-Item -LiteralPath $exePath -Destination (Join-Path $packageRoot 'emule.exe')
     Copy-DirectoryContents -SourcePath $langPath -DestinationPath (Join-Path $packageRoot 'lang')
     Copy-DirectoryContents -SourcePath $webserverPath -DestinationPath (Join-Path $packageRoot 'webserver')
+    Copy-PackageFile -SourcePath (Join-Path $appRoot 'README.md') -PackageRoot $packageRoot -RelativeDestinationPath 'README.md'
+    New-PackageLicenseNotice -PackageRoot $packageRoot
+
+    $toolingRepoRoot = Resolve-WorkspacePath $Workspace.Repos.Tooling
+    Copy-PackageFile -SourcePath (Join-Path $toolingRepoRoot 'docs\rest\REST-API-CONTRACT.md') -PackageRoot $packageRoot -RelativeDestinationPath 'docs\REST-API-CONTRACT.md'
+    Copy-PackageFile -SourcePath (Join-Path $toolingRepoRoot 'docs\rest\REST-API-OPENAPI.yaml') -PackageRoot $packageRoot -RelativeDestinationPath 'docs\REST-API-OPENAPI.yaml'
+    Copy-PackageFile -SourcePath (Join-Path $toolingRepoRoot 'docs\rest\REST-API-PARITY-INVENTORY.md') -PackageRoot $packageRoot -RelativeDestinationPath 'docs\REST-API-PARITY-INVENTORY.md'
 
     if (Test-Path -LiteralPath $zipPath) {
         Remove-Item -LiteralPath $zipPath -Force
@@ -1047,7 +1084,16 @@ function New-ReleasePackage {
         emuleExeSha256 = $exeHash
         appCommit = Get-RepoHead $appRoot
         generatedAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-        includedPaths = @('eMule/emule.exe', 'eMule/lang', 'eMule/webserver')
+        includedPaths = @(
+            'eMule/emule.exe',
+            'eMule/lang',
+            'eMule/webserver',
+            'eMule/README.md',
+            'eMule/LICENSE-NOTICE.txt',
+            'eMule/docs/REST-API-CONTRACT.md',
+            'eMule/docs/REST-API-OPENAPI.yaml',
+            'eMule/docs/REST-API-PARITY-INVENTORY.md'
+        )
     }
     $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifestPath -Encoding utf8
     Write-Host "Release package: $zipPath"
