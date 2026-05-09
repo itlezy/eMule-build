@@ -93,6 +93,22 @@ param(
 
     [switch]$RestStopStartAfterChurn,
 
+    [int]$RestColdStartDumpStressWaves = 4,
+
+    [int]$RestColdStartDumpStressSearchesPerWave = 12,
+
+    [int]$RestColdStartDumpStressMaxConcurrentSearches = 8,
+
+    [int]$RestColdStartDumpStressDownloadsPerWave = 6,
+
+    [double]$RestColdStartDumpStressPostDrainSeconds = 30.0,
+
+    [double]$RestColdStartDumpStressToolTimeoutSeconds = 120.0,
+
+    [switch]$RestColdStartDumpStressEnableUmdh,
+
+    [switch]$RestColdStartDumpStressSkipDumps,
+
     [ValidateSet('required', 'optional')]
     [string]$StartupTraceMode = 'required',
 
@@ -1742,8 +1758,26 @@ function Invoke-LiveE2eSuite {
         $RestLeakChurnBudget
         '--p2p-bind-interface-name'
         $P2PBindInterfaceName
+        '--rest-cold-start-dump-stress-waves'
+        $RestColdStartDumpStressWaves
+        '--rest-cold-start-dump-stress-searches-per-wave'
+        $RestColdStartDumpStressSearchesPerWave
+        '--rest-cold-start-dump-stress-max-concurrent-searches'
+        $RestColdStartDumpStressMaxConcurrentSearches
+        '--rest-cold-start-dump-stress-downloads-per-wave'
+        $RestColdStartDumpStressDownloadsPerWave
+        '--rest-cold-start-dump-stress-post-drain-seconds'
+        $RestColdStartDumpStressPostDrainSeconds
+        '--rest-cold-start-dump-stress-tool-timeout-seconds'
+        $RestColdStartDumpStressToolTimeoutSeconds
     )
 
+    if ($RestColdStartDumpStressEnableUmdh) {
+        $arguments += '--rest-cold-start-dump-stress-enable-umdh'
+    }
+    if ($RestColdStartDumpStressSkipDumps) {
+        $arguments += '--rest-cold-start-dump-stress-skip-dumps'
+    }
     if ($RestLeakChurnCycles -ge 0) {
         $arguments += @('--rest-leak-churn-cycles', $RestLeakChurnCycles)
     }
