@@ -936,6 +936,52 @@ function Copy-DirectoryContents([string]$SourcePath, [string]$DestinationPath) {
 
 <#
 .SYNOPSIS
+Returns the active MSVC platform-toolset property used by release packaging helpers.
+#>
+function Get-DefaultPlatformToolsetProperty {
+    $override = [Environment]::GetEnvironmentVariable($ToolsetOverrideVariable)
+    if (-not [string]::IsNullOrWhiteSpace($override)) {
+        return "/p:PlatformToolset=$override"
+    }
+
+    '/p:PlatformToolset=v143'
+}
+
+<#
+.SYNOPSIS
+Builds the app language-resource solution for the selected package platform.
+#>
+function Build-LanguageResources([string]$AppRoot) {
+    $languageSolution = Join-Path $AppRoot 'srchybrid\lang\lang.sln'
+    if (-not (Test-Path -LiteralPath $languageSolution)) {
+        throw "Cannot build missing language solution: $languageSolution"
+    }
+
+    $buildTarget = if ($Clean) { 'Rebuild' } else { 'Build' }
+    Invoke-MSBuildProject -ProjectPath $languageSolution -Configuration Dynamic -Platform $Platform -ExtraProperties @(Get-DefaultPlatformToolsetProperty) -Target $buildTarget -StepName 'APP main language resources'
+}
+
+<#
+.SYNOPSIS
+Resolves the built language DLL directory that is safe to copy into release packages.
+#>
+function Resolve-PackageLanguagePath([string]$AppRoot) {
+    $langPath = Join-Path $AppRoot ("srchybrid\{0}\lang" -f $Platform)
+    $langDll = if (Test-Path -LiteralPath $langPath -PathType Container) {
+        Get-ChildItem -LiteralPath $langPath -File -Filter '*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1
+    } else {
+        $null
+    }
+
+    if ($null -eq $langDll) {
+        throw "Cannot package missing built language DLLs: $langPath"
+    }
+
+    $langPath
+}
+
+<#
+.SYNOPSIS
 Creates the documented eMule broadband edition release ZIP for one platform.
 #>
 function New-ReleasePackage {
@@ -948,13 +994,10 @@ function New-ReleasePackage {
 
     Ensure-CanonicalAppAnchor
     $appRoot = Resolve-AppVariantPath 'main' -RequireExists
+    Build-LanguageResources -AppRoot $appRoot
     $buildOutputRoot = [System.IO.Path]::GetFullPath((Join-Path $appRoot ("srchybrid\{0}\{1}" -f $Platform, $Config)))
     $exePath = Join-Path $buildOutputRoot 'emule.exe'
-    $langPath = Join-Path $buildOutputRoot 'lang'
-    $langHasFiles = (Test-Path -LiteralPath $langPath -PathType Container) -and $null -ne (Get-ChildItem -LiteralPath $langPath -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1)
-    if (-not $langHasFiles) {
-        $langPath = Join-Path $appRoot 'srchybrid\lang'
-    }
+    $langPath = Resolve-PackageLanguagePath -AppRoot $appRoot
     $webserverPath = Join-Path $buildOutputRoot 'webserver'
     $webserverHasFiles = (Test-Path -LiteralPath $webserverPath -PathType Container) -and $null -ne (Get-ChildItem -LiteralPath $webserverPath -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1)
     if (-not $webserverHasFiles) {
