@@ -99,11 +99,11 @@ param(
 
     [int]$RestColdStartDumpStressMaxConcurrentSearches = 8,
 
-    [int]$RestColdStartDumpStressDownloadsPerWave = 6,
+    [int]$RestColdStartDumpStressDownloadsPerWave = 12,
 
     [double]$RestColdStartDumpStressPostDrainSeconds = 30.0,
 
-    [double]$RestColdStartDumpStressToolTimeoutSeconds = 300.0,
+    [double]$RestColdStartDumpStressToolTimeoutSeconds = 600.0,
 
     [switch]$RestColdStartDumpStressEnableUmdh,
 
