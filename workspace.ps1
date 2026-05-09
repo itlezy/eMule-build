@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory = $true)]
-    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','python-tests','test','live-diff','live-e2e','amutorrent-session','community-core-coverage','build-all','full')]
+    [ValidateSet('env-check','dep-status','validate','build-libs','build-app','build-tests','python-tests','test','live-diff','live-e2e','amutorrent-session','community-core-coverage','package-release','build-all','full')]
     [string]$Command,
 
     [string]$EmuleWorkspaceRoot,
@@ -87,6 +87,8 @@ param(
     [string]$SharedRoot,
 
     [int]$SharedFilesTreeStressChurnCycles = -1,
+
+    [string]$ReleaseVersion = '1.0.0',
 
     [string]$P2PBindInterfaceName = 'hide.me'
 )
@@ -852,6 +854,101 @@ Returns the built app binary path for a given app worktree/config/platform.
 #>
 function Get-AppBinaryPath([string]$AppRoot, [string]$Configuration, [string]$TargetPlatform) {
     Join-Path $AppRoot ("srchybrid\{0}\{1}\emule.exe" -f $TargetPlatform, $Configuration)
+}
+
+<#
+.SYNOPSIS
+Asserts that a resolved path stays inside an expected root before cleanup.
+#>
+function Assert-PathUnderRoot([string]$Path, [string]$Root, [string]$Label) {
+    $resolvedPath = [System.IO.Path]::GetFullPath($Path)
+    $resolvedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd('\')
+    if (-not $resolvedPath.StartsWith($resolvedRoot + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "$Label resolved outside expected root: $resolvedPath"
+    }
+}
+
+function Copy-DirectoryContents([string]$SourcePath, [string]$DestinationPath) {
+    Ensure-Directory $DestinationPath
+    Copy-Item -Path (Join-Path $SourcePath '*') -Destination $DestinationPath -Recurse -Force
+}
+
+<#
+.SYNOPSIS
+Creates the documented eMule broadband edition release ZIP for one platform.
+#>
+function New-ReleasePackage {
+    if ($Config -ne 'Release') {
+        throw 'package-release requires -Config Release.'
+    }
+    if ($ReleaseVersion -notmatch '^\d+\.\d+\.\d+$') {
+        throw "ReleaseVersion must use MAJOR.MINOR.PATCH format: $ReleaseVersion"
+    }
+
+    Ensure-CanonicalAppAnchor
+    $appRoot = Resolve-AppVariantPath 'main' -RequireExists
+    $buildOutputRoot = [System.IO.Path]::GetFullPath((Join-Path $appRoot ("srchybrid\{0}\{1}" -f $Platform, $Config)))
+    $exePath = Join-Path $buildOutputRoot 'emule.exe'
+    $langPath = Join-Path $buildOutputRoot 'lang'
+    $langHasFiles = (Test-Path -LiteralPath $langPath -PathType Container) -and $null -ne (Get-ChildItem -LiteralPath $langPath -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if (-not $langHasFiles) {
+        $langPath = Join-Path $appRoot 'srchybrid\lang'
+    }
+    $webserverPath = Join-Path $buildOutputRoot 'webserver'
+    $webserverHasFiles = (Test-Path -LiteralPath $webserverPath -PathType Container) -and $null -ne (Get-ChildItem -LiteralPath $webserverPath -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if (-not $webserverHasFiles) {
+        $webserverPath = Join-Path $appRoot 'srchybrid\webinterface'
+    }
+    foreach ($requiredPath in @($exePath, $langPath, $webserverPath)) {
+        if (-not (Test-Path -LiteralPath $requiredPath)) {
+            throw "Cannot package missing release runtime path: $requiredPath"
+        }
+    }
+
+    $assetArch = if ($Platform -eq 'ARM64') { 'arm64' } else { 'x64' }
+    $releaseRoot = [System.IO.Path]::GetFullPath((Join-Path (Get-WorkspaceStateRoot) ("release\emule-bb-v{0}" -f $ReleaseVersion)))
+    $stagingRoot = [System.IO.Path]::GetFullPath((Join-Path $releaseRoot ("staging\{0}" -f $assetArch)))
+    $packageRoot = [System.IO.Path]::GetFullPath((Join-Path $stagingRoot 'eMule'))
+    $zipPath = [System.IO.Path]::GetFullPath((Join-Path $releaseRoot ("eMule-broadband-{0}-{1}.zip" -f $ReleaseVersion, $assetArch)))
+    $manifestPath = [System.IO.Path]::GetFullPath((Join-Path $releaseRoot ("eMule-broadband-{0}-{1}.manifest.json" -f $ReleaseVersion, $assetArch)))
+
+    foreach ($pathToCheck in @($stagingRoot, $packageRoot, $zipPath, $manifestPath)) {
+        Assert-PathUnderRoot -Path $pathToCheck -Root $releaseRoot -Label 'release package path'
+    }
+
+    if (Test-Path -LiteralPath $stagingRoot) {
+        Remove-Item -LiteralPath $stagingRoot -Recurse -Force
+    }
+    Ensure-Directory $packageRoot
+    Copy-Item -LiteralPath $exePath -Destination (Join-Path $packageRoot 'emule.exe')
+    Copy-DirectoryContents -SourcePath $langPath -DestinationPath (Join-Path $packageRoot 'lang')
+    Copy-DirectoryContents -SourcePath $webserverPath -DestinationPath (Join-Path $packageRoot 'webserver')
+
+    if (Test-Path -LiteralPath $zipPath) {
+        Remove-Item -LiteralPath $zipPath -Force
+    }
+    Compress-Archive -LiteralPath $packageRoot -DestinationPath $zipPath -Force
+    $zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $exeHash = (Get-FileHash -LiteralPath $exePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $manifest = [ordered]@{
+        product = 'eMule broadband edition'
+        compactName = 'eMule BB'
+        version = $ReleaseVersion
+        tag = "emule-bb-v$ReleaseVersion"
+        configuration = $Config
+        platform = $Platform
+        asset = [System.IO.Path]::GetFileName($zipPath)
+        assetPath = $zipPath
+        sha256 = $zipHash
+        emuleExeSha256 = $exeHash
+        appCommit = Get-RepoHead $appRoot
+        generatedAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+        includedPaths = @('eMule/emule.exe', 'eMule/lang', 'eMule/webserver')
+    }
+    $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+    Write-Host "Release package: $zipPath"
+    Write-Host "Release manifest: $manifestPath"
+    Write-Host "SHA256: $zipHash"
 }
 
 <#
@@ -1681,6 +1778,9 @@ try {
         }
         'community-core-coverage' {
             Invoke-CommunityCoreCoverage -TestRunVariantName $(if ([string]::IsNullOrWhiteSpace($TestRunVariant)) { $TestTargets.TestRunVariant } else { $TestRunVariant }) -BaselineVariantName $(if ([string]::IsNullOrWhiteSpace($BaselineVariant)) { $TestTargets.BaselineVariant } else { $BaselineVariant })
+        }
+        'package-release' {
+            New-ReleasePackage
         }
         'build-all' {
             Build-Libs
