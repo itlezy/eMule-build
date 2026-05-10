@@ -3,9 +3,10 @@
 `eMule-build` is the canonical build and test orchestration layer for the
 workspace rooted at `EMULE_WORKSPACE_ROOT`.
 
-`eMulebb-setup` owns workspace materialization and generated workspace topology.
-Once the workspace exists, this repo is responsible for:
+`eMule-build` owns workspace materialization, generated workspace topology, and
+build/test orchestration. It is responsible for:
 
+- canonical repo and worktree materialization
 - dependency builds under `repos\third_party`
 - app builds for the canonical 0.72a app worktrees
 - shared test builds from `repos\eMule-build-tests`
@@ -15,16 +16,16 @@ Once the workspace exists, this repo is responsible for:
 
 ## Purpose
 
-Use the supported `emule_workspace` command after `eMulebb-setup` has
-materialized the workspace. The package owns typed command parsing, workspace
-topology loading, locking, subprocess routing, build/test execution, live-test
-wrapping, and release packaging.
+Clone this repo as `<workspace-root>\repos\eMule-build`, then use the supported
+`emule_workspace` command to materialize and operate the workspace. The package
+owns typed command parsing, workspace topology loading, locking, subprocess
+routing, build/test execution, live-test wrapping, and release packaging.
 
 ## Workspace Assumption
 
-`eMulebb-setup` is the source of truth for workspace materialization and the full
-layout contract. This repo assumes that canonical workspace already exists and
-uses the standard `EMULE_WORKSPACE_ROOT\repos\...` plus
+This repo is the source of truth for workspace materialization and the full
+layout contract. A materialized workspace uses the standard
+`EMULE_WORKSPACE_ROOT\repos\...` plus
 `EMULE_WORKSPACE_ROOT\workspaces\v0.72a\...` layout.
 
 In practice this repo needs:
@@ -38,8 +39,8 @@ In practice this repo needs:
 - `workspaces\v0.72a\app\eMule-v0.72a-broadband`
 - `workspaces\v0.72a\app\eMule-v0.72a-tracing-harness-community`
 
-`repos\eMule` is not a normal development checkout. `eMulebb-setup` owns it as
-the canonical app anchor, and it is expected to stay detached at
+`repos\eMule` is not a normal development checkout. Python materialization owns
+it as the canonical app anchor, and it is expected to stay detached at
 `origin/main`. Active app development belongs in the managed worktrees under
 `workspaces\v0.72a\app\...`, especially `eMule-main` for the mainline branch.
 
@@ -53,20 +54,21 @@ Canonical managed app variants:
 Branch roles, release intent, and baseline rules are owned by
 `EMULE_WORKSPACE_ROOT\repos\eMule-tooling\docs\WORKSPACE_POLICY.md`.
 
-The active app layout and workspace repo paths are topology-driven from the
-generated workspace manifest at `workspaces\v0.72a\deps.psd1`, with
-build-specific settings kept in this repo's `deps.psd1`. Test, coverage, and
-live-diff flows resolve their app roots from configured variant names rather
-than duplicating hardcoded worktree paths in the script.
-
-For the full workspace topology and materialization behavior, use
-`eMulebb-setup\README.md`.
+The active app layout and workspace repo paths are topology-driven from
+`workspaces\v0.72a\deps.json`, with build-specific settings kept in this repo's
+`deps.json`. Test, coverage, and live-diff flows resolve their app roots from
+configured variant names rather than duplicating hardcoded worktree paths.
 
 ## Supported Commands
 
 Python-first commands:
 
 ```powershell
+python -m emule_workspace materialize
+python -m emule_workspace sync --workspace-root <workspace-root>
+python -m emule_workspace status --workspace-root <workspace-root>
+python -m emule_workspace dep-updates --workspace-root <workspace-root>
+python -m emule_workspace compare --workspace-root <workspace-root>
 python -m emule_workspace env-check --workspace-root <workspace-root>
 python -m emule_workspace dep-status --workspace-root <workspace-root>
 python -m emule_workspace validate --workspace-root <workspace-root>
@@ -191,7 +193,7 @@ does not get blocked by routine `validate`.
 
 The setup/build contract is intentionally narrow:
 
-- `eMulebb-setup` owns workspace topology, managed app worktree creation, and full `sync` reconciliation.
+- `eMule-build` owns workspace topology, managed app worktree creation, and full `sync` reconciliation.
 - `eMule-build` assumes that topology exists and only self-heals the clean setup-owned `repos\eMule` anchor when validation needs it to match current `origin/main`.
 
 The test flows use the manifest-configured app variants:
