@@ -5,10 +5,9 @@
   workspace-wide rules.
 - This file contains build-repo local deltas only. Do not duplicate branch,
   worktree, setup, dependency, or app-source policy here.
-- `python -m emule_workspace` is the new Python-first orchestration surface for
-  ported commands.
-- `workspace.ps1` remains a legacy operational entrypoint until each command it
-  owns has been ported into `emule_workspace`.
+- `python -m emule_workspace` is the authoritative orchestration surface.
+- `workspace.ps1` is only a compatibility shim that delegates to
+  `emule_workspace`; do not add orchestration logic to it.
 - Keep build orchestration topology-driven from the generated workspace
   manifest and repo-local `deps.psd1`.
 - Do not add direct app-project build instructions to docs; route operators

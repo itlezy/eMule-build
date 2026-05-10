@@ -11,17 +11,16 @@ Once the workspace exists, this repo is responsible for:
 - shared test builds from `repos\eMule-build-tests`
 - parity, coverage, and live-diff execution against the canonical app variants
 
-`python -m emule_workspace` is the Python-first orchestration surface for
-ported commands. `workspace.ps1` remains available only for commands that have
-not yet been migrated into the Python package.
+`python -m emule_workspace` is the authoritative orchestration surface.
+`workspace.ps1` remains only as a compatibility shim that delegates to the
+Python CLI.
 
 ## Purpose
 
 Use the supported `emule_workspace` command after `eMulebb-setup` has
-materialized the workspace. The new package owns typed command parsing,
-workspace topology loading, locking, subprocess routing, and the migrated
-validation, test, and build commands. Remaining live-test and package flows stay on
-the legacy `workspace.ps1` entrypoint until their logic is ported.
+materialized the workspace. The package owns typed command parsing, workspace
+topology loading, locking, subprocess routing, build/test execution, live-test
+wrapping, and release packaging.
 
 ## Workspace Assumption
 
@@ -87,7 +86,7 @@ python -m emule_workspace full --workspace-root <workspace-root>
 python -m emule_workspace package-release --workspace-root <workspace-root>
 ```
 
-Legacy entrypoint:
+Compatibility shim:
 
 ```powershell
 pwsh -File .\workspace.ps1 help
@@ -99,10 +98,8 @@ Command behavior:
 - `env-check` verifies the core toolchain discovery for Git, Visual Studio, and MSBuild.
 - `dep-status` reports branch and worktree status for the dependency repos and canonical app worktrees that exist locally.
 - `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, required test helper scripts, modified tracked-file editorconfig compliance, and the shared static policy audits from `eMule-tooling\ci`.
-- The legacy `workspace.ps1 validate` path may reanchor a clean `repos\eMule`
-  checkout back to detached `origin/main` before running branch policy audits.
-  The Python `validate` command currently checks the anchor and leaves repo
-  state unchanged.
+- The Python `package-release` command may reanchor a clean `repos\eMule`
+  checkout back to detached `origin/main` before building package artifacts.
 - `build libs` builds the shared dependency set for the selected `--config` and `--platform`.
 - `build libs` includes the CMake-built `libpcpnatpmp` static library, and the current `main` app build now links it for the PCP/NAT-PMP NAT-mapping backend.
 - `build app` builds all canonical app variants for the selected `--config` and `--platform`.
@@ -117,10 +114,10 @@ Command behavior:
 - `full` runs `build all`, then `test all`, then prints a workspace summary.
 - `package-release` builds the main Release app, language DLLs, release ZIP, and release manifest.
 
-All top-level `emule_workspace` and legacy `workspace.ps1` commands are
-serialized per workspace root. This single-owner workspace lock is intentional.
-It prevents overlapping `env-check`, build, test, and live-diff commands from
-trampling shared state, logs, and outputs in the same workspace.
+All top-level `emule_workspace` commands are serialized per workspace root.
+This single-owner workspace lock is intentional. It prevents overlapping
+`env-check`, build, test, and live-diff commands from trampling shared state,
+logs, and outputs in the same workspace.
 
 If another command already owns the workspace lock, the next command fails fast
 with a clear owner message instead of running concurrently against the same
