@@ -93,6 +93,7 @@ class LiveE2eOptions(BaseModel):
     rest_cold_start_dump_stress_waves: int = 4
     rest_cold_start_dump_stress_searches_per_wave: int = 12
     rest_cold_start_dump_stress_max_concurrent_searches: int = 8
+    rest_cold_start_dump_stress_search_observation_timeout_seconds: float = 60.0
     rest_cold_start_dump_stress_downloads_per_wave: int = 600
     rest_cold_start_dump_stress_downloads_per_search: int = 50
     rest_cold_start_dump_stress_max_missing_download_triggers: int = 0

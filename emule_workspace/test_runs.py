@@ -183,6 +183,8 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
         live_options.rest_cold_start_dump_stress_searches_per_wave,
         "--rest-cold-start-dump-stress-max-concurrent-searches",
         live_options.rest_cold_start_dump_stress_max_concurrent_searches,
+        "--rest-cold-start-dump-stress-search-observation-timeout-seconds",
+        live_options.rest_cold_start_dump_stress_search_observation_timeout_seconds,
         "--rest-cold-start-dump-stress-downloads-per-wave",
         live_options.rest_cold_start_dump_stress_downloads_per_wave,
         "--rest-cold-start-dump-stress-downloads-per-search",

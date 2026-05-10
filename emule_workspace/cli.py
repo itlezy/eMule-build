@@ -134,6 +134,7 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--rest-cold-start-dump-stress-waves", default=4, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-searches-per-wave", default=12, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-max-concurrent-searches", default=8, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-search-observation-timeout-seconds", default=60.0, show_default=True, type=float)
     @click.option("--rest-cold-start-dump-stress-downloads-per-wave", default=600, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-downloads-per-search", default=50, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-max-missing-download-triggers", default=0, show_default=True, type=int)
