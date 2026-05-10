@@ -1047,6 +1047,56 @@ function Resolve-PackageLanguagePath([string]$AppRoot) {
 
 <#
 .SYNOPSIS
+Verifies that a release ZIP contains the expected runtime payload and no build artifacts.
+#>
+function Assert-ReleasePackageContents([string]$ZipPath) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
+    try {
+        $entryNames = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') })
+    } finally {
+        $archive.Dispose()
+    }
+
+    $requiredEntries = @(
+        'eMule/emule.exe',
+        'eMule/README.md',
+        'eMule/LICENSE-NOTICE.txt',
+        'eMule/docs/REST-API-CONTRACT.md',
+        'eMule/docs/REST-API-OPENAPI.yaml',
+        'eMule/docs/REST-API-PARITY-INVENTORY.md'
+    )
+    foreach ($requiredEntry in $requiredEntries) {
+        if ($requiredEntry -notin $entryNames) {
+            throw "Release package is missing required entry '$requiredEntry': $ZipPath"
+        }
+    }
+
+    $languageDlls = @($entryNames | Where-Object { $_ -match '^eMule/lang/[^/]+\.dll$' })
+    if ($languageDlls.Count -eq 0) {
+        throw "Release package has no language DLLs under eMule/lang: $ZipPath"
+    }
+
+    $webserverFiles = @($entryNames | Where-Object { $_ -match '^eMule/webserver/.+[^/]$' })
+    if ($webserverFiles.Count -eq 0) {
+        throw "Release package has no webserver payload under eMule/webserver: $ZipPath"
+    }
+
+    $forbiddenEntries = @($entryNames | Where-Object {
+        $_ -match '(^|/)(Win32|x86)(/|$)' -or
+        $_ -match '\.(pdb|obj|ilk|idb|iobj|ipdb|tlog|lastbuildstate|vcxproj|filters|sln|aps|res|rc|rc2|cpp|c|h|hpp)$'
+    })
+    if ($forbiddenEntries.Count -gt 0) {
+        $sample = ($forbiddenEntries | Select-Object -First 20) -join [Environment]::NewLine
+        throw "Release package contains build/source artifacts:`n$sample"
+    }
+
+    Write-Host ("Package content check: {0} ({1} entries, {2} language DLLs)" -f $ZipPath, $entryNames.Count, $languageDlls.Count)
+}
+
+<#
+.SYNOPSIS
 Creates the documented eMule broadband edition release ZIP for one platform.
 #>
 function New-ReleasePackage {
@@ -1105,6 +1155,7 @@ function New-ReleasePackage {
         Remove-Item -LiteralPath $zipPath -Force
     }
     Compress-Archive -LiteralPath $packageRoot -DestinationPath $zipPath -Force
+    Assert-ReleasePackageContents -ZipPath $zipPath
     $zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $exeHash = (Get-FileHash -LiteralPath $exePath -Algorithm SHA256).Hash.ToLowerInvariant()
     $manifest = [ordered]@{
