@@ -116,7 +116,7 @@ param(
 
     [int]$SharedFilesTreeStressChurnCycles = -1,
 
-    [string]$ReleaseVersion = '1.0.1',
+    [string]$ReleaseVersion = '1.1.1',
 
     [string]$P2PBindInterfaceName = 'hide.me',
 
@@ -162,7 +162,7 @@ Common options:
   -WorkspaceName <name>       Workspace name. Defaults to deps.psd1.
   -Config Debug|Release       Build configuration. Default: Release.
   -Platform x64|ARM64         Build platform. Default: x64.
-  -ReleaseVersion <version>   Package release version. Default: 1.0.1.
+  -ReleaseVersion <version>   Package release version. Default: 1.1.1.
   -BuildOutputMode <mode>     Full, Warnings, or ErrorsOnly. Default: ErrorsOnly.
   -Clean                      Clean selected build outputs before building.
   -Help                       Show this help.
