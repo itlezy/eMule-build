@@ -101,6 +101,20 @@ param(
 
     [int]$RestColdStartDumpStressDownloadsPerWave = 12,
 
+    [int]$RestColdStartDumpStressDownloadsPerSearch = 1,
+
+    [int]$RestColdStartDumpStressTargetCompletedDownloads = 0,
+
+    [double]$RestColdStartDumpStressCompletionTimeoutSeconds = 1800.0,
+
+    [int]$RestColdStartDumpStressMaxActiveDownloads = 128,
+
+    [double]$RestColdStartDumpStressDownloadChurnIntervalSeconds = 0.0,
+
+    [int]$RestColdStartDumpStressDownloadRemoveCountPerChurn = 0,
+
+    [double]$RestColdStartDumpStressResourceMonitorIntervalSeconds = 5.0,
+
     [double]$RestColdStartDumpStressPostDrainSeconds = 30.0,
 
     [double]$RestColdStartDumpStressToolTimeoutSeconds = 600.0,
@@ -1880,6 +1894,20 @@ function Invoke-LiveE2eSuite {
         $RestColdStartDumpStressMaxConcurrentSearches
         '--rest-cold-start-dump-stress-downloads-per-wave'
         $RestColdStartDumpStressDownloadsPerWave
+        '--rest-cold-start-dump-stress-downloads-per-search'
+        $RestColdStartDumpStressDownloadsPerSearch
+        '--rest-cold-start-dump-stress-target-completed-downloads'
+        $RestColdStartDumpStressTargetCompletedDownloads
+        '--rest-cold-start-dump-stress-completion-timeout-seconds'
+        $RestColdStartDumpStressCompletionTimeoutSeconds
+        '--rest-cold-start-dump-stress-max-active-downloads'
+        $RestColdStartDumpStressMaxActiveDownloads
+        '--rest-cold-start-dump-stress-download-churn-interval-seconds'
+        $RestColdStartDumpStressDownloadChurnIntervalSeconds
+        '--rest-cold-start-dump-stress-download-remove-count-per-churn'
+        $RestColdStartDumpStressDownloadRemoveCountPerChurn
+        '--rest-cold-start-dump-stress-resource-monitor-interval-seconds'
+        $RestColdStartDumpStressResourceMonitorIntervalSeconds
         '--rest-cold-start-dump-stress-post-drain-seconds'
         $RestColdStartDumpStressPostDrainSeconds
         '--rest-cold-start-dump-stress-tool-timeout-seconds'
