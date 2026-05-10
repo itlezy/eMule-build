@@ -24,6 +24,7 @@ from .config import (
 )
 from .layout import load_layout
 from .locks import WorkspaceLock
+from .materialize import materialize_workspace, sync_workspace
 from .python_tests import invoke_python_tests
 from .release import create_release_package
 from .status import write_dependency_status, write_workspace_summary
@@ -155,6 +156,40 @@ def _live_e2e_options(function: F) -> F:
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def main() -> None:
     """Build, validate, test, and package an eMule BB workspace."""
+
+
+@main.command()
+@click.option("--workspace-root", default=None, help="Canonical EMULE_WORKSPACE_ROOT. Defaults from repos/eMule-build layout.")
+@click.option("--workspace-name", default=None, help="Workspace name. Defaults to canonical topology.")
+@click.option("--artifacts-seed-root", default=None, help="Optional third-party artifact seed root.")
+def materialize(*, workspace_root: str | None, workspace_name: str | None, artifacts_seed_root: str | None) -> None:
+    """Materialize a new canonical workspace around this eMule-build clone."""
+
+    try:
+        materialize_workspace(
+            workspace_root=workspace_root,
+            workspace_name=workspace_name,
+            artifacts_seed_root=artifacts_seed_root,
+        )
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@main.command()
+@click.option("--workspace-root", envvar="EMULE_WORKSPACE_ROOT", default=None, help="Canonical EMULE_WORKSPACE_ROOT.")
+@click.option("--workspace-name", default=None, help="Workspace name. Defaults to canonical topology.")
+@click.option("--artifacts-seed-root", default=None, help="Optional third-party artifact seed root.")
+def sync(*, workspace_root: str | None, workspace_name: str | None, artifacts_seed_root: str | None) -> None:
+    """Synchronize setup-owned workspace state."""
+
+    try:
+        sync_workspace(
+            workspace_root=workspace_root,
+            workspace_name=workspace_name,
+            artifacts_seed_root=artifacts_seed_root,
+        )
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 @main.command()

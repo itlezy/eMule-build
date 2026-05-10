@@ -91,3 +91,21 @@ def test_package_release_help_exposes_release_version() -> None:
 
     assert result.exit_code == 0
     assert "--release-version" in result.output
+
+
+def test_materialize_help_exposes_bootstrap_options() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["materialize", "--help"])
+
+    assert result.exit_code == 0
+    assert "--artifacts-seed-root" in result.output
+
+
+def test_sync_help_exposes_bootstrap_options() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["sync", "--help"])
+
+    assert result.exit_code == 0
+    assert "--workspace-root" in result.output
