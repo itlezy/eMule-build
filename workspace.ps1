@@ -1166,7 +1166,7 @@ function New-ReleasePackage {
         configuration = $Config
         platform = $Platform
         asset = [System.IO.Path]::GetFileName($zipPath)
-        assetPath = $zipPath
+        assetPath = [System.IO.Path]::GetRelativePath($releaseRoot, $zipPath).Replace('\', '/')
         sha256 = $zipHash
         emuleExeSha256 = $exeHash
         appCommit = Get-RepoHead $appRoot
