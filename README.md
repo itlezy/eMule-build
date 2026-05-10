@@ -164,7 +164,7 @@ Live E2E examples:
 
 Interactive aMuTorrent example:
 
-- `amutorrent-session -Config Debug -Platform x64 -LiveNetwork` launches Debug x64 eMule BB with a disposable profile, starts aMuTorrent against the eMule BB REST API, opens the aMuTorrent URL, and writes a `stop-session.ps1` helper into the session report directory.
+- `amutorrent-session -Config Debug -Platform x64 -LiveNetwork` launches Debug x64 eMule BB with a disposable profile, starts aMuTorrent against the eMule BB REST API, opens the aMuTorrent URL, and writes a `stop-session.cmd` helper into the session report directory.
 
 Python test examples:
 
