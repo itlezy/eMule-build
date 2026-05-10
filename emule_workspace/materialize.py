@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
+import stat
 import sys
 from pathlib import Path
 
@@ -100,7 +102,7 @@ def sync_workspace(
     for repo in topology.all_repos():
         repo_path = ensure_repo_clone(root, repo)
         log_line(root, f"Repo ready: {repo.name} [{repo_path}]")
-    overlay_seed_artifacts(root, topology, artifacts_seed_root)
+    overlay_seed_artifacts(root, topology, artifacts_seed_root, resolved_workspace_name)
     write_workspace_props(root)
     write_workspace_manifest(root, topology, resolved_workspace_name)
     if include_worktrees:
@@ -119,24 +121,70 @@ def assert_materialize_bootstrap_root(root: Path) -> None:
     if not root.exists():
         return
     build_repo = build_repo_root().resolve()
-    allowed = {build_repo, build_repo.parent}
+    repos_root = build_repo.parent
     unexpected: list[Path] = []
-    for path in root.rglob("*"):
-        resolved = path.resolve()
-        if resolved == build_repo or resolved == build_repo.parent:
-            continue
-        if build_repo in resolved.parents:
-            continue
-        if resolved in allowed:
+    for path in root.iterdir():
+        if path.resolve() == repos_root:
             continue
         unexpected.append(path)
         if len(unexpected) >= 5:
             break
+    if not unexpected and repos_root.exists():
+        for path in repos_root.iterdir():
+            if path.resolve() == build_repo:
+                continue
+            unexpected.append(path)
+            if len(unexpected) >= 5:
+                break
     if unexpected:
         details = "\n".join(str(path) for path in unexpected)
         raise RuntimeError(
             f"Materialize expects an empty workspace root containing only repos\\eMule-build. "
             f"Refusing populated root '{root}'. Use sync for an existing workspace.\n{details}"
+        )
+
+
+def assert_clean_repo(repo_path: Path, repo_name: str, root: Path) -> None:
+    """Fails before managed sync would overwrite local repository work."""
+
+    status_output = run_captured(["git", "-C", repo_path, "status", "--short"], label=f"status {repo_name}", cwd=root)
+    if status_output.strip():
+        raise RuntimeError(
+            f"Managed repository '{repo_name}' has local changes and cannot be fast-forwarded safely: {repo_path}"
+        )
+
+
+def branch_ref_exists(repo_path: Path, ref: str, root: Path, repo_name: str) -> bool:
+    """Returns whether a Git ref exists in a managed repository."""
+
+    result = run_native(
+        ["git", "-C", repo_path, "show-ref", "--verify", "--quiet", ref],
+        label=f"check {repo_name} ref {ref}",
+        cwd=root,
+        allow_failure=True,
+    )
+    return result.returncode == 0
+
+
+def ensure_managed_repo_branch(root: Path, repo_path: Path, repo: ManagedRepo) -> None:
+    """Checks out and fast-forwards a non-app managed repository branch."""
+
+    local_ref = f"refs/heads/{repo.branch}"
+    remote_ref = f"refs/remotes/origin/{repo.branch}"
+    local_exists = branch_ref_exists(repo_path, local_ref, root, repo.name)
+    remote_exists = branch_ref_exists(repo_path, remote_ref, root, repo.name)
+    if not local_exists and not remote_exists and repo.branch_optional:
+        print(f"WARNING: Optional branch '{repo.branch}' is unavailable for '{repo.name}'; leaving checkout unchanged.")
+        return
+    if not local_exists and not remote_exists:
+        raise RuntimeError(f"Managed repository '{repo.name}' is missing required branch '{repo.branch}'.")
+    assert_clean_repo(repo_path, repo.name, root)
+    run_native(["git", "-C", repo_path, "checkout", repo.branch], label=f"checkout {repo.name}", cwd=root)
+    if remote_exists:
+        run_native(
+            ["git", "-C", repo_path, "merge", "--ff-only", remote_ref],
+            label=f"fast-forward {repo.name}",
+            cwd=root,
         )
 
 
@@ -179,12 +227,7 @@ def ensure_repo_clone(root: Path, repo: ManagedRepo) -> Path:
     run_native(["git", "-C", repo_path, "fetch", "origin", "--prune"], label=f"fetch {repo.name}", cwd=root)
     ensure_repo_additional_remotes(repo_path, repo)
     if not isinstance(repo, AppRepo):
-        run_native(["git", "-C", repo_path, "checkout", repo.branch], label=f"checkout {repo.name}", cwd=root)
-        run_native(
-            ["git", "-C", repo_path, "pull", "--ff-only", "origin", repo.branch],
-            label=f"fast-forward {repo.name}",
-            cwd=root,
-        )
+        ensure_managed_repo_branch(root, repo_path, repo)
     if repo.has_submodules:
         run_native(
             ["git", "-C", repo_path, "submodule", "update", "--init", "--recursive"],
@@ -300,11 +343,14 @@ def remove_legacy_app_dependency_links(root: Path, topology: WorkspaceTopology) 
         worktree_root = root / worktree.relative_path
         for name in ("cryptopp", "id3lib", "mbedtls", "miniupnpc", "ResizableLib", "zlib"):
             candidate = worktree_root / name
-            if candidate.exists() and candidate.is_symlink():
-                candidate.unlink()
+            if candidate.exists() and is_reparse_link(candidate):
+                if candidate.is_dir():
+                    candidate.rmdir()
+                else:
+                    candidate.unlink()
 
 
-def overlay_seed_artifacts(root: Path, topology: WorkspaceTopology, seed_root: str | None) -> None:
+def overlay_seed_artifacts(root: Path, topology: WorkspaceTopology, seed_root: str | None, workspace_name: str) -> None:
     """Copies optional third-party artifact seeds into managed dependency repos."""
 
     if not seed_root:
@@ -312,12 +358,91 @@ def overlay_seed_artifacts(root: Path, topology: WorkspaceTopology, seed_root: s
     resolved_seed_root = Path(seed_root).expanduser().resolve()
     if not resolved_seed_root.is_dir():
         raise RuntimeError(f"Artifacts seed root '{resolved_seed_root}' does not exist.")
+    overlay_state_path = root / "workspaces" / workspace_name / "state" / "artifact-seed-overlays.json"
+    previous = load_seed_overlay_state(overlay_state_path)
+    current: dict[str, list[str]] = {}
     for repo in topology.third_party_repos:
         source = resolved_seed_root / repo.name
         if not source.is_dir():
             continue
         destination = root / repo.relative_path
-        shutil.copytree(source, destination, dirs_exist_ok=True)
+        copied = overlay_seed_directory(source, destination, previous.get(repo.name, ()))
+        current[repo.name] = sorted(copied)
+    write_seed_overlay_state(overlay_state_path, current)
+
+
+def load_seed_overlay_state(path: Path) -> dict[str, tuple[str, ...]]:
+    """Loads the previous artifact-seed overlay file list."""
+
+    if not path.is_file():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Artifact seed overlay state is not an object: {path}")
+    result: dict[str, tuple[str, ...]] = {}
+    for key, value in payload.items():
+        if isinstance(key, str) and isinstance(value, list) and all(isinstance(item, str) for item in value):
+            result[key] = tuple(value)
+    return result
+
+
+def write_seed_overlay_state(path: Path, payload: dict[str, list[str]]) -> None:
+    """Writes tracked artifact-seed overlay state outside dependency repos."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def overlay_seed_directory(source: Path, destination: Path, previous_files: tuple[str, ...]) -> tuple[str, ...]:
+    """Copies one seed directory and removes files from the previous seed overlay."""
+
+    destination.mkdir(parents=True, exist_ok=True)
+    current_files = tuple(
+        sorted(
+            str(path.relative_to(source)).replace("/", "\\")
+            for path in source.rglob("*")
+            if path.is_file()
+        )
+    )
+    current_set = set(current_files)
+    for relative_file in previous_files:
+        if relative_file in current_set:
+            continue
+        stale_path = (destination / relative_file).resolve()
+        if destination.resolve() not in stale_path.parents:
+            raise RuntimeError(f"Refusing to remove artifact seed outside destination: {stale_path}")
+        if stale_path.is_file() or stale_path.is_symlink():
+            stale_path.unlink()
+            prune_empty_seed_dirs(stale_path.parent, destination)
+    shutil.copytree(source, destination, dirs_exist_ok=True)
+    return current_files
+
+
+def prune_empty_seed_dirs(path: Path, stop: Path) -> None:
+    """Removes empty directories left by stale seed files."""
+
+    resolved_stop = stop.resolve()
+    current = path.resolve()
+    while current != resolved_stop and resolved_stop in current.parents:
+        try:
+            current.rmdir()
+        except OSError:
+            return
+        current = current.parent
+
+
+def is_reparse_link(path: Path) -> bool:
+    """Returns true for symlinks and Windows junction-style reparse points."""
+
+    if path.is_symlink():
+        return True
+    if sys.platform != "win32":
+        return False
+    try:
+        attributes = path.lstat().st_file_attributes
+    except OSError:
+        return False
+    return bool(attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT)
 
 
 def write_workspace_props(root: Path) -> None:
