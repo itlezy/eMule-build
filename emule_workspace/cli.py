@@ -27,6 +27,7 @@ from .locks import WorkspaceLock
 from .materialize import materialize_workspace, sync_workspace
 from .python_tests import invoke_python_tests
 from .release import create_release_package
+from .setup_commands import run_compare, write_dependency_update_report, write_materialization_status
 from .status import write_dependency_status, write_workspace_summary
 from .test_runs import (
     invoke_amutorrent_interactive_session,
@@ -214,6 +215,41 @@ def dep_status(*, workspace_options: WorkspaceOptions, layout) -> None:
         workspace_options=workspace_options,
         layout=layout,
     )
+
+
+@main.command("status")
+@click.option("--workspace-root", envvar="EMULE_WORKSPACE_ROOT", default=None, help="Canonical EMULE_WORKSPACE_ROOT.")
+def materialization_status(*, workspace_root: str | None) -> None:
+    """Report setup-managed repository status."""
+
+    try:
+        write_materialization_status(workspace_root=workspace_root)
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@main.command("dep-updates")
+@click.option("--workspace-root", envvar="EMULE_WORKSPACE_ROOT", default=None, help="Canonical EMULE_WORKSPACE_ROOT.")
+@click.option("--workspace-name", default=None, help="Workspace name. Defaults to canonical topology.")
+def dep_updates(*, workspace_root: str | None, workspace_name: str | None) -> None:
+    """Report advisory third-party dependency updates."""
+
+    try:
+        write_dependency_update_report(workspace_root=workspace_root, workspace_name=workspace_name)
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@main.command("compare")
+@click.argument("preset_key", required=False)
+@click.option("--workspace-root", envvar="EMULE_WORKSPACE_ROOT", default=None, help="Canonical EMULE_WORKSPACE_ROOT.")
+def compare_command(*, preset_key: str | None, workspace_root: str | None) -> None:
+    """Show or launch WinMerge comparison presets."""
+
+    try:
+        run_compare(preset_key=preset_key, workspace_root=workspace_root)
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 @main.group()

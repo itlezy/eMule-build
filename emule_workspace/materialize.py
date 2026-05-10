@@ -339,6 +339,9 @@ def write_workspace_manifest(root: Path, topology: WorkspaceTopology, workspace_
 def write_compare_launchers(root: Path) -> None:
     """Writes simple compare launchers that route back through the Python CLI."""
 
+    from .setup_commands import compare_presets
+
+    topology = canonical_topology()
     compare_root = root / "analysis" / "compare"
     mods_root = compare_root / "mods-archive"
     compare_root.mkdir(parents=True, exist_ok=True)
@@ -348,6 +351,12 @@ def write_compare_launchers(root: Path) -> None:
         mods_root / "open-mods-archive-menu.cmd",
         f'python -m emule_workspace compare mods-archive --workspace-root "{root}"\n',
     )
+    for preset in compare_presets(root, topology):
+        destination_root = mods_root if preset.category == "Mods Archive" else compare_root
+        _write_cmd(
+            destination_root / f"{preset.key}.cmd",
+            f'python -m emule_workspace compare "{preset.key}" --workspace-root "{root}"\n',
+        )
 
 
 def install_workspace_hooks(root: Path, topology: WorkspaceTopology) -> None:

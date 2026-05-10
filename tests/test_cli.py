@@ -109,3 +109,30 @@ def test_sync_help_exposes_bootstrap_options() -> None:
 
     assert result.exit_code == 0
     assert "--workspace-root" in result.output
+
+
+def test_setup_status_help_is_available() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["status", "--help"])
+
+    assert result.exit_code == 0
+    assert "setup-managed" in result.output
+
+
+def test_dep_updates_help_is_available() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["dep-updates", "--help"])
+
+    assert result.exit_code == 0
+    assert "third-party" in result.output
+
+
+def test_compare_help_is_available() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["compare", "--help"])
+
+    assert result.exit_code == 0
+    assert "WinMerge" in result.output
