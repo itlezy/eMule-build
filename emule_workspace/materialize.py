@@ -358,16 +358,16 @@ def write_compare_launchers(root: Path) -> None:
     mods_root = compare_root / "mods-archive"
     compare_root.mkdir(parents=True, exist_ok=True)
     mods_root.mkdir(parents=True, exist_ok=True)
-    _write_cmd(compare_root / "open-compare-menu.cmd", f'python -m emule_workspace compare --workspace-root "{root}"\n')
+    _write_cmd(compare_root / "open-compare-menu.cmd", "python -m emule_workspace compare\n")
     _write_cmd(
         mods_root / "open-mods-archive-menu.cmd",
-        f'python -m emule_workspace compare mods-archive --workspace-root "{root}"\n',
+        "python -m emule_workspace compare mods-archive\n",
     )
     for preset in compare_presets(root, topology):
         destination_root = mods_root if preset.category == "Mods Archive" else compare_root
         _write_cmd(
             destination_root / f"{preset.key}.cmd",
-            f'python -m emule_workspace compare "{preset.key}" --workspace-root "{root}"\n',
+            f'python -m emule_workspace compare "{preset.key}"\n',
         )
 
 

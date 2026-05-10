@@ -40,8 +40,6 @@ def invoke_test_runs(layout: WorkspaceLayout, options: WorkspaceOptions) -> None
                 layout.tests_repo_root / "scripts" / "run-native-coverage.py",
                 "--test-repo-root",
                 layout.tests_repo_root,
-                "--workspace-root",
-                layout.workspace_root,
                 "--app-root",
                 app_root,
                 "--configuration",
@@ -56,6 +54,7 @@ def invoke_test_runs(layout: WorkspaceLayout, options: WorkspaceOptions) -> None
         ),
         label="native coverage",
         cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )
     invoke_live_diff_runs(layout, options, VariantComparisonOptions())
 
@@ -79,12 +78,8 @@ def invoke_live_diff_runs(
                 layout.tests_repo_root / "scripts" / "run-live-diff.py",
                 "--test-repo-root",
                 layout.tests_repo_root,
-                "--test-run-workspace-root",
-                layout.workspace_root,
                 "--test-run-app-root",
                 test_run_app_root,
-                "--baseline-workspace-root",
-                layout.workspace_root,
                 "--baseline-app-root",
                 baseline_app_root,
                 "--configuration",
@@ -95,6 +90,7 @@ def invoke_live_diff_runs(
         ),
         label=f"live diff {test_run_variant} vs {baseline_variant}",
         cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )
 
 
@@ -117,8 +113,6 @@ def invoke_community_core_coverage(
                 layout.tests_repo_root / "scripts" / "run-community-core-coverage.py",
                 "--test-repo-root",
                 layout.tests_repo_root,
-                "--workspace-root",
-                layout.workspace_root,
                 "--main-app-root",
                 test_run_app_root,
                 "--community-app-root",
@@ -136,6 +130,7 @@ def invoke_community_core_coverage(
         ),
         label=f"community core coverage {test_run_variant} vs {baseline_variant}",
         cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )
 
 
@@ -150,8 +145,6 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
 
     args: list[str | Path | int | float] = [
         script_path,
-        "--workspace-root",
-        layout.workspace_root,
         "--app-root",
         app_root,
         "--configuration",
@@ -231,7 +224,12 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
     _append_optional_flag(args, live_options.skip_live_seed_refresh, "--skip-live-seed-refresh")
 
     python = get_python_invocation()
-    run_native(python.command(args), label="live E2E suite", cwd=layout.emule_workspace_root)
+    run_native(
+        python.command(args),
+        label="live E2E suite",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
 
 
 def invoke_amutorrent_interactive_session(
@@ -249,8 +247,6 @@ def invoke_amutorrent_interactive_session(
 
     args: list[str | Path] = [
         script_path,
-        "--workspace-root",
-        layout.workspace_root,
         "--app-root",
         app_root,
         "--configuration",
@@ -258,7 +254,12 @@ def invoke_amutorrent_interactive_session(
     ]
     _append_optional_flag(args, session_options.live_network, "--live-network")
     python = get_python_invocation()
-    run_native(python.command(args), label="aMuTorrent interactive session", cwd=layout.emule_workspace_root)
+    run_native(
+        python.command(args),
+        label="aMuTorrent interactive session",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
 
 
 def _append_optional_flag(args: list, enabled: bool, flag: str) -> None:

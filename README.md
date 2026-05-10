@@ -65,25 +65,25 @@ Python-first commands:
 
 ```powershell
 python -m emule_workspace materialize
-python -m emule_workspace sync --workspace-root <workspace-root>
-python -m emule_workspace status --workspace-root <workspace-root>
-python -m emule_workspace dep-updates --workspace-root <workspace-root>
-python -m emule_workspace compare --workspace-root <workspace-root>
-python -m emule_workspace env-check --workspace-root <workspace-root>
-python -m emule_workspace dep-status --workspace-root <workspace-root>
-python -m emule_workspace validate --workspace-root <workspace-root>
-python -m emule_workspace build libs --workspace-root <workspace-root>
-python -m emule_workspace build app --workspace-root <workspace-root>
-python -m emule_workspace build tests --workspace-root <workspace-root>
-python -m emule_workspace build all --workspace-root <workspace-root>
-python -m emule_workspace test python --workspace-root <workspace-root>
-python -m emule_workspace test all --workspace-root <workspace-root>
-python -m emule_workspace test live-diff --workspace-root <workspace-root>
-python -m emule_workspace test live-e2e --workspace-root <workspace-root>
-python -m emule_workspace test amutorrent-session --workspace-root <workspace-root>
-python -m emule_workspace test community-core-coverage --workspace-root <workspace-root>
-python -m emule_workspace full --workspace-root <workspace-root>
-python -m emule_workspace package-release --workspace-root <workspace-root>
+python -m emule_workspace sync
+python -m emule_workspace status
+python -m emule_workspace dep-updates
+python -m emule_workspace compare
+python -m emule_workspace env-check
+python -m emule_workspace dep-status
+python -m emule_workspace validate
+python -m emule_workspace build libs
+python -m emule_workspace build app
+python -m emule_workspace build tests
+python -m emule_workspace build all
+python -m emule_workspace test python
+python -m emule_workspace test all
+python -m emule_workspace test live-diff
+python -m emule_workspace test live-e2e
+python -m emule_workspace test amutorrent-session
+python -m emule_workspace test community-core-coverage
+python -m emule_workspace full
+python -m emule_workspace package-release
 ```
 
 Command behavior:

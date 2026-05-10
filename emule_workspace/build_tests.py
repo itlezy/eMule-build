@@ -32,8 +32,6 @@ def invoke_build_tests(
         script_path.as_posix(),
         "--test-repo-root",
         str(layout.tests_repo_root),
-        "--workspace-root",
-        str(layout.workspace_root),
         "--app-root",
         str(app_root),
         "--configuration",
@@ -51,6 +49,7 @@ def invoke_build_tests(
         python.command(args),
         label=f"build-emule-tests {workspace_options.configuration}/{workspace_options.platform}",
         cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )
     print(f"Text log: {log_directory / f'{token}-{suffix}.log'}")
     print(f"Binary log: {log_directory / f'{token}-{suffix}.binlog'}")
