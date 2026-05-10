@@ -6,8 +6,11 @@ from pathlib import Path
 
 from .git import repo_branch, repo_status_lines, test_app_branch_allowed
 from .layout import WorkspaceLayout
+from .materialize import ROOT_AGENTS_CONTENT
 from .process import find_tool, run_native
+from .setup_commands import compare_presets, compare_root
 from .toolchain import get_visual_studio_info
+from .topology import WORKSPACE_MANIFEST_NAME, WORKSPACE_PROPS_FILE_NAME, build_workspace_manifest, canonical_topology, load_json
 
 
 def env_check(layout: WorkspaceLayout) -> None:
@@ -32,6 +35,10 @@ def assert_required_workspace_paths(layout: WorkspaceLayout) -> None:
     required_paths = [
         layout.emule_workspace_root,
         layout.workspace_root,
+        layout.workspace_root / WORKSPACE_MANIFEST_NAME,
+        layout.emule_workspace_root / WORKSPACE_PROPS_FILE_NAME,
+        layout.emule_workspace_root / "analysis" / "compare",
+        layout.emule_workspace_root / "AGENTS.md",
         layout.seed_repo_path,
         layout.tests_repo_root,
         layout.tooling_repo_root,
@@ -42,6 +49,27 @@ def assert_required_workspace_paths(layout: WorkspaceLayout) -> None:
     if missing:
         details = "\n".join(str(path) for path in missing)
         raise RuntimeError(f"Missing required workspace paths:\n{details}")
+
+
+def assert_generated_workspace_manifest(layout: WorkspaceLayout) -> None:
+    """Checks that the generated workspace manifest matches Python topology."""
+
+    topology = canonical_topology()
+    manifest_path = layout.workspace_root / WORKSPACE_MANIFEST_NAME
+    actual = load_json(manifest_path)
+    expected = build_workspace_manifest(topology, layout.workspace_name)
+    if actual != expected:
+        raise RuntimeError(f"Workspace manifest drifted from Python topology: {manifest_path}. Run sync to regenerate it.")
+
+
+def assert_root_agents_file(layout: WorkspaceLayout) -> None:
+    """Checks that root AGENTS.md matches the workspace bootstrap contract."""
+
+    agents_path = layout.emule_workspace_root / "AGENTS.md"
+    actual = agents_path.read_text(encoding="ascii").strip()
+    expected = ROOT_AGENTS_CONTENT.strip()
+    if actual != expected:
+        raise RuntimeError(f"Workspace root AGENTS.md drifted from Python-owned content: {agents_path}. Run sync.")
 
 
 def assert_app_layout(layout: WorkspaceLayout) -> None:
@@ -57,6 +85,52 @@ def assert_app_layout(layout: WorkspaceLayout) -> None:
                 f"App checkout '{variant.path}' is on branch '{current_branch}', "
                 f"expected '{variant.branch}'."
             )
+
+
+def assert_compare_targets(layout: WorkspaceLayout) -> None:
+    """Checks that generated comparison presets resolve to existing paths."""
+
+    topology = canonical_topology()
+    missing: list[str] = []
+    checked: set[Path] = set()
+    for preset in compare_presets(layout.emule_workspace_root, topology):
+        for name in (preset.left_name, preset.right_name):
+            path = compare_root(layout.emule_workspace_root, topology, name)
+            if path in checked:
+                continue
+            checked.add(path)
+            if not path.exists():
+                missing.append(f"{name}: {path}")
+    if missing:
+        raise RuntimeError("Missing compare targets:\n" + "\n".join(sorted(missing)))
+
+
+def assert_workspace_hooks_installed(layout: WorkspaceLayout) -> None:
+    """Checks that editable workspace repos use the shared hook path."""
+
+    topology = canonical_topology()
+    expected_hooks_path = (layout.emule_workspace_root / "repos" / "eMule-tooling" / "hooks").resolve()
+    if not (expected_hooks_path / "pre-commit").is_file():
+        raise RuntimeError(f"Shared pre-commit hook is missing: {expected_hooks_path / 'pre-commit'}")
+    hook_repo_names = {"eMule-build", "eMule-build-tests", "eMule-tooling"}
+    targets = [layout.emule_workspace_root / repo.relative_path for repo in topology.repos if repo.name in hook_repo_names]
+    targets.extend(layout.emule_workspace_root / worktree.relative_path for worktree in topology.app_repo.worktrees if worktree.active)
+    for target in targets:
+        configured = run_native(
+            ["git", "-C", target, "config", "--local", "--get", "core.hooksPath"],
+            label=f"read hooks path {target}",
+            cwd=layout.emule_workspace_root,
+            allow_failure=True,
+        )
+        if configured.returncode != 0:
+            raise RuntimeError(f"Hook path drift detected for '{target}'. Expected core.hooksPath '{expected_hooks_path}'.")
+        hooks_path = _git_config_value(target, "core.hooksPath")
+        resolved_hooks_path = (target / hooks_path).resolve() if not Path(hooks_path).is_absolute() else Path(hooks_path).resolve()
+        if resolved_hooks_path != expected_hooks_path:
+            raise RuntimeError(f"Hook path drift detected for '{target}'. Expected '{expected_hooks_path}'.")
+        autocrlf = _git_config_value(target, "core.autocrlf")
+        if autocrlf != "false":
+            raise RuntimeError(f"Line-ending config drift detected for '{target}'. Expected core.autocrlf false.")
 
 
 def assert_required_test_helpers(layout: WorkspaceLayout) -> None:
@@ -127,8 +201,18 @@ def validate_workspace(layout: WorkspaceLayout) -> None:
 
     env_check(layout)
     assert_required_workspace_paths(layout)
+    assert_generated_workspace_manifest(layout)
+    assert_root_agents_file(layout)
     assert_app_layout(layout)
+    assert_compare_targets(layout)
+    assert_workspace_hooks_installed(layout)
     ensure_canonical_app_anchor(layout)
     run_policy_audits(layout)
     assert_required_test_helpers(layout)
     print("Workspace validation passed.")
+
+
+def _git_config_value(repo_root: Path, key: str) -> str:
+    from .process import run_captured
+
+    return run_captured(["git", "-C", repo_root, "config", "--local", "--get", key], label=f"read {key}", cwd=repo_root).strip()
