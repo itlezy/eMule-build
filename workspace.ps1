@@ -1097,6 +1097,43 @@ function Assert-ReleasePackageContents([string]$ZipPath) {
 
 <#
 .SYNOPSIS
+Reads the eMule BB mod release version macros from the app version header.
+#>
+function Get-AppModReleaseVersion([string]$AppRoot) {
+    $versionHeaderPath = Join-Path $AppRoot 'srchybrid\Version.h'
+    if (-not (Test-Path -LiteralPath $versionHeaderPath -PathType Leaf)) {
+        throw "Cannot read missing app version header: $versionHeaderPath"
+    }
+
+    $parts = @{}
+    foreach ($line in Get-Content -LiteralPath $versionHeaderPath) {
+        if ($line -match '^\s*#define\s+MOD_RELEASE_VERSION_(MAJOR|MINOR|PATCH)\s+(\d+)\s*$') {
+            $parts[$Matches[1]] = [int]$Matches[2]
+        }
+    }
+
+    foreach ($requiredPart in @('MAJOR', 'MINOR', 'PATCH')) {
+        if (-not $parts.ContainsKey($requiredPart)) {
+            throw "Cannot find MOD_RELEASE_VERSION_$requiredPart in $versionHeaderPath"
+        }
+    }
+
+    "{0}.{1}.{2}" -f $parts['MAJOR'], $parts['MINOR'], $parts['PATCH']
+}
+
+<#
+.SYNOPSIS
+Asserts that the package version matches the app's eMule BB mod release version.
+#>
+function Assert-PackageVersionMatchesApp([string]$AppRoot) {
+    $appReleaseVersion = Get-AppModReleaseVersion -AppRoot $AppRoot
+    if ($ReleaseVersion -ne $appReleaseVersion) {
+        throw "package-release version mismatch: -ReleaseVersion is '$ReleaseVersion' but app MOD_RELEASE_VERSION is '$appReleaseVersion'."
+    }
+}
+
+<#
+.SYNOPSIS
 Creates the documented eMule broadband edition release ZIP for one platform.
 #>
 function New-ReleasePackage {
@@ -1109,6 +1146,7 @@ function New-ReleasePackage {
 
     Ensure-CanonicalAppAnchor
     $appRoot = Resolve-AppVariantPath 'main' -RequireExists
+    Assert-PackageVersionMatchesApp -AppRoot $appRoot
     Build-PackageApp -AppRoot $appRoot
     Build-LanguageResources -AppRoot $appRoot
     $buildOutputRoot = [System.IO.Path]::GetFullPath((Join-Path $appRoot ("srchybrid\{0}\{1}" -f $Platform, $Config)))
