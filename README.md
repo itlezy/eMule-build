@@ -12,8 +12,6 @@ Once the workspace exists, this repo is responsible for:
 - parity, coverage, and live-diff execution against the canonical app variants
 
 `python -m emule_workspace` is the authoritative orchestration surface.
-`workspace.ps1` remains only as a compatibility shim that delegates to the
-Python CLI.
 
 ## Purpose
 
@@ -84,12 +82,6 @@ python -m emule_workspace test amutorrent-session --workspace-root <workspace-ro
 python -m emule_workspace test community-core-coverage --workspace-root <workspace-root>
 python -m emule_workspace full --workspace-root <workspace-root>
 python -m emule_workspace package-release --workspace-root <workspace-root>
-```
-
-Compatibility shim:
-
-```powershell
-pwsh -File .\workspace.ps1 help
 ```
 
 Command behavior:

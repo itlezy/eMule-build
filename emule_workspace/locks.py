@@ -93,14 +93,14 @@ class WorkspaceLock:
         )
 
     def _mutex_name(self) -> str:
-        """Returns the same Windows named mutex used by `workspace.ps1`."""
+        """Returns the Windows named mutex for this workspace root."""
 
         normalized_root = str(self.layout.emule_workspace_root).rstrip("\\").lower()
         digest = sha256(normalized_root.encode("utf-8")).hexdigest().upper()
         return f"Global\\eMuleBuild-{digest}"
 
     def _acquire_named_mutex(self) -> bool:
-        """Acquires the legacy Windows named mutex when running on Windows."""
+        """Acquires the workspace Windows named mutex when running on Windows."""
 
         if sys.platform != "win32":
             return True
