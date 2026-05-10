@@ -13,18 +13,9 @@ def test_policy_audits_receive_workspace_root_through_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     tooling_root = tmp_path / "repos" / "eMule-tooling"
-    for relative_path in (
-        "ci/check-build-policy.ps1",
-        "ci/check-branch-policy.ps1",
-        "ci/check-dependency-pins.ps1",
-        "ci/check-doc-paths.ps1",
-        "ci/check-editorconfig-policy.ps1",
-        "ci/check-project-entrypoints.ps1",
-        "ci/check-warning-policy.ps1",
-    ):
-        audit_path = tooling_root / relative_path
-        audit_path.parent.mkdir(parents=True, exist_ok=True)
-        audit_path.write_text("#Requires -Version 7.6\n", encoding="utf-8")
+    audit_path = tooling_root / "ci" / "check-workspace-policy.py"
+    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    audit_path.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
     calls: list[dict[str, object]] = []
 
     def fake_run_native(command, **kwargs):
@@ -39,4 +30,6 @@ def test_policy_audits_receive_workspace_root_through_environment(
     assert calls
     for call in calls:
         assert "-EmuleWorkspaceRoot" not in call["command"]
+        assert "pwsh" not in call["command"]
+        assert call["command"][-2] == str(audit_path)
         assert call["env"] == {"EMULE_WORKSPACE_ROOT": tmp_path}

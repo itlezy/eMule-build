@@ -7,7 +7,7 @@ from pathlib import Path
 from .git import repo_branch, repo_status_lines, test_app_branch_allowed
 from .layout import WorkspaceLayout
 from .materialize import ROOT_AGENTS_CONTENT
-from .process import find_tool, run_native
+from .process import find_tool, get_python_invocation, run_native
 from .setup_commands import compare_presets, compare_root
 from .toolchain import get_visual_studio_info
 from .topology import (
@@ -28,8 +28,6 @@ def env_check(layout: WorkspaceLayout) -> None:
         raise RuntimeError("Visual Studio 2022 with MSBuild is required.")
     if find_tool(("git.exe", "git")) is None:
         raise RuntimeError("git not found on PATH.")
-    if find_tool(("pwsh.exe", "pwsh")) is None:
-        raise RuntimeError("pwsh not found on PATH.")
     print(f"Visual Studio: {vs.root}")
     print(f"MSBuild: {vs.msbuild}")
     print(f"Python workspace CLI: {layout.build_repo_root}")
@@ -175,28 +173,21 @@ def run_policy_audits(layout: WorkspaceLayout) -> None:
     """Runs the centralized workspace policy audits owned by eMule-tooling."""
 
     audit_names = (
-        ("build policy audit", "ci/check-build-policy.ps1"),
-        ("branch policy audit", "ci/check-branch-policy.ps1"),
-        ("dependency pin audit", "ci/check-dependency-pins.ps1"),
-        ("documentation path audit", "ci/check-doc-paths.ps1"),
-        ("editorconfig policy audit", "ci/check-editorconfig-policy.ps1"),
-        ("project entrypoint audit", "ci/check-project-entrypoints.ps1"),
-        ("warning policy audit", "ci/check-warning-policy.ps1"),
+        ("build policy audit", "build-policy"),
+        ("branch policy audit", "branch-policy"),
+        ("dependency pin audit", "dependency-pins"),
+        ("documentation path audit", "doc-paths"),
+        ("editorconfig policy audit", "editorconfig-policy"),
+        ("project entrypoint audit", "project-entrypoints"),
+        ("warning policy audit", "warning-policy"),
     )
-    for label, relative_path in audit_names:
-        audit_path = layout.tooling_repo_root / Path(relative_path)
-        if not audit_path.is_file():
-            raise RuntimeError(f"Missing required policy audit: {audit_path}")
+    audit_path = layout.tooling_repo_root / "ci" / "check-workspace-policy.py"
+    if not audit_path.is_file():
+        raise RuntimeError(f"Missing required policy audit: {audit_path}")
+    python = get_python_invocation()
+    for label, audit_name in audit_names:
         run_native(
-            [
-                "pwsh",
-                "-NoLogo",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                audit_path,
-            ],
+            python.command([audit_path, audit_name]),
             label=label,
             cwd=layout.emule_workspace_root,
             env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
