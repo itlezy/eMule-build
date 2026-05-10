@@ -63,6 +63,7 @@ def test_test_live_e2e_help_exposes_live_options() -> None:
     assert result.exit_code == 0
     assert "--suite" in result.output
     assert "--p2p-bind-interface-name" in result.output
+    assert "--rest-cold-start-dump-stress-cpu-profile" in result.output
 
 
 def test_build_all_help_exposes_composed_build_options() -> None:

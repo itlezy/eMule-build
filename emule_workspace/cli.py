@@ -145,6 +145,13 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--rest-cold-start-dump-stress-post-drain-seconds", default=30.0, show_default=True, type=float)
     @click.option("--rest-cold-start-dump-stress-tool-timeout-seconds", default=600.0, show_default=True, type=float)
     @click.option("--rest-cold-start-dump-stress-enable-umdh", is_flag=True)
+    @click.option("--rest-cold-start-dump-stress-cpu-profile", is_flag=True)
+    @click.option("--rest-cold-start-dump-stress-cpu-profile-max-file-mb", default=512, show_default=True, type=int)
+    @click.option(
+        "--rest-cold-start-dump-stress-cpu-profile-symbols-required/--no-rest-cold-start-dump-stress-cpu-profile-symbols-required",
+        default=True,
+        show_default=True,
+    )
     @click.option("--rest-cold-start-dump-stress-skip-dumps", is_flag=True)
     @wraps(function)
     def wrapper(*args: Any, **kwargs: Any) -> Any:

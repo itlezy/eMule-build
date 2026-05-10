@@ -203,8 +203,13 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
         live_options.rest_cold_start_dump_stress_post_drain_seconds,
         "--rest-cold-start-dump-stress-tool-timeout-seconds",
         live_options.rest_cold_start_dump_stress_tool_timeout_seconds,
+        "--rest-cold-start-dump-stress-cpu-profile-max-file-mb",
+        live_options.rest_cold_start_dump_stress_cpu_profile_max_file_mb,
     ]
     _append_optional_flag(args, live_options.rest_cold_start_dump_stress_enable_umdh, "--rest-cold-start-dump-stress-enable-umdh")
+    _append_optional_flag(args, live_options.rest_cold_start_dump_stress_cpu_profile, "--rest-cold-start-dump-stress-cpu-profile")
+    if not live_options.rest_cold_start_dump_stress_cpu_profile_symbols_required:
+        args.append("--no-rest-cold-start-dump-stress-cpu-profile-symbols-required")
     _append_optional_flag(args, live_options.rest_cold_start_dump_stress_skip_dumps, "--rest-cold-start-dump-stress-skip-dumps")
     if live_options.rest_leak_churn_cycles >= 0:
         args.extend(["--rest-leak-churn-cycles", live_options.rest_leak_churn_cycles])
