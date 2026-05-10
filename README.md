@@ -91,7 +91,7 @@ Command behavior:
 - `help` prints supported commands and common options.
 - `env-check` verifies the core toolchain discovery for Git, Visual Studio, and MSBuild.
 - `dep-status` reports branch and worktree status for the dependency repos and canonical app worktrees that exist locally.
-- `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, required test helper scripts, modified tracked-file editorconfig compliance, and the shared static policy audits from `eMule-tooling\ci`.
+- `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, required test helper scripts, modified tracked-file editorconfig compliance, the PowerShell boundary, and the shared static policy audits from `eMule-tooling\ci`.
 - The Python `package-release` command may reanchor a clean `repos\eMule`
   checkout back to detached `origin/main` before building package artifacts.
 - `build libs` builds the shared dependency set for the selected `--config` and `--platform`.
@@ -185,6 +185,7 @@ Python test examples:
 - active workflow docs/scripts drifting back to `.sln` / `.slnx` entrypoints
 - active warning suppressions drifting beyond the approved narrow third-party exceptions
 - modified tracked text files drifting from repo `.editorconfig` / `.gitattributes`
+- tracked PowerShell files outside the approved `repos\eMule-tooling\scripts` release/admin boundary
 - missing shared test helper scripts
 
 Tracked-file cleanliness is intentionally a separate explicit audit via
