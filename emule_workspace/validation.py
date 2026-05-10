@@ -188,11 +188,10 @@ def run_policy_audits(layout: WorkspaceLayout) -> None:
                 "Bypass",
                 "-File",
                 audit_path,
-                "-EmuleWorkspaceRoot",
-                layout.emule_workspace_root,
             ],
             label=label,
             cwd=layout.emule_workspace_root,
+            env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
         )
 
 
