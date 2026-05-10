@@ -101,12 +101,14 @@ class LiveE2eOptions(BaseModel):
     rest_cold_start_dump_stress_completion_timeout_seconds: float = 1800.0
     rest_cold_start_dump_stress_max_active_downloads: int = 512
     rest_cold_start_dump_stress_allow_required_zero_result_searches: bool = False
+    rest_cold_start_dump_stress_skip_transfer_cleanup: bool = False
     rest_cold_start_dump_stress_download_churn_interval_seconds: float = 0.0
     rest_cold_start_dump_stress_download_remove_count_per_churn: int = 0
     rest_cold_start_dump_stress_resource_monitor_interval_seconds: float = 5.0
     rest_cold_start_dump_stress_post_drain_seconds: float = 30.0
     rest_cold_start_dump_stress_tool_timeout_seconds: float = 60.0
     rest_cold_start_dump_stress_enable_umdh: bool = False
+    rest_cold_start_dump_stress_skip_umdh_diffs: bool = False
     rest_cold_start_dump_stress_cpu_profile: bool = False
     rest_cold_start_dump_stress_cpu_profile_max_file_mb: int = 512
     rest_cold_start_dump_stress_cpu_profile_symbols_required: bool = True
