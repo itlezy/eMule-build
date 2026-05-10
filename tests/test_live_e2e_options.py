@@ -60,6 +60,7 @@ def test_live_e2e_forwards_cold_stress_cpu_profile_options(tmp_path: Path, monke
             rest_cold_start_dump_stress_cpu_profile=True,
             rest_cold_start_dump_stress_cpu_profile_max_file_mb=64,
             rest_cold_start_dump_stress_cpu_profile_symbols_required=False,
+            rest_cold_start_dump_stress_max_missing_download_triggers=1,
         ),
     )
 
@@ -68,6 +69,7 @@ def test_live_e2e_forwards_cold_stress_cpu_profile_options(tmp_path: Path, monke
     assert "--rest-cold-start-dump-stress-enable-umdh" in command
     assert "--rest-cold-start-dump-stress-cpu-profile" in command
     assert option_values(command, "--rest-cold-start-dump-stress-cpu-profile-max-file-mb") == ["64"]
+    assert option_values(command, "--rest-cold-start-dump-stress-max-missing-download-triggers") == ["1"]
     assert "--no-rest-cold-start-dump-stress-cpu-profile-symbols-required" in command
     assert "--rest-cold-start-dump-stress-skip-dumps" not in command
     assert captured["env"] == {"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root}
