@@ -114,6 +114,8 @@ param(
 
     [string]$SharedRoot,
 
+    [string[]]$SharedFilesUiScenario,
+
     [int]$SharedFilesTreeStressChurnCycles = -1,
 
     [string]$ReleaseVersion = '1.1.1',
@@ -163,6 +165,7 @@ Common options:
   -Config Debug|Release       Build configuration. Default: Release.
   -Platform x64|ARM64         Build platform. Default: x64.
   -ReleaseVersion <version>   Package release version. Default: 1.1.1.
+  -SharedFilesUiScenario <s>  Limit shared-files-ui live suite to one scenario.
   -BuildOutputMode <mode>     Full, Warnings, or ErrorsOnly. Default: ErrorsOnly.
   -Clean                      Clean selected build outputs before building.
   -Help                       Show this help.
@@ -1897,6 +1900,9 @@ function Invoke-LiveE2eSuite {
     }
     if (-not [string]::IsNullOrWhiteSpace($SharedRoot)) {
         $arguments += @('--shared-root', $SharedRoot)
+    }
+    foreach ($scenarioName in @($SharedFilesUiScenario | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+        $arguments += @('--shared-files-ui-scenario', $scenarioName)
     }
     if ($SharedFilesTreeStressChurnCycles -ge 0) {
         $arguments += @('--shared-files-tree-stress-churn-cycles', $SharedFilesTreeStressChurnCycles)
