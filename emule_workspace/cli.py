@@ -152,6 +152,8 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--rest-cold-start-dump-stress-skip-umdh-diffs", is_flag=True)
     @click.option("--rest-cold-start-dump-stress-cpu-profile", is_flag=True)
     @click.option("--rest-cold-start-dump-stress-cpu-profile-max-file-mb", default=512, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-cpu-profile-stack", is_flag=True)
+    @click.option("--rest-cold-start-dump-stress-cpu-profile-stack-min-hits", default=10, show_default=True, type=int)
     @click.option(
         "--rest-cold-start-dump-stress-cpu-profile-symbols-required/--no-rest-cold-start-dump-stress-cpu-profile-symbols-required",
         default=True,

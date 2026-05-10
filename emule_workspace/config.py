@@ -111,6 +111,8 @@ class LiveE2eOptions(BaseModel):
     rest_cold_start_dump_stress_skip_umdh_diffs: bool = False
     rest_cold_start_dump_stress_cpu_profile: bool = False
     rest_cold_start_dump_stress_cpu_profile_max_file_mb: int = 512
+    rest_cold_start_dump_stress_cpu_profile_stack: bool = False
+    rest_cold_start_dump_stress_cpu_profile_stack_min_hits: int = 10
     rest_cold_start_dump_stress_cpu_profile_symbols_required: bool = True
     rest_cold_start_dump_stress_skip_dumps: bool = False
 

@@ -209,9 +209,12 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
         live_options.rest_cold_start_dump_stress_tool_timeout_seconds,
         "--rest-cold-start-dump-stress-cpu-profile-max-file-mb",
         live_options.rest_cold_start_dump_stress_cpu_profile_max_file_mb,
+        "--rest-cold-start-dump-stress-cpu-profile-stack-min-hits",
+        live_options.rest_cold_start_dump_stress_cpu_profile_stack_min_hits,
     ]
     _append_optional_flag(args, live_options.rest_cold_start_dump_stress_enable_umdh, "--rest-cold-start-dump-stress-enable-umdh")
     _append_optional_flag(args, live_options.rest_cold_start_dump_stress_cpu_profile, "--rest-cold-start-dump-stress-cpu-profile")
+    _append_optional_flag(args, live_options.rest_cold_start_dump_stress_cpu_profile_stack, "--rest-cold-start-dump-stress-cpu-profile-stack")
     _append_optional_flag(
         args,
         live_options.rest_cold_start_dump_stress_allow_required_zero_result_searches,
