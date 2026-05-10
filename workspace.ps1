@@ -1170,6 +1170,8 @@ function New-ReleasePackage {
         sha256 = $zipHash
         emuleExeSha256 = $exeHash
         appCommit = Get-RepoHead $appRoot
+        buildCommit = Get-RepoHead $ScriptRoot
+        toolingCommit = Get-RepoHead $toolingRepoRoot
         generatedAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
         includedPaths = @(
             'eMule/emule.exe',
