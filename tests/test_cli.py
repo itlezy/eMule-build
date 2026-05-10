@@ -93,6 +93,7 @@ def test_package_release_help_exposes_release_version() -> None:
 
     assert result.exit_code == 0
     assert "--release-version" in result.output
+    assert "0.7.3" in result.output
 
 
 def test_materialize_help_exposes_bootstrap_options() -> None:

@@ -140,7 +140,7 @@ class ReleasePackageOptions(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    release_version: str = "1.1.1"
+    release_version: str = "0.7.3"
     clean: bool = False
 
 
