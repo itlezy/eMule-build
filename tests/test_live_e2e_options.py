@@ -63,6 +63,8 @@ def test_live_e2e_forwards_cold_stress_cpu_profile_options(tmp_path: Path, monke
             rest_cold_start_dump_stress_cpu_profile_stack_min_hits=25,
             rest_cold_start_dump_stress_cpu_profile_symbols_required=False,
             rest_cold_start_dump_stress_max_missing_download_triggers=1,
+            rest_cold_start_dump_stress_synthetic_queue_fill_count=5,
+            rest_cold_start_dump_stress_synthetic_queue_fill_size_bytes=4096,
             rest_cold_start_dump_stress_search_observation_timeout_seconds=12.0,
             rest_cold_start_dump_stress_allow_required_zero_result_searches=True,
             rest_cold_start_dump_stress_skip_transfer_cleanup=True,
@@ -78,6 +80,8 @@ def test_live_e2e_forwards_cold_stress_cpu_profile_options(tmp_path: Path, monke
     assert "--rest-cold-start-dump-stress-cpu-profile-stack" in command
     assert option_values(command, "--rest-cold-start-dump-stress-cpu-profile-stack-min-hits") == ["25"]
     assert option_values(command, "--rest-cold-start-dump-stress-max-missing-download-triggers") == ["1"]
+    assert option_values(command, "--rest-cold-start-dump-stress-synthetic-queue-fill-count") == ["5"]
+    assert option_values(command, "--rest-cold-start-dump-stress-synthetic-queue-fill-size-bytes") == ["4096"]
     assert option_values(command, "--rest-cold-start-dump-stress-search-observation-timeout-seconds") == ["12.0"]
     assert "--rest-cold-start-dump-stress-allow-required-zero-result-searches" in command
     assert "--rest-cold-start-dump-stress-skip-transfer-cleanup" in command
