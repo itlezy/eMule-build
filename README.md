@@ -188,7 +188,7 @@ Python test examples:
 - missing shared test helper scripts
 
 Tracked-file cleanliness is intentionally a separate explicit audit via
-`repos\eMule-tooling\ci\check-clean-worktree.ps1`, so in-progress feature work
+`repos\eMule-tooling\ci\check-clean-worktree.py`, so in-progress feature work
 does not get blocked by routine `validate`.
 
 The setup/build contract is intentionally narrow:
