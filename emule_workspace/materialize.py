@@ -42,8 +42,20 @@ def resolve_setup_workspace_root(workspace_root: str | None) -> Path:
     """Resolves setup commands to an explicit or layout-derived workspace root."""
 
     if workspace_root:
-        return Path(workspace_root).expanduser().resolve()
+        root = Path(workspace_root).expanduser().resolve()
+        _assert_build_repo_matches_root(root)
+        return root
     return derive_workspace_root_from_build_repo()
+
+
+def _assert_build_repo_matches_root(root: Path) -> None:
+    repo_root = build_repo_root().resolve()
+    expected = (root / "repos" / "eMule-build").resolve()
+    if repo_root != expected:
+        raise RuntimeError(
+            "eMule-build must be the clone at <EMULE_WORKSPACE_ROOT>\\repos\\eMule-build. "
+            f"Expected {expected}, current package is {repo_root}."
+        )
 
 
 def materialize_workspace(
