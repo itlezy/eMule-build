@@ -12,14 +12,26 @@ from .build_tests import invoke_build_tests
 from .build import build_apps as invoke_build_apps
 from .build import build_libs as invoke_build_libs
 from .config import (
+    AmutorrentSessionOptions,
     BuildTestsOptions,
+    CommunityCoverageOptions,
+    LiveE2eOptions,
     PythonTestOptions,
+    VariantComparisonOptions,
     WorkspaceOptions,
     resolve_workspace_options,
 )
 from .layout import load_layout
 from .locks import WorkspaceLock
 from .python_tests import invoke_python_tests
+from .status import write_dependency_status, write_workspace_summary
+from .test_runs import (
+    invoke_amutorrent_interactive_session,
+    invoke_community_core_coverage,
+    invoke_live_diff_runs,
+    invoke_live_e2e_suite,
+    invoke_test_runs,
+)
 from .validation import validate_workspace
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -76,6 +88,68 @@ def _locked(command_name: str, function: F) -> F:
     return wrapper  # type: ignore[return-value]
 
 
+def _comparison_options(function: F) -> F:
+    @click.option("--test-run-variant", default=None, help="App variant to run as the test target.")
+    @click.option("--baseline-variant", default=None, help="App variant to use as the comparison baseline.")
+    @wraps(function)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        comparison_options = VariantComparisonOptions(
+            test_run_variant=kwargs.pop("test_run_variant"),
+            baseline_variant=kwargs.pop("baseline_variant"),
+        )
+        return function(*args, comparison_options=comparison_options, **kwargs)
+
+    return wrapper  # type: ignore[return-value]
+
+
+def _live_e2e_options(function: F) -> F:
+    @click.option("--suite", "suites", multiple=True, help="Live E2E suite to run.")
+    @click.option("--fail-fast", is_flag=True, help="Stop the live E2E suite after the first failure.")
+    @click.option("--skip-live-seed-refresh", is_flag=True, help="Reuse the existing live seed state.")
+    @click.option("--startup-trace-mode", type=click.Choice(["required", "optional"]), default="required", show_default=True)
+    @click.option("--shared-root", default=None, help="Shared file root for live UI scenarios.")
+    @click.option("--shared-files-ui-scenario", "shared_files_ui_scenarios", multiple=True)
+    @click.option("--shared-files-tree-stress-churn-cycles", default=-1, show_default=True, type=int)
+    @click.option("--p2p-bind-interface-name", default="hide.me", show_default=True)
+    @click.option("--rest-server-search-count", default=6, show_default=True, type=int)
+    @click.option("--rest-kad-search-count", default=6, show_default=True, type=int)
+    @click.option("--rest-download-trigger-count", default=1, show_default=True, type=int)
+    @click.option("--rest-search-method-override", type=click.Choice(["", "automatic", "server", "global", "kad"]), default="")
+    @click.option("--rest-webserver-scheme", type=click.Choice(["http", "https"]), default="http", show_default=True)
+    @click.option("--rest-coverage-budget", type=click.Choice(["smoke", "contract", "contract-stress"]), default="contract")
+    @click.option("--rest-stress-budget", type=click.Choice(["off", "smoke", "soak"]), default="smoke")
+    @click.option("--rest-stress-duration-seconds", default=30.0, show_default=True, type=float)
+    @click.option("--rest-stress-concurrency", default=4, show_default=True, type=int)
+    @click.option("--rest-stress-max-failures", default=1, show_default=True, type=int)
+    @click.option("--rest-stress-request-timeout-seconds", default=5.0, show_default=True, type=float)
+    @click.option("--rest-socket-adversity-budget", type=click.Choice(["off", "smoke"]), default="off")
+    @click.option("--rest-tls-handshake-adversity-budget", type=click.Choice(["off", "smoke"]), default="off")
+    @click.option("--rest-leak-churn-budget", type=click.Choice(["off", "smoke", "soak"]), default="off")
+    @click.option("--rest-leak-churn-cycles", default=-1, show_default=True, type=int)
+    @click.option("--rest-stop-start-after-churn", is_flag=True)
+    @click.option("--rest-cold-start-dump-stress-waves", default=4, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-searches-per-wave", default=12, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-max-concurrent-searches", default=8, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-downloads-per-wave", default=12, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-downloads-per-search", default=1, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-target-completed-downloads", default=0, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-completion-timeout-seconds", default=1800.0, show_default=True, type=float)
+    @click.option("--rest-cold-start-dump-stress-max-active-downloads", default=128, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-download-churn-interval-seconds", default=0.0, show_default=True, type=float)
+    @click.option("--rest-cold-start-dump-stress-download-remove-count-per-churn", default=0, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-resource-monitor-interval-seconds", default=5.0, show_default=True, type=float)
+    @click.option("--rest-cold-start-dump-stress-post-drain-seconds", default=30.0, show_default=True, type=float)
+    @click.option("--rest-cold-start-dump-stress-tool-timeout-seconds", default=600.0, show_default=True, type=float)
+    @click.option("--rest-cold-start-dump-stress-enable-umdh", is_flag=True)
+    @click.option("--rest-cold-start-dump-stress-skip-dumps", is_flag=True)
+    @wraps(function)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        live_options = LiveE2eOptions(**{key: kwargs.pop(key) for key in LiveE2eOptions.model_fields})
+        return function(*args, live_options=live_options, **kwargs)
+
+    return wrapper  # type: ignore[return-value]
+
+
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def main() -> None:
     """Build, validate, test, and package an eMule BB workspace."""
@@ -89,6 +163,17 @@ def validate(ctx: click.Context, *, workspace_options: WorkspaceOptions, layout)
 
     del ctx
     _locked("validate", lambda **kwargs: validate_workspace(kwargs["layout"]))(
+        workspace_options=workspace_options,
+        layout=layout,
+    )
+
+
+@main.command("dep-status")
+@_common_options
+def dep_status(*, workspace_options: WorkspaceOptions, layout) -> None:
+    """Report dependency and app worktree status."""
+
+    _locked("dep-status", lambda **kwargs: write_dependency_status(kwargs["layout"]))(
         workspace_options=workspace_options,
         layout=layout,
     )
@@ -160,6 +245,31 @@ def build_tests(
     )(workspace_options=workspace_options, layout=layout)
 
 
+@build.command("all")
+@_common_options
+@click.option("--clean", is_flag=True, help="Clean selected build outputs before building.")
+@click.option("--variant", "app_variants", multiple=True, help="App variant to build. Defaults to all variants.")
+@click.option("--test-run-variant", default=None, help="App variant used as the native-test build target.")
+def build_all(
+    *,
+    clean: bool,
+    app_variants: tuple[str, ...],
+    test_run_variant: str | None,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Build dependencies, app variants, and the native test executable."""
+
+    build_options = BuildTestsOptions(clean=clean, test_run_variant=test_run_variant)
+
+    def run_all(**kwargs: Any) -> None:
+        invoke_build_libs(kwargs["layout"], kwargs["workspace_options"], clean=clean)
+        invoke_build_apps(kwargs["layout"], kwargs["workspace_options"], clean=clean, app_variant_names=app_variants)
+        invoke_build_tests(kwargs["layout"], kwargs["workspace_options"], build_options)
+
+    _locked("build all", run_all)(workspace_options=workspace_options, layout=layout)
+
+
 @main.group()
 def test() -> None:
     """Run workspace test suites."""
@@ -192,6 +302,125 @@ def test_python(
         "test python",
         lambda **kwargs: invoke_python_tests(kwargs["layout"], test_options),
     )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("all")
+@_common_options
+def test_all(*, workspace_options: WorkspaceOptions, layout) -> None:
+    """Run native parity, coverage, and live-diff checks."""
+
+    _locked("test all", lambda **kwargs: invoke_test_runs(kwargs["layout"], kwargs["workspace_options"]))(
+        workspace_options=workspace_options,
+        layout=layout,
+    )
+
+
+@test.command("live-diff")
+@_common_options
+@_comparison_options
+def test_live_diff(
+    *,
+    comparison_options: VariantComparisonOptions,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Compare two configured app variants."""
+
+    _locked(
+        "test live-diff",
+        lambda **kwargs: invoke_live_diff_runs(kwargs["layout"], kwargs["workspace_options"], comparison_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("community-core-coverage")
+@_common_options
+@click.option("--test-run-variant", default=None, help="App variant to run as the test target.")
+@click.option("--baseline-variant", default=None, help="App variant to use as the comparison baseline.")
+@click.option("--rest-coverage-budget", type=click.Choice(["smoke", "contract", "contract-stress"]), default="contract")
+@click.option("--rest-stress-budget", type=click.Choice(["off", "smoke", "soak"]), default="smoke")
+def test_community_core_coverage(
+    *,
+    test_run_variant: str | None,
+    baseline_variant: str | None,
+    rest_coverage_budget: str,
+    rest_stress_budget: str,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Run community-core coverage checks."""
+
+    coverage_options = CommunityCoverageOptions(
+        test_run_variant=test_run_variant,
+        baseline_variant=baseline_variant,
+        rest_coverage_budget=rest_coverage_budget,
+        rest_stress_budget=rest_stress_budget,
+    )
+    _locked(
+        "test community-core-coverage",
+        lambda **kwargs: invoke_community_core_coverage(kwargs["layout"], kwargs["workspace_options"], coverage_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("live-e2e")
+@_common_options
+@_live_e2e_options
+def test_live_e2e(
+    *,
+    live_options: LiveE2eOptions,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Run aggregate live E2E suites."""
+
+    _locked(
+        "test live-e2e",
+        lambda **kwargs: invoke_live_e2e_suite(kwargs["layout"], kwargs["workspace_options"], live_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("amutorrent-session")
+@_common_options
+@click.option("--live-network", is_flag=True, help="Allow the aMuTorrent session to use the live network.")
+def test_amutorrent_session(
+    *,
+    live_network: bool,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Start an interactive aMuTorrent test session."""
+
+    session_options = AmutorrentSessionOptions(live_network=live_network)
+    _locked(
+        "test amutorrent-session",
+        lambda **kwargs: invoke_amutorrent_interactive_session(kwargs["layout"], kwargs["workspace_options"], session_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@main.command()
+@_common_options
+@click.option("--clean", is_flag=True, help="Clean selected build outputs before building.")
+@click.option("--variant", "app_variants", multiple=True, help="App variant to build. Defaults to all variants.")
+@click.option("--test-run-variant", default=None, help="App variant used as the native-test build target.")
+def full(
+    *,
+    clean: bool,
+    app_variants: tuple[str, ...],
+    test_run_variant: str | None,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Run build all, test all, and a workspace summary."""
+
+    build_options = BuildTestsOptions(clean=clean, test_run_variant=test_run_variant)
+
+    def run_full(**kwargs: Any) -> None:
+        invoke_build_libs(kwargs["layout"], kwargs["workspace_options"], clean=clean)
+        invoke_build_apps(kwargs["layout"], kwargs["workspace_options"], clean=clean, app_variant_names=app_variants)
+        invoke_build_tests(kwargs["layout"], kwargs["workspace_options"], build_options)
+        invoke_test_runs(kwargs["layout"], kwargs["workspace_options"])
+        write_workspace_summary(kwargs["layout"])
+
+    _locked("full", run_full)(workspace_options=workspace_options, layout=layout)
 
 
 @main.command("env-check")

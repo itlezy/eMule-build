@@ -53,3 +53,32 @@ def test_python_test_help_exposes_pytest_options() -> None:
     assert result.exit_code == 0
     assert "--path" in result.output
     assert "--expression" in result.output
+
+
+def test_test_live_e2e_help_exposes_live_options() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["test", "live-e2e", "--help"])
+
+    assert result.exit_code == 0
+    assert "--suite" in result.output
+    assert "--p2p-bind-interface-name" in result.output
+
+
+def test_build_all_help_exposes_composed_build_options() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["build", "all", "--help"])
+
+    assert result.exit_code == 0
+    assert "--variant" in result.output
+    assert "--test-run-variant" in result.output
+
+
+def test_dep_status_help_is_available() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["dep-status", "--help"])
+
+    assert result.exit_code == 0
+    assert "Report dependency" in result.output

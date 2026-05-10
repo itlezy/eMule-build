@@ -71,24 +71,26 @@ Python-first commands:
 
 ```powershell
 python -m emule_workspace env-check --workspace-root <workspace-root>
+python -m emule_workspace dep-status --workspace-root <workspace-root>
 python -m emule_workspace validate --workspace-root <workspace-root>
 python -m emule_workspace build libs --workspace-root <workspace-root>
 python -m emule_workspace build app --workspace-root <workspace-root>
 python -m emule_workspace build tests --workspace-root <workspace-root>
+python -m emule_workspace build all --workspace-root <workspace-root>
 python -m emule_workspace test python --workspace-root <workspace-root>
+python -m emule_workspace test all --workspace-root <workspace-root>
+python -m emule_workspace test live-diff --workspace-root <workspace-root>
+python -m emule_workspace test live-e2e --workspace-root <workspace-root>
+python -m emule_workspace test amutorrent-session --workspace-root <workspace-root>
+python -m emule_workspace test community-core-coverage --workspace-root <workspace-root>
+python -m emule_workspace full --workspace-root <workspace-root>
 ```
 
 Legacy commands not yet ported:
 
 ```powershell
 pwsh -File .\workspace.ps1 help
-pwsh -File .\workspace.ps1 dep-status  -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 test        -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 live-diff   -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 live-e2e    -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 amutorrent-session -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 build-all   -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 full        -EmuleWorkspaceRoot <workspace-root>
+pwsh -File .\workspace.ps1 package-release -EmuleWorkspaceRoot <workspace-root>
 ```
 
 Command behavior:
@@ -101,17 +103,18 @@ Command behavior:
   checkout back to detached `origin/main` before running branch policy audits.
   The Python `validate` command currently checks the anchor and leaves repo
   state unchanged.
-- `build-libs` builds the shared dependency set for the selected `-Config` and `-Platform`.
-- `build-libs` includes the CMake-built `libpcpnatpmp` static library, and the current `main` app build now links it for the PCP/NAT-PMP NAT-mapping backend.
-- `build-app` builds all canonical app variants for the selected `-Config` and `-Platform`.
-- `build-tests` builds the shared test harness against the configured build variant.
-- `python-tests` runs the fast pytest harness suite from `eMule-build-tests`; use `-PythonTestPath`, `-PythonTestExpression`, and `-PythonTestQuiet` to narrow the pytest selection.
-- `test` runs parity tests, native coverage, and live diff using the configured test target variants.
-- `live-diff` runs parity and divergence comparison directly against any two configured app variants.
-- `live-e2e` runs the aggregate UI, REST API, and live-wire E2E suite from `eMule-build-tests`.
-- `amutorrent-session` starts a disposable interactive aMuTorrent session against eMule BB REST and leaves both processes running for operator testing.
-- `build-all` runs `build-libs`, `build-app`, and `build-tests`.
-- `full` runs `build-all`, then `test`, then prints a workspace summary.
+- `build libs` builds the shared dependency set for the selected `--config` and `--platform`.
+- `build libs` includes the CMake-built `libpcpnatpmp` static library, and the current `main` app build now links it for the PCP/NAT-PMP NAT-mapping backend.
+- `build app` builds all canonical app variants for the selected `--config` and `--platform`.
+- `build tests` builds the shared test harness against the configured build variant.
+- `test python` runs the fast pytest harness suite from `eMule-build-tests`; use `--path`, `--expression`, and `--quiet` to narrow the pytest selection.
+- `test all` runs parity tests, native coverage, and live diff using the configured test target variants.
+- `test live-diff` runs parity and divergence comparison directly against any two configured app variants.
+- `test live-e2e` runs the aggregate UI, REST API, and live-wire E2E suite from `eMule-build-tests`.
+- `test amutorrent-session` starts a disposable interactive aMuTorrent session against eMule BB REST and leaves both processes running for operator testing.
+- `test community-core-coverage` runs community-core coverage checks with live REST E2E coverage enabled.
+- `build all` runs `build libs`, `build app`, and `build tests`.
+- `full` runs `build all`, then `test all`, then prints a workspace summary.
 
 All top-level `emule_workspace` and legacy `workspace.ps1` commands are
 serialized per workspace root. This single-owner workspace lock is intentional.
@@ -149,7 +152,7 @@ Build runs write text logs, MSBuild binary logs, and a machine-readable recap un
 Shared test builds support `x64` and `ARM64`. Test execution remains `x64`
 only:
 
-- `test -Platform ARM64` fails with a clear unsupported-platform error
+- `test all --platform ARM64` fails with a clear unsupported-platform error
 
 ARM64 remains available for dependency and app builds, but x64 is still the
 primary stabilized acceptance path for the end-to-end canonical workflow.
