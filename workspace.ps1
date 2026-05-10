@@ -153,7 +153,7 @@ Commands:
   live-e2e                 Run aggregate live E2E suites.
   amutorrent-session       Start an interactive aMuTorrent test session.
   community-core-coverage  Run community-core coverage checks.
-  package-release          Create release package artifacts.
+  package-release          Build the main app and create release package artifacts.
   build-all                Run build-libs, build-app, and build-tests.
   full                     Run build-all, test, and a workspace summary.
 
@@ -1009,6 +1009,25 @@ function Build-LanguageResources([string]$AppRoot) {
 
 <#
 .SYNOPSIS
+Builds the main app binary used by release packaging for the selected package platform.
+#>
+function Build-PackageApp([string]$AppRoot) {
+    $entry = Get-SelectedBuildTarget
+    $project = Join-Path $AppRoot 'srchybrid\emule.vcxproj'
+    $extraProperties = @(Get-AppPropertyOverrides -TargetPlatform $entry.Platform)
+    $override = [Environment]::GetEnvironmentVariable($ToolsetOverrideVariable)
+    if ($override) {
+        $extraProperties += "/p:PlatformToolset=$override"
+    }
+
+    $buildTarget = if ($Clean) { 'Rebuild' } else { 'Build' }
+    Ensure-AppDependencyArtifacts -Configuration $entry.Configuration -TargetPlatform $entry.Platform
+    Invoke-MSBuildProject -ProjectPath $project -Configuration $entry.Configuration -Platform $entry.Platform -ExtraProperties $extraProperties -Target $buildTarget -StepName 'APP main package binary'
+    Verify-AppControlFlowGuard -BinaryPath (Get-AppBinaryPath -AppRoot $AppRoot -Configuration $entry.Configuration -TargetPlatform $entry.Platform) -StepName 'APP main package binary CFG'
+}
+
+<#
+.SYNOPSIS
 Resolves the built language DLL directory that is safe to copy into release packages.
 #>
 function Resolve-PackageLanguagePath([string]$AppRoot) {
@@ -1040,6 +1059,7 @@ function New-ReleasePackage {
 
     Ensure-CanonicalAppAnchor
     $appRoot = Resolve-AppVariantPath 'main' -RequireExists
+    Build-PackageApp -AppRoot $appRoot
     Build-LanguageResources -AppRoot $appRoot
     $buildOutputRoot = [System.IO.Path]::GetFullPath((Join-Path $appRoot ("srchybrid\{0}\{1}" -f $Platform, $Config)))
     $exePath = Join-Path $buildOutputRoot 'emule.exe'
@@ -1904,7 +1924,7 @@ if (-not (Acquire-WorkspaceCommandLock)) {
     exit 1
 }
 
-if ($Command -in @('build-libs', 'build-app', 'build-tests', 'build-all', 'full')) {
+if ($Command -in @('build-libs', 'build-app', 'build-tests', 'package-release', 'build-all', 'full')) {
     Reset-BuildExecutionState
 }
 
@@ -1980,7 +2000,7 @@ try {
         }
     }
 } finally {
-    if ($Command -in @('build-libs', 'build-app', 'build-tests', 'build-all', 'full')) {
+    if ($Command -in @('build-libs', 'build-app', 'build-tests', 'package-release', 'build-all', 'full')) {
         Write-BuildCommandRecap -CommandName $Command
     }
     Release-WorkspaceCommandLock
