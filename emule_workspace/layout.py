@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .process import run_captured
+from .topology import BUILD_MANIFEST_NAME, WORKSPACE_MANIFEST_NAME, load_json
 
 
 @dataclass(frozen=True)
@@ -67,7 +66,7 @@ class WorkspaceLayout:
         for variant in self.app_variants:
             if variant.name == name:
                 return variant
-        raise RuntimeError(f"App variant '{name}' is not defined in deps.psd1.")
+        raise RuntimeError(f"App variant '{name}' is not defined in {WORKSPACE_MANIFEST_NAME}.")
 
     def build_log_directory(self, stamp: str) -> Path:
         """Returns and creates the workspace build-log directory for one session."""
@@ -87,42 +86,42 @@ def load_layout(emule_workspace_root: Path, workspace_name: str | None = None) -
     """Loads and resolves the build and workspace manifests."""
 
     repo_root = build_repo_root()
-    build_manifest = _load_psd1(repo_root / "deps.psd1")
-    build_workspace = _required_dict(build_manifest, "Workspace")
-    resolved_workspace_name = workspace_name or str(build_workspace.get("Name") or "v0.72a")
+    build_manifest = load_json(repo_root / BUILD_MANIFEST_NAME)
+    build_workspace = _required_dict(build_manifest, "workspace")
+    resolved_workspace_name = workspace_name or str(build_workspace.get("name") or "v0.72a")
     workspace_root = (emule_workspace_root / "workspaces" / resolved_workspace_name).resolve()
-    workspace_manifest_path = workspace_root / "deps.psd1"
+    workspace_manifest_path = workspace_root / WORKSPACE_MANIFEST_NAME
     if not workspace_manifest_path.is_file():
         raise RuntimeError(
             f"Workspace manifest is missing: {workspace_manifest_path}. "
-            "Run eMulebb-setup init/materialize/sync for this workspace."
+            "Run python -m emule_workspace materialize or sync for this workspace."
         )
 
-    workspace_manifest = _load_psd1(workspace_manifest_path)
-    workspace_topology = _required_dict(workspace_manifest, "Workspace")
-    app_repo = _required_dict(workspace_topology, "AppRepo")
-    seed_repo = _required_dict(app_repo, "SeedRepo")
-    repos = _required_dict(workspace_topology, "Repos")
-    build_app_repo = _required_dict(build_workspace, "AppRepo")
-    test_targets = _required_dict(build_app_repo, "TestTargets")
-    toolchain = _required_dict(build_workspace, "Toolchain")
+    workspace_manifest = load_json(workspace_manifest_path)
+    workspace_topology = _required_dict(workspace_manifest, "workspace")
+    app_repo = _required_dict(workspace_topology, "app_repo")
+    seed_repo = _required_dict(app_repo, "seed_repo")
+    repos = _required_dict(workspace_topology, "repos")
+    build_app_repo = _required_dict(build_workspace, "app_repo")
+    test_targets = _required_dict(build_app_repo, "test_targets")
+    toolchain = _required_dict(build_workspace, "toolchain")
 
     variants = tuple(
         AppVariant(
-            name=str(raw["Name"]),
-            path=_resolve_workspace_manifest_path(workspace_root, raw["Path"]),
-            branch=str(raw["Branch"]),
+            name=str(raw["name"]),
+            path=_resolve_workspace_manifest_path(workspace_root, raw["path"]),
+            branch=str(raw["branch"]),
         )
-        for raw in _required_list(app_repo, "Variants")
+        for raw in _required_list(app_repo, "variants")
     )
     dependencies = tuple(
         Dependency(
-            name=str(raw["Name"]),
-            path=str(raw["Path"]),
-            project=str(raw["Project"]),
-            header_only=bool(raw.get("HeaderOnly", False)),
+            name=str(raw["name"]),
+            path=str(raw["path"]),
+            project=str(raw["project"]),
+            header_only=bool(raw.get("header_only", False)),
         )
-        for raw in _required_list(build_workspace, "Dependencies")
+        for raw in _required_list(build_workspace, "dependencies")
     )
 
     return WorkspaceLayout(
@@ -130,18 +129,18 @@ def load_layout(emule_workspace_root: Path, workspace_name: str | None = None) -
         workspace_name=resolved_workspace_name,
         workspace_root=workspace_root,
         build_repo_root=repo_root,
-        tests_repo_root=_resolve_workspace_manifest_path(workspace_root, repos["Tests"]),
-        tooling_repo_root=_resolve_workspace_manifest_path(workspace_root, repos["Tooling"]),
-        seed_repo_path=_resolve_workspace_manifest_path(workspace_root, seed_repo["Path"]),
-        seed_repo_branch=str(seed_repo["Branch"]),
+        tests_repo_root=_resolve_workspace_manifest_path(workspace_root, repos["tests"]),
+        tooling_repo_root=_resolve_workspace_manifest_path(workspace_root, repos["tooling"]),
+        seed_repo_path=_resolve_workspace_manifest_path(workspace_root, seed_repo["path"]),
+        seed_repo_branch=str(seed_repo["branch"]),
         dependencies=dependencies,
         app_variants=variants,
         test_targets=TestTargets(
-            test_build_variant=str(test_targets["TestBuildVariant"]),
-            test_run_variant=str(test_targets["TestRunVariant"]),
-            baseline_variant=str(test_targets["BaselineVariant"]),
+            test_build_variant=str(test_targets["test_build_variant"]),
+            test_run_variant=str(test_targets["test_run_variant"]),
+            baseline_variant=str(test_targets["baseline_variant"]),
         ),
-        toolset_override_variable=str(toolchain.get("ToolsetOverrideVariable") or ""),
+        toolset_override_variable=str(toolchain.get("toolset_override_variable") or ""),
     )
 
 
@@ -163,24 +162,6 @@ def file_token(value: str) -> str:
     token = re.sub(r'[\\/:*?"<>|\s]+', "-", value)
     token = re.sub(r"[^A-Za-z0-9._-]+", "-", token).strip("-")
     return token or "build"
-
-
-def _load_psd1(path: Path) -> dict[str, Any]:
-    """Loads a PowerShell data file using PowerShell's data-file parser."""
-
-    command = [
-        "pwsh",
-        "-NoLogo",
-        "-NoProfile",
-        "-Command",
-        "& { param($p) $m=Import-PowerShellDataFile -LiteralPath $p; $m | ConvertTo-Json -Depth 20 }",
-        str(path),
-    ]
-    output = run_captured(command, label=f"load manifest {path}", cwd=path.parent)
-    payload = json.loads(output)
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"Manifest did not load as an object: {path}")
-    return payload
 
 
 def _resolve_workspace_manifest_path(workspace_root: Path, relative_path: str | Path) -> Path:

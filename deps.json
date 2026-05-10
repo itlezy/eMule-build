@@ -1,0 +1,58 @@
+{
+  "workspace": {
+    "name": "v0.72a",
+    "toolchain": {
+      "toolset_override_variable": "EMULE_V072_PLATFORM_TOOLSET"
+    },
+    "app_repo": {
+      "test_targets": {
+        "test_build_variant": "community",
+        "test_run_variant": "main",
+        "baseline_variant": "community"
+      }
+    },
+    "dependencies": [
+      {
+        "name": "cryptopp",
+        "path": "repos\\third_party\\eMule-cryptopp",
+        "project": "cryptlib.vcxproj"
+      },
+      {
+        "name": "id3lib",
+        "path": "repos\\third_party\\eMule-id3lib",
+        "project": "libprj\\id3lib.vcxproj"
+      },
+      {
+        "name": "libpcpnatpmp",
+        "path": "repos\\third_party\\eMule-libpcpnatpmp",
+        "project": "CMakeLists.txt"
+      },
+      {
+        "name": "miniupnp",
+        "path": "repos\\third_party\\eMule-miniupnp",
+        "project": "miniupnpc\\msvc\\miniupnpc.vcxproj"
+      },
+      {
+        "name": "ResizableLib",
+        "path": "repos\\third_party\\eMule-ResizableLib",
+        "project": "ResizableLib\\ResizableLib.vcxproj"
+      },
+      {
+        "name": "nlohmann-json",
+        "path": "repos\\third_party\\eMule-nlohmann-json",
+        "project": "single_include\\nlohmann\\json.hpp",
+        "header_only": true
+      },
+      {
+        "name": "zlib",
+        "path": "repos\\third_party\\eMule-zlib",
+        "project": "contrib\\vstudio\\vc\\zlib.vcxproj"
+      },
+      {
+        "name": "mbedtls",
+        "path": "repos\\third_party\\eMule-mbedtls",
+        "project": "visualc\\VS2017\\mbedTLS.vcxproj"
+      }
+    ]
+  }
+}
