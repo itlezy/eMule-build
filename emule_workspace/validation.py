@@ -7,15 +7,21 @@ from pathlib import Path
 from .git import repo_branch, repo_status_lines, test_app_branch_allowed
 from .layout import WorkspaceLayout
 from .process import find_tool, run_native
+from .toolchain import get_visual_studio_info
 
 
 def env_check(layout: WorkspaceLayout) -> None:
     """Validates basic command-line tool discovery."""
 
+    vs = get_visual_studio_info()
+    if vs is None or not vs.msbuild.is_file():
+        raise RuntimeError("Visual Studio 2022 with MSBuild is required.")
     if find_tool(("git.exe", "git")) is None:
         raise RuntimeError("git not found on PATH.")
     if find_tool(("pwsh.exe", "pwsh")) is None:
         raise RuntimeError("pwsh not found on PATH.")
+    print(f"Visual Studio: {vs.root}")
+    print(f"MSBuild: {vs.msbuild}")
     print(f"Python workspace CLI: {layout.build_repo_root}")
     print(f"Toolset override variable: {layout.toolset_override_variable}")
 

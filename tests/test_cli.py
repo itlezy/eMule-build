@@ -26,6 +26,25 @@ def test_build_tests_help_exposes_clean_architecture_command() -> None:
     assert "--build-output-mode" in result.output
 
 
+def test_build_app_help_exposes_variant_selection() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["build", "app", "--help"])
+
+    assert result.exit_code == 0
+    assert "--variant" in result.output
+    assert "--clean" in result.output
+
+
+def test_build_libs_help_exposes_clean_option() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["build", "libs", "--help"])
+
+    assert result.exit_code == 0
+    assert "--clean" in result.output
+
+
 def test_python_test_help_exposes_pytest_options() -> None:
     runner = CliRunner()
 

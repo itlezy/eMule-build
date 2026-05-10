@@ -9,6 +9,8 @@ from typing import Any, TypeVar
 import click
 
 from .build_tests import invoke_build_tests
+from .build import build_apps as invoke_build_apps
+from .build import build_libs as invoke_build_libs
 from .config import (
     BuildTestsOptions,
     PythonTestOptions,
@@ -95,6 +97,47 @@ def validate(ctx: click.Context, *, workspace_options: WorkspaceOptions, layout)
 @main.group()
 def build() -> None:
     """Build workspace targets."""
+
+
+@build.command("libs")
+@_common_options
+@click.option("--clean", is_flag=True, help="Clean selected dependency outputs before building.")
+def build_libs(
+    *,
+    clean: bool,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Build the shared dependency set."""
+
+    _locked(
+        "build libs",
+        lambda **kwargs: invoke_build_libs(kwargs["layout"], kwargs["workspace_options"], clean=clean),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@build.command("app")
+@_common_options
+@click.option("--clean", is_flag=True, help="Clean selected app outputs before building.")
+@click.option("--variant", "app_variants", multiple=True, help="App variant to build. Defaults to all variants.")
+def build_app(
+    *,
+    clean: bool,
+    app_variants: tuple[str, ...],
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Build selected app worktrees."""
+
+    _locked(
+        "build app",
+        lambda **kwargs: invoke_build_apps(
+            kwargs["layout"],
+            kwargs["workspace_options"],
+            clean=clean,
+            app_variant_names=app_variants,
+        ),
+    )(workspace_options=workspace_options, layout=layout)
 
 
 @build.command("tests")

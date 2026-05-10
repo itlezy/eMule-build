@@ -20,7 +20,7 @@ not yet been migrated into the Python package.
 Use the supported `emule_workspace` command after `eMulebb-setup` has
 materialized the workspace. The new package owns typed command parsing,
 workspace topology loading, locking, subprocess routing, and the migrated
-validation/test commands. Remaining build, live-test, and package flows stay on
+validation, test, and build commands. Remaining live-test and package flows stay on
 the legacy `workspace.ps1` entrypoint until their logic is ported.
 
 ## Workspace Assumption
@@ -72,6 +72,8 @@ Python-first commands:
 ```powershell
 python -m emule_workspace env-check --workspace-root <workspace-root>
 python -m emule_workspace validate --workspace-root <workspace-root>
+python -m emule_workspace build libs --workspace-root <workspace-root>
+python -m emule_workspace build app --workspace-root <workspace-root>
 python -m emule_workspace build tests --workspace-root <workspace-root>
 python -m emule_workspace test python --workspace-root <workspace-root>
 ```
@@ -80,13 +82,7 @@ Legacy commands not yet ported:
 
 ```powershell
 pwsh -File .\workspace.ps1 help
-pwsh -File .\workspace.ps1 env-check   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 dep-status  -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 validate    -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 build-libs  -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 build-app   -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 build-tests -EmuleWorkspaceRoot <workspace-root>
-pwsh -File .\workspace.ps1 python-tests -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 test        -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 live-diff   -EmuleWorkspaceRoot <workspace-root>
 pwsh -File .\workspace.ps1 live-e2e    -EmuleWorkspaceRoot <workspace-root>
@@ -117,10 +113,10 @@ Command behavior:
 - `build-all` runs `build-libs`, `build-app`, and `build-tests`.
 - `full` runs `build-all`, then `test`, then prints a workspace summary.
 
-All top-level `workspace.ps1` commands are serialized per workspace root. This
-single-owner workspace lock is intentional. It prevents overlapping
-`env-check`, build, test, and live-diff commands from trampling shared state,
-logs, and outputs in the same workspace.
+All top-level `emule_workspace` and legacy `workspace.ps1` commands are
+serialized per workspace root. This single-owner workspace lock is intentional.
+It prevents overlapping `env-check`, build, test, and live-diff commands from
+trampling shared state, logs, and outputs in the same workspace.
 
 If another command already owns the workspace lock, the next command fails fast
 with a clear owner message instead of running concurrently against the same
