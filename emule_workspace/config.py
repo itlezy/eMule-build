@@ -100,6 +100,7 @@ class LiveE2eOptions(BaseModel):
     rest_cold_start_dump_stress_target_completed_downloads: int = 0
     rest_cold_start_dump_stress_completion_timeout_seconds: float = 1800.0
     rest_cold_start_dump_stress_max_active_downloads: int = 512
+    rest_cold_start_dump_stress_allow_required_zero_result_searches: bool = False
     rest_cold_start_dump_stress_download_churn_interval_seconds: float = 0.0
     rest_cold_start_dump_stress_download_remove_count_per_churn: int = 0
     rest_cold_start_dump_stress_resource_monitor_interval_seconds: float = 5.0

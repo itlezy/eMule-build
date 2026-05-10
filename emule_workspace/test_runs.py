@@ -212,6 +212,11 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
     ]
     _append_optional_flag(args, live_options.rest_cold_start_dump_stress_enable_umdh, "--rest-cold-start-dump-stress-enable-umdh")
     _append_optional_flag(args, live_options.rest_cold_start_dump_stress_cpu_profile, "--rest-cold-start-dump-stress-cpu-profile")
+    _append_optional_flag(
+        args,
+        live_options.rest_cold_start_dump_stress_allow_required_zero_result_searches,
+        "--rest-cold-start-dump-stress-allow-required-zero-result-searches",
+    )
     if not live_options.rest_cold_start_dump_stress_cpu_profile_symbols_required:
         args.append("--no-rest-cold-start-dump-stress-cpu-profile-symbols-required")
     _append_optional_flag(args, live_options.rest_cold_start_dump_stress_skip_dumps, "--rest-cold-start-dump-stress-skip-dumps")
