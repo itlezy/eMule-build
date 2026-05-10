@@ -195,6 +195,8 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
         live_options.rest_cold_start_dump_stress_synthetic_queue_fill_count,
         "--rest-cold-start-dump-stress-synthetic-queue-fill-size-bytes",
         live_options.rest_cold_start_dump_stress_synthetic_queue_fill_size_bytes,
+        "--rest-cold-start-dump-stress-synthetic-queue-fill-batch-size",
+        live_options.rest_cold_start_dump_stress_synthetic_queue_fill_batch_size,
         "--rest-cold-start-dump-stress-target-completed-downloads",
         live_options.rest_cold_start_dump_stress_target_completed_downloads,
         "--rest-cold-start-dump-stress-completion-timeout-seconds",

@@ -99,6 +99,7 @@ class LiveE2eOptions(BaseModel):
     rest_cold_start_dump_stress_max_missing_download_triggers: int = 0
     rest_cold_start_dump_stress_synthetic_queue_fill_count: int = 0
     rest_cold_start_dump_stress_synthetic_queue_fill_size_bytes: int = 1024 * 1024
+    rest_cold_start_dump_stress_synthetic_queue_fill_batch_size: int = 50
     rest_cold_start_dump_stress_target_completed_downloads: int = 0
     rest_cold_start_dump_stress_completion_timeout_seconds: float = 1800.0
     rest_cold_start_dump_stress_max_active_downloads: int = 512

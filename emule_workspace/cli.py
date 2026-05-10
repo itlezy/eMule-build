@@ -140,6 +140,7 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--rest-cold-start-dump-stress-max-missing-download-triggers", default=0, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-synthetic-queue-fill-count", default=0, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-synthetic-queue-fill-size-bytes", default=1024 * 1024, show_default=True, type=int)
+    @click.option("--rest-cold-start-dump-stress-synthetic-queue-fill-batch-size", default=50, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-target-completed-downloads", default=0, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-completion-timeout-seconds", default=1800.0, show_default=True, type=float)
     @click.option("--rest-cold-start-dump-stress-max-active-downloads", default=512, show_default=True, type=int)
