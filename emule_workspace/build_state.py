@@ -43,12 +43,19 @@ class BuildSession:
 
         return self.layout.build_log_directory(self.stamp)
 
-    def msbuild_log_paths(self, project_path: Path, target: str) -> tuple[Path, Path]:
+    def msbuild_log_paths(
+        self,
+        project_path: Path,
+        target: str,
+        *,
+        configuration: str | None = None,
+        platform: str | None = None,
+    ) -> tuple[Path, Path]:
         """Returns text and binary MSBuild log paths for one project."""
 
         relative_project = project_path.resolve().relative_to(self.layout.emule_workspace_root)
         token = file_token(str(relative_project.with_suffix("")))
-        suffix = f"{target.lower()}-{self.options.configuration.lower()}-{self.options.platform.lower()}"
+        suffix = f"{target.lower()}-{(configuration or self.options.configuration).lower()}-{(platform or self.options.platform).lower()}"
         return (
             self.log_directory / f"{token}-{suffix}.log",
             self.log_directory / f"{token}-{suffix}.binlog",

@@ -122,6 +122,15 @@ class CommunityCoverageOptions(VariantComparisonOptions):
     rest_stress_budget: str = "smoke"
 
 
+class ReleasePackageOptions(BaseModel):
+    """Options for building a release package artifact."""
+
+    model_config = ConfigDict(frozen=True)
+
+    release_version: str = "1.1.1"
+    clean: bool = False
+
+
 def resolve_workspace_options(
     *,
     workspace_root: str | None,

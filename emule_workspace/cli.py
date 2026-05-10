@@ -17,6 +17,7 @@ from .config import (
     CommunityCoverageOptions,
     LiveE2eOptions,
     PythonTestOptions,
+    ReleasePackageOptions,
     VariantComparisonOptions,
     WorkspaceOptions,
     resolve_workspace_options,
@@ -24,6 +25,7 @@ from .config import (
 from .layout import load_layout
 from .locks import WorkspaceLock
 from .python_tests import invoke_python_tests
+from .release import create_release_package
 from .status import write_dependency_status, write_workspace_summary
 from .test_runs import (
     invoke_amutorrent_interactive_session,
@@ -421,6 +423,26 @@ def full(
         write_workspace_summary(kwargs["layout"])
 
     _locked("full", run_full)(workspace_options=workspace_options, layout=layout)
+
+
+@main.command("package-release")
+@_common_options
+@click.option("--clean", is_flag=True, help="Clean selected package build outputs before building.")
+@click.option("--release-version", default="1.1.1", show_default=True, help="Release version in MAJOR.MINOR.PATCH form.")
+def package_release(
+    *,
+    clean: bool,
+    release_version: str,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Build the main app and create release package artifacts."""
+
+    package_options = ReleasePackageOptions(release_version=release_version, clean=clean)
+    _locked(
+        "package release",
+        lambda **kwargs: create_release_package(kwargs["layout"], kwargs["workspace_options"], package_options),
+    )(workspace_options=workspace_options, layout=layout)
 
 
 @main.command("env-check")

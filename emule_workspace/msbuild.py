@@ -18,20 +18,29 @@ def invoke_msbuild_project(
     project_path: Path,
     extra_properties: Sequence[str] = (),
     target: str = "Build",
+    configuration: str | None = None,
+    platform: str | None = None,
     environment_overrides: Mapping[str, str] | None = None,
     step_name: str | None = None,
 ) -> None:
     """Invokes MSBuild for one project and records a build step."""
 
     name = step_name or project_path.stem
-    log_path, binary_log_path = session.msbuild_log_paths(project_path, target)
+    active_configuration = configuration or session.options.configuration
+    active_platform = platform or session.options.platform
+    log_path, binary_log_path = session.msbuild_log_paths(
+        project_path,
+        target,
+        configuration=active_configuration,
+        platform=active_platform,
+    )
     arguments = [
         project_path,
         "/m",
         "/nologo",
         f"/t:{target}",
-        f"/p:Configuration={session.options.configuration}",
-        f"/p:Platform={session.options.platform}",
+        f"/p:Configuration={active_configuration}",
+        f"/p:Platform={active_platform}",
         f"/flp:LogFile={log_path};Verbosity=normal;Encoding=UTF-8",
         f"/bl:{binary_log_path}",
         *extra_properties,

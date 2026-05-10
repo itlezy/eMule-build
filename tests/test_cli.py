@@ -82,3 +82,12 @@ def test_dep_status_help_is_available() -> None:
 
     assert result.exit_code == 0
     assert "Report dependency" in result.output
+
+
+def test_package_release_help_exposes_release_version() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["package-release", "--help"])
+
+    assert result.exit_code == 0
+    assert "--release-version" in result.output

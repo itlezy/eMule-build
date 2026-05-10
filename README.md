@@ -84,13 +84,13 @@ python -m emule_workspace test live-e2e --workspace-root <workspace-root>
 python -m emule_workspace test amutorrent-session --workspace-root <workspace-root>
 python -m emule_workspace test community-core-coverage --workspace-root <workspace-root>
 python -m emule_workspace full --workspace-root <workspace-root>
+python -m emule_workspace package-release --workspace-root <workspace-root>
 ```
 
-Legacy commands not yet ported:
+Legacy entrypoint:
 
 ```powershell
 pwsh -File .\workspace.ps1 help
-pwsh -File .\workspace.ps1 package-release -EmuleWorkspaceRoot <workspace-root>
 ```
 
 Command behavior:
@@ -115,6 +115,7 @@ Command behavior:
 - `test community-core-coverage` runs community-core coverage checks with live REST E2E coverage enabled.
 - `build all` runs `build libs`, `build app`, and `build tests`.
 - `full` runs `build all`, then `test all`, then prints a workspace summary.
+- `package-release` builds the main Release app, language DLLs, release ZIP, and release manifest.
 
 All top-level `emule_workspace` and legacy `workspace.ps1` commands are
 serialized per workspace root. This single-owner workspace lock is intentional.
