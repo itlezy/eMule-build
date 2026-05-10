@@ -10,7 +10,14 @@ from .materialize import ROOT_AGENTS_CONTENT
 from .process import find_tool, run_native
 from .setup_commands import compare_presets, compare_root
 from .toolchain import get_visual_studio_info
-from .topology import WORKSPACE_MANIFEST_NAME, WORKSPACE_PROPS_FILE_NAME, build_workspace_manifest, canonical_topology, load_json
+from .topology import (
+    WORKSPACE_MANIFEST_NAME,
+    WORKSPACE_PROPS_FILE_NAME,
+    build_workspace_manifest,
+    canonical_topology,
+    load_json,
+    validate_workspace_manifest_contract,
+)
 
 
 def env_check(layout: WorkspaceLayout) -> None:
@@ -57,6 +64,7 @@ def assert_generated_workspace_manifest(layout: WorkspaceLayout) -> None:
     topology = canonical_topology()
     manifest_path = layout.workspace_root / WORKSPACE_MANIFEST_NAME
     actual = load_json(manifest_path)
+    validate_workspace_manifest_contract(actual)
     expected = build_workspace_manifest(topology, layout.workspace_name)
     if actual != expected:
         raise RuntimeError(f"Workspace manifest drifted from Python topology: {manifest_path}. Run sync to regenerate it.")

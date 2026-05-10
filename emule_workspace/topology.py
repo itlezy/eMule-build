@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 BUILD_MANIFEST_NAME = "deps.json"
 WORKSPACE_MANIFEST_NAME = "deps.json"
+WORKSPACE_MANIFEST_SCHEMA_VERSION = 1
 DEFAULT_WORKSPACE_NAME = "v0.72a"
 WORKSPACE_PROPS_FILE_NAME = "v0.72a-workspace.props"
 SETUP_LOG_FILE_NAME = "eMule-workspace.log"
@@ -102,6 +103,76 @@ class WorkspaceTopology(BaseModel):
         return (*self.repos, *self.analysis_repos, *self.third_party_repos, self.app_repo)
 
 
+class WorkspaceManifestSeedRepo(BaseModel):
+    """Seed app repo entry in the generated workspace manifest."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    path: str
+    branch: str
+
+
+class WorkspaceManifestVariant(BaseModel):
+    """Managed app variant entry in the generated workspace manifest."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    path: str
+    branch: str
+
+
+class WorkspaceManifestAppRepo(BaseModel):
+    """App repo section in the generated workspace manifest."""
+
+    model_config = ConfigDict(frozen=True)
+
+    seed_repo: WorkspaceManifestSeedRepo
+    variants: tuple[WorkspaceManifestVariant, ...]
+
+
+class WorkspaceManifestRepos(BaseModel):
+    """Repository path section in the generated workspace manifest."""
+
+    model_config = ConfigDict(frozen=True)
+
+    build: str
+    tests: str
+    tooling: str
+    amutorrent: str
+    third_party: str
+
+
+class WorkspaceManifestWorkspace(BaseModel):
+    """Workspace section in the generated workspace manifest."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    app_repo: WorkspaceManifestAppRepo
+    repos: WorkspaceManifestRepos
+
+
+class WorkspaceManifestContract(BaseModel):
+    """Versioned contract written to workspaces/<name>/deps.json."""
+
+    model_config = ConfigDict(frozen=True)
+
+    schema_version: int
+    emule_workspace_root: str
+    workspace: WorkspaceManifestWorkspace
+
+    @field_validator("schema_version")
+    @classmethod
+    def require_supported_schema_version(cls, value: int) -> int:
+        """Rejects manifests written by an incompatible schema version."""
+
+        if value != WORKSPACE_MANIFEST_SCHEMA_VERSION:
+            raise ValueError(f"unsupported workspace manifest schema_version {value}")
+        return value
+
+
 def load_json(path: Path) -> dict[str, Any]:
     """Loads one JSON object from disk."""
 
@@ -127,6 +198,7 @@ def build_workspace_manifest(topology: WorkspaceTopology, workspace_name: str | 
     workspace_prefix = Path("..") / ".."
     app_prefix = Path("workspaces") / resolved_workspace_name
     return {
+        "schema_version": WORKSPACE_MANIFEST_SCHEMA_VERSION,
         "emule_workspace_root": str(workspace_prefix),
         "workspace": {
             "name": resolved_workspace_name,
@@ -154,6 +226,12 @@ def build_workspace_manifest(topology: WorkspaceTopology, workspace_name: str | 
             },
         },
     }
+
+
+def validate_workspace_manifest_contract(payload: dict[str, Any]) -> WorkspaceManifestContract:
+    """Validates one generated workspace manifest payload."""
+
+    return WorkspaceManifestContract.model_validate(payload)
 
 
 def canonical_topology() -> WorkspaceTopology:
