@@ -244,6 +244,8 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
         args.extend(["--shared-files-ui-scenario", scenario_name])
     if live_options.shared_files_tree_stress_churn_cycles >= 0:
         args.extend(["--shared-files-tree-stress-churn-cycles", live_options.shared_files_tree_stress_churn_cycles])
+    if live_options.live_wire_inputs_file:
+        args.extend(["--live-wire-inputs-file", live_options.live_wire_inputs_file])
     if live_options.radarr_movie_root:
         args.extend(["--radarr-movie-root", live_options.radarr_movie_root])
     if live_options.rest_search_method_override:

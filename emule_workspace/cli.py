@@ -114,6 +114,7 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--shared-root", default=None, help="Shared file root for live UI scenarios.")
     @click.option("--shared-files-ui-scenario", "shared_files_ui_scenarios", multiple=True)
     @click.option("--shared-files-tree-stress-churn-cycles", default=-1, show_default=True, type=int)
+    @click.option("--live-wire-inputs-file", default=None, help="Runtime live-wire search input JSON.")
     @click.option("--radarr-movie-root", default=None, help="Radarr-visible movie root for Radarr import live checks.")
     @click.option("--p2p-bind-interface-name", default="hide.me", show_default=True)
     @click.option("--rest-server-search-count", default=6, show_default=True, type=int)

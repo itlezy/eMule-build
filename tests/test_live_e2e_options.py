@@ -121,3 +121,34 @@ def test_live_e2e_forwards_radarr_movie_root_only_when_configured(tmp_path: Path
     command = captured["command"]
     assert isinstance(command, list)
     assert option_values(command, "--radarr-movie-root") == ["/media/radarr-import-root"]
+
+
+def test_live_e2e_forwards_live_wire_inputs_file_only_when_configured(tmp_path: Path, monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_native(command, *, label, cwd, env=None, allow_failure=False):
+        captured["command"] = list(command)
+
+    layout = make_layout(tmp_path)
+    monkeypatch.setattr(test_runs, "run_native", fake_run_native)
+
+    test_runs.invoke_live_e2e_suite(
+        layout,
+        WorkspaceOptions(workspace_root=tmp_path, platform="x64"),
+        LiveE2eOptions(suites=("prowlarr-emulebb",)),
+    )
+
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert "--live-wire-inputs-file" not in command
+
+    live_wire_inputs_file = str(tmp_path / "repos" / "eMule-build-tests" / "live-wire-inputs.local.json")
+    test_runs.invoke_live_e2e_suite(
+        layout,
+        WorkspaceOptions(workspace_root=tmp_path, platform="x64"),
+        LiveE2eOptions(suites=("prowlarr-emulebb",), live_wire_inputs_file=live_wire_inputs_file),
+    )
+
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert option_values(command, "--live-wire-inputs-file") == [live_wire_inputs_file]

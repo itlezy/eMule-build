@@ -73,6 +73,7 @@ class LiveE2eOptions(BaseModel):
     shared_root: str | None = None
     shared_files_ui_scenarios: tuple[str, ...] = ()
     shared_files_tree_stress_churn_cycles: int = -1
+    live_wire_inputs_file: str | None = None
     radarr_movie_root: str | None = None
     p2p_bind_interface_name: str = "hide.me"
     rest_server_search_count: int = 6
