@@ -170,7 +170,7 @@ def test_live_e2e_forwards_acquisition_timeout_only_when_configured(tmp_path: Pa
 
     command = captured["command"]
     assert isinstance(command, list)
-    assert "--acquisition-timeout-minutes" not in command
+    assert "--media-acquisition-timeout-minutes" not in command
 
     test_runs.invoke_live_e2e_suite(
         layout,
@@ -180,7 +180,7 @@ def test_live_e2e_forwards_acquisition_timeout_only_when_configured(tmp_path: Pa
 
     command = captured["command"]
     assert isinstance(command, list)
-    assert option_values(command, "--acquisition-timeout-minutes") == ["90.0"]
+    assert option_values(command, "--media-acquisition-timeout-minutes") == ["90.0"]
 
 
 def test_live_e2e_forwards_live_wire_inputs_file_only_when_configured(tmp_path: Path, monkeypatch) -> None:
