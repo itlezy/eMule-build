@@ -150,6 +150,22 @@ class ReleasePackageOptions(BaseModel):
     clean: bool = False
 
 
+class CleanupOptions(BaseModel):
+    """Options for pruning generated workspace artifacts."""
+
+    model_config = ConfigDict(frozen=True)
+
+    apply: bool = False
+    profile: Literal["routine", "deep"] = "routine"
+    report_payload_retention_hours: float = 24.0
+    report_run_retention_days: float = 7.0
+    arr_acquisition_retention_hours: float = 24.0
+    build_log_retention_days: float = 14.0
+    keep_build_log_runs: int = 25
+    include_build_outputs: bool = False
+    include_release_state: bool = False
+
+
 def resolve_workspace_options(
     *,
     workspace_root: str | None,

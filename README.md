@@ -72,6 +72,7 @@ python -m emule_workspace compare
 python -m emule_workspace env-check
 python -m emule_workspace dep-status
 python -m emule_workspace validate
+python -m emule_workspace cleanup
 python -m emule_workspace build libs
 python -m emule_workspace build app
 python -m emule_workspace build tests
@@ -92,6 +93,7 @@ Command behavior:
 - `env-check` verifies the core toolchain discovery for Git, Visual Studio, and MSBuild.
 - `dep-status` reports branch and worktree status for the dependency repos and canonical app worktrees that exist locally.
 - `validate` verifies required workspace paths, canonical app worktree presence, branch alignment, required test helper scripts, modified tracked-file editorconfig compliance, the PowerShell boundary, and the shared static policy audits from `eMule-tooling\ci`.
+- `cleanup` dry-runs generated artifact pruning by default. Use `--apply` only after reviewing the candidate summary.
 - The Python `package-release` command may reanchor a clean `repos\eMule`
   checkout back to detached `origin/main` before building package artifacts.
 - `build libs` builds the shared dependency set for the selected `--config` and `--platform`.
@@ -118,6 +120,28 @@ with a clear owner message instead of running concurrently against the same
 workspace. When commands are launched back-to-back, the second command may need
 to wait briefly for the first command's lock window to close fully before it
 can start.
+
+## Cleanup
+
+`cleanup` prunes generated workspace artifacts only from known output roots. It
+does not run broad `git clean`, does not remove tracked files, and defaults to a
+dry run:
+
+```powershell
+python -m emule_workspace cleanup
+python -m emule_workspace cleanup --apply
+```
+
+The default `routine` profile targets old live-test payload directories under
+`repos\eMule-build-tests\reports`, timestamped report runs older than the
+retention window, old `workspaces\v0.72a\state\build-logs` runs, and Python test
+caches. Build outputs and superseded release rehearsal state require explicit
+flags:
+
+```powershell
+python -m emule_workspace cleanup --include-build-outputs
+python -m emule_workspace cleanup --include-release-state
+```
 
 ## Build Scope
 

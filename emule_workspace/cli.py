@@ -11,9 +11,11 @@ import click
 from .build_tests import invoke_build_tests
 from .build import build_apps as invoke_build_apps
 from .build import build_libs as invoke_build_libs
+from .cleanup import cleanup_workspace
 from .config import (
     AmutorrentSessionOptions,
     BuildTestsOptions,
+    CleanupOptions,
     CommunityCoverageOptions,
     LiveE2eOptions,
     PythonTestOptions,
@@ -229,6 +231,50 @@ def validate(ctx: click.Context, *, workspace_options: WorkspaceOptions, layout)
 
     del ctx
     _locked("validate", lambda **kwargs: validate_workspace(kwargs["layout"]))(
+        workspace_options=workspace_options,
+        layout=layout,
+    )
+
+
+@main.command("cleanup")
+@_common_options
+@click.option("--apply", "apply_cleanup", is_flag=True, help="Delete selected artifacts. Omit for a dry run.")
+@click.option("--profile", type=click.Choice(["routine", "deep"]), default="routine", show_default=True)
+@click.option("--report-payload-retention-hours", default=24.0, show_default=True, type=float)
+@click.option("--report-run-retention-days", default=7.0, show_default=True, type=float)
+@click.option("--arr-acquisition-retention-hours", default=24.0, show_default=True, type=float)
+@click.option("--build-log-retention-days", default=14.0, show_default=True, type=float)
+@click.option("--keep-build-log-runs", default=25, show_default=True, type=int)
+@click.option("--include-build-outputs", is_flag=True, help="Also prune generated app/test/dependency build outputs.")
+@click.option("--include-release-state", is_flag=True, help="Also prune superseded release rehearsal state.")
+def cleanup(
+    *,
+    apply_cleanup: bool,
+    profile: str,
+    report_payload_retention_hours: float,
+    report_run_retention_days: float,
+    arr_acquisition_retention_hours: float,
+    build_log_retention_days: float,
+    keep_build_log_runs: int,
+    include_build_outputs: bool,
+    include_release_state: bool,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Prune generated workspace artifacts, dry-run by default."""
+
+    cleanup_options = CleanupOptions(
+        apply=apply_cleanup,
+        profile=profile,
+        report_payload_retention_hours=report_payload_retention_hours,
+        report_run_retention_days=report_run_retention_days,
+        arr_acquisition_retention_hours=arr_acquisition_retention_hours,
+        build_log_retention_days=build_log_retention_days,
+        keep_build_log_runs=keep_build_log_runs,
+        include_build_outputs=include_build_outputs,
+        include_release_state=include_release_state,
+    )
+    _locked("cleanup", lambda **kwargs: cleanup_workspace(kwargs["layout"], cleanup_options))(
         workspace_options=workspace_options,
         layout=layout,
     )
