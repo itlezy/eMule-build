@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .git import repo_branch, repo_status_lines, test_app_branch_allowed
+from .git import git_output, repo_branch, repo_status_lines, test_app_branch_allowed
 from .layout import WorkspaceLayout
 from .materialize import ROOT_AGENTS_CONTENT
 from .process import find_tool, get_python_invocation, run_native
@@ -157,7 +157,7 @@ def assert_required_test_helpers(layout: WorkspaceLayout) -> None:
 
 
 def ensure_canonical_app_anchor(layout: WorkspaceLayout) -> None:
-    """Verifies the canonical app anchor is clean enough for current validation."""
+    """Ensures the canonical app anchor is clean and detached at origin/main."""
 
     if not layout.seed_repo_path.is_dir():
         raise RuntimeError(f"Canonical app repo is missing: {layout.seed_repo_path}")
@@ -167,6 +167,14 @@ def ensure_canonical_app_anchor(layout: WorkspaceLayout) -> None:
             "Canonical app repo has local changes and cannot be re-anchored automatically: "
             f"{layout.seed_repo_path}"
         )
+    expected_revision = f"refs/remotes/origin/{layout.seed_repo_branch}"
+    expected_head = git_output(layout.seed_repo_path, "rev-parse", expected_revision).strip()
+    current_branch = repo_branch(layout.seed_repo_path)
+    current_head = git_output(layout.seed_repo_path, "rev-parse", "HEAD").strip()
+    if current_branch == "HEAD" and current_head == expected_head:
+        return
+    print(f"Reanchoring canonical app repo to detached origin/{layout.seed_repo_branch} at {expected_head}")
+    git_output(layout.seed_repo_path, "checkout", "--detach", expected_revision)
 
 
 def run_policy_audits(layout: WorkspaceLayout) -> None:

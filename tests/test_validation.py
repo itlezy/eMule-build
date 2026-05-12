@@ -33,3 +33,54 @@ def test_policy_audits_receive_workspace_root_through_environment(
         assert "pwsh" not in call["command"]
         assert call["command"][-2] == str(audit_path)
         assert call["env"] == {"EMULE_WORKSPACE_ROOT": tmp_path}
+
+
+def test_validation_reanchors_clean_canonical_app_anchor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    canonical_repo = tmp_path / "repos" / "eMule"
+    canonical_repo.mkdir(parents=True)
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git_output(repo: Path, *args: str) -> str:
+        assert repo == canonical_repo
+        calls.append(args)
+        if args == ("rev-parse", "refs/remotes/origin/main"):
+            return "expected-head\n"
+        if args == ("rev-parse", "HEAD"):
+            return "stale-head\n"
+        if args == ("checkout", "--detach", "refs/remotes/origin/main"):
+            return ""
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(validation, "repo_status_lines", lambda repo: ["## HEAD (no branch)"])
+    monkeypatch.setattr(validation, "repo_branch", lambda repo: "HEAD")
+    monkeypatch.setattr(validation, "git_output", fake_git_output)
+    layout = SimpleNamespace(seed_repo_path=canonical_repo, seed_repo_branch="main")
+
+    validation.ensure_canonical_app_anchor(layout)
+
+    assert calls[-1] == ("checkout", "--detach", "refs/remotes/origin/main")
+
+
+def test_validation_refuses_dirty_canonical_app_anchor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    canonical_repo = tmp_path / "repos" / "eMule"
+    canonical_repo.mkdir(parents=True)
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git_output(repo: Path, *args: str) -> str:
+        calls.append(args)
+        return ""
+
+    monkeypatch.setattr(validation, "repo_status_lines", lambda repo: ["## HEAD (no branch)", " M srchybrid/emule.rc"])
+    monkeypatch.setattr(validation, "git_output", fake_git_output)
+    layout = SimpleNamespace(seed_repo_path=canonical_repo, seed_repo_branch="main")
+
+    with pytest.raises(RuntimeError, match="local changes"):
+        validation.ensure_canonical_app_anchor(layout)
+
+    assert calls == []
