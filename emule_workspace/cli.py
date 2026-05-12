@@ -117,6 +117,7 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--live-wire-inputs-file", default=None, help="Runtime live-wire search input JSON.")
     @click.option("--radarr-movie-root", default=None, help="Radarr-visible movie root for Radarr import live checks.")
     @click.option("--sonarr-series-root", default=None, help="Sonarr-visible series root for Sonarr import live checks.")
+    @click.option("--acquisition-timeout-minutes", default=None, type=float, help="Arr acquisition timeout forwarded to live suites.")
     @click.option("--p2p-bind-interface-name", default="hide.me", show_default=True)
     @click.option("--rest-server-search-count", default=6, show_default=True, type=int)
     @click.option("--rest-kad-search-count", default=6, show_default=True, type=int)

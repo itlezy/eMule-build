@@ -76,6 +76,7 @@ class LiveE2eOptions(BaseModel):
     live_wire_inputs_file: str | None = None
     radarr_movie_root: str | None = None
     sonarr_series_root: str | None = None
+    acquisition_timeout_minutes: float | None = None
     p2p_bind_interface_name: str = "hide.me"
     rest_server_search_count: int = 6
     rest_kad_search_count: int = 6

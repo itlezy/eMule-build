@@ -250,6 +250,8 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
         args.extend(["--radarr-movie-root", live_options.radarr_movie_root])
     if live_options.sonarr_series_root:
         args.extend(["--sonarr-series-root", live_options.sonarr_series_root])
+    if live_options.acquisition_timeout_minutes is not None:
+        args.extend(["--acquisition-timeout-minutes", live_options.acquisition_timeout_minutes])
     if live_options.rest_search_method_override:
         args.extend(["--rest-search-method-override", live_options.rest_search_method_override])
     args.extend(["--rest-webserver-scheme", live_options.rest_webserver_scheme])
