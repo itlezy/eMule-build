@@ -62,6 +62,7 @@ def test_test_live_e2e_help_exposes_live_options() -> None:
 
     assert result.exit_code == 0
     assert "--suite" in result.output
+    assert "--profile" in result.output
     assert "--p2p-bind-interface-name" in result.output
     assert "--live-wire-inputs-file" in result.output
     assert "--radarr-movie-root" in result.output

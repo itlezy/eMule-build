@@ -183,6 +183,36 @@ def test_live_e2e_forwards_acquisition_timeout_only_when_configured(tmp_path: Pa
     assert option_values(command, "--media-acquisition-timeout-minutes") == ["90.0"]
 
 
+def test_live_e2e_forwards_profile_only_when_configured(tmp_path: Path, monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_native(command, *, label, cwd, env=None, allow_failure=False):
+        captured["command"] = list(command)
+
+    layout = make_layout(tmp_path)
+    monkeypatch.setattr(test_runs, "run_native", fake_run_native)
+
+    test_runs.invoke_live_e2e_suite(
+        layout,
+        WorkspaceOptions(workspace_root=tmp_path, platform="x64"),
+        LiveE2eOptions(),
+    )
+
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert "--profile" not in command
+
+    test_runs.invoke_live_e2e_suite(
+        layout,
+        WorkspaceOptions(workspace_root=tmp_path, platform="x64"),
+        LiveE2eOptions(profile="beta-green"),
+    )
+
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert option_values(command, "--profile") == ["beta-green"]
+
+
 def test_live_e2e_forwards_live_wire_inputs_file_only_when_configured(tmp_path: Path, monkeypatch) -> None:
     captured: dict[str, object] = {}
 

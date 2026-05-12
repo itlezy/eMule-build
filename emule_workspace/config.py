@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 BuildConfiguration = Literal["Debug", "Release"]
 BuildPlatform = Literal["x64", "ARM64"]
 BuildOutputMode = Literal["Full", "Warnings", "ErrorsOnly"]
+LiveE2eProfile = Literal["default", "beta-green", "beta-release"]
 
 
 class WorkspaceOptions(BaseModel):
@@ -67,6 +68,7 @@ class LiveE2eOptions(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     suites: tuple[str, ...] = ()
+    profile: LiveE2eProfile = "default"
     fail_fast: bool = False
     skip_live_seed_refresh: bool = False
     startup_trace_mode: str = "required"

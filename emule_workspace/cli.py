@@ -108,6 +108,13 @@ def _comparison_options(function: F) -> F:
 
 def _live_e2e_options(function: F) -> F:
     @click.option("--suite", "suites", multiple=True, help="Live E2E suite to run.")
+    @click.option(
+        "--profile",
+        type=click.Choice(["default", "beta-green", "beta-release"]),
+        default="default",
+        show_default=True,
+        help="Named live E2E suite profile.",
+    )
     @click.option("--fail-fast", is_flag=True, help="Stop the live E2E suite after the first failure.")
     @click.option("--skip-live-seed-refresh", is_flag=True, help="Reuse the existing live seed state.")
     @click.option("--startup-trace-mode", type=click.Choice(["required", "optional"]), default="required", show_default=True)
