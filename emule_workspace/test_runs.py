@@ -248,6 +248,8 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
         args.extend(["--live-wire-inputs-file", live_options.live_wire_inputs_file])
     if live_options.radarr_movie_root:
         args.extend(["--radarr-movie-root", live_options.radarr_movie_root])
+    if live_options.sonarr_series_root:
+        args.extend(["--sonarr-series-root", live_options.sonarr_series_root])
     if live_options.rest_search_method_override:
         args.extend(["--rest-search-method-override", live_options.rest_search_method_override])
     args.extend(["--rest-webserver-scheme", live_options.rest_webserver_scheme])

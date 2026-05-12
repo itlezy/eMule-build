@@ -75,6 +75,7 @@ class LiveE2eOptions(BaseModel):
     shared_files_tree_stress_churn_cycles: int = -1
     live_wire_inputs_file: str | None = None
     radarr_movie_root: str | None = None
+    sonarr_series_root: str | None = None
     p2p_bind_interface_name: str = "hide.me"
     rest_server_search_count: int = 6
     rest_kad_search_count: int = 6

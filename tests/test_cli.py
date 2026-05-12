@@ -65,6 +65,7 @@ def test_test_live_e2e_help_exposes_live_options() -> None:
     assert "--p2p-bind-interface-name" in result.output
     assert "--live-wire-inputs-file" in result.output
     assert "--radarr-movie-root" in result.output
+    assert "--sonarr-series-root" in result.output
     assert "--rest-cold-start-dump-stress-cpu-profile" in result.output
     assert "--rest-cold-start-dump-stress-cpu-profile-stack" in result.output
 
