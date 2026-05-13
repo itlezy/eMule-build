@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from .config import (
@@ -18,22 +19,11 @@ from .process import get_python_invocation, run_native
 def invoke_test_runs(layout: WorkspaceLayout, options: WorkspaceOptions) -> None:
     """Runs native parity/web_api suites, coverage, and live-diff."""
 
-    _assert_test_execution_platform_supported(options)
-    test_run_variant = layout.test_targets.test_run_variant
-    app_root = layout.get_app_variant(test_run_variant).path
-    build_tag = get_test_build_tag(layout.workspace_root, app_root)
-    binary_path = layout.tests_repo_root / "build" / build_tag / options.platform / options.configuration / "emule-tests.exe"
-    if not binary_path.is_file():
-        raise RuntimeError(f"Built test executable not found: {binary_path}")
-
-    for suite_name in ("parity", "web_api"):
-        run_native(
-            [binary_path, f"--test-suite={suite_name}"],
-            label=f"{suite_name} tests {options.configuration}/{options.platform}",
-            cwd=layout.tests_repo_root,
-        )
+    invoke_native_test_suites(layout, options, None, ("parity", "web_api"))
 
     python = get_python_invocation()
+    test_run_variant = layout.test_targets.test_run_variant
+    app_root = layout.get_app_variant(test_run_variant).path
     run_native(
         python.command(
             [
@@ -57,6 +47,31 @@ def invoke_test_runs(layout: WorkspaceLayout, options: WorkspaceOptions) -> None
         env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )
     invoke_live_diff_runs(layout, options, VariantComparisonOptions())
+
+
+def invoke_native_test_suites(
+    layout: WorkspaceLayout,
+    options: WorkspaceOptions,
+    test_run_variant: str | None,
+    suite_names: Sequence[str],
+) -> None:
+    """Runs the native emule-tests executable without live-diff or live E2E work."""
+
+    _assert_test_execution_platform_supported(options)
+    selected_variant = test_run_variant or layout.test_targets.test_run_variant
+    app_root = layout.get_app_variant(selected_variant).path
+    build_tag = get_test_build_tag(layout.workspace_root, app_root)
+    binary_path = layout.tests_repo_root / "build" / build_tag / options.platform / options.configuration / "emule-tests.exe"
+    if not binary_path.is_file():
+        raise RuntimeError(f"Built test executable not found: {binary_path}")
+
+    suites = tuple(suite_names) if suite_names else ("parity", "web_api")
+    for suite_name in suites:
+        run_native(
+            [binary_path, f"--test-suite={suite_name}"],
+            label=f"{suite_name} tests {selected_variant} {options.configuration}/{options.platform}",
+            cwd=layout.tests_repo_root,
+        )
 
 
 def invoke_live_diff_runs(

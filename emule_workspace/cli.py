@@ -36,6 +36,7 @@ from .test_runs import (
     invoke_community_core_coverage,
     invoke_live_diff_runs,
     invoke_live_e2e_suite,
+    invoke_native_test_suites,
     invoke_test_runs,
 )
 from .validation import validate_workspace
@@ -448,6 +449,30 @@ def test_python(
     _locked(
         "test python",
         lambda **kwargs: invoke_python_tests(kwargs["layout"], test_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("native")
+@_common_options
+@click.option("--test-run-variant", default=None, help="App variant used as the native-test target.")
+@click.option("--suite-name", multiple=True, help="Native doctest suite to run. Defaults to parity and web_api.")
+def test_native(
+    *,
+    test_run_variant: str | None,
+    suite_name: tuple[str, ...],
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Run native emule-tests suites without live-diff or live E2E work."""
+
+    _locked(
+        "test native",
+        lambda **kwargs: invoke_native_test_suites(
+            kwargs["layout"],
+            kwargs["workspace_options"],
+            test_run_variant,
+            suite_name,
+        ),
     )(workspace_options=workspace_options, layout=layout)
 
 
