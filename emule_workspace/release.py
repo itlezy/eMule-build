@@ -15,7 +15,7 @@ from .build import app_binary_path, app_property_overrides, ensure_app_dependenc
 from .build_state import BuildSession
 from .config import ReleasePackageOptions, WorkspaceOptions
 from .git import git_output, repo_branch, repo_head, repo_status_lines
-from .layout import WorkspaceLayout
+from .layout import AppVariant, WorkspaceLayout
 from .msbuild import env_override, invoke_msbuild_project
 
 
@@ -32,7 +32,10 @@ def create_release_package(
         raise RuntimeError(f"Release version must use MAJOR.MINOR.PATCH format: {package_options.release_version}")
 
     ensure_canonical_app_anchor(layout)
-    app_root = layout.get_app_variant("main").path
+    app_variant = layout.get_app_variant("main")
+    app_root = app_variant.path
+    _assert_release_source_branch(app_variant)
+    _assert_clean_release_inputs(layout, app_root)
     _assert_package_version_matches_app(app_root, package_options.release_version)
 
     session = BuildSession(
@@ -97,7 +100,38 @@ def create_release_package(
 
     zip_hash = _sha256(zip_path)
     exe_hash = _sha256(exe_path)
-    manifest = {
+    manifest = _build_release_manifest(
+        layout=layout,
+        workspace_options=workspace_options,
+        package_options=package_options,
+        app_variant=app_variant,
+        app_root=app_root,
+        zip_path=zip_path,
+        release_root=release_root,
+        zip_hash=zip_hash,
+        exe_hash=exe_hash,
+    )
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
+    print(f"Release package: {zip_path}")
+    print(f"Release manifest: {manifest_path}")
+    print(f"SHA256: {zip_hash}")
+
+
+def _build_release_manifest(
+    *,
+    layout: WorkspaceLayout,
+    workspace_options: WorkspaceOptions,
+    package_options: ReleasePackageOptions,
+    app_variant: AppVariant,
+    app_root: Path,
+    zip_path: Path,
+    release_root: Path,
+    zip_hash: str,
+    exe_hash: str,
+) -> dict[str, object]:
+    """Builds the provenance manifest written next to one release asset."""
+
+    return {
         "product": "eMule broadband edition",
         "compactName": "eMule BB",
         "version": package_options.release_version,
@@ -108,8 +142,14 @@ def create_release_package(
         "assetPath": zip_path.relative_to(release_root).as_posix(),
         "sha256": zip_hash,
         "emuleExeSha256": exe_hash,
+        "appVariant": app_variant.name,
+        "appBranch": repo_branch(app_root),
         "appCommit": repo_head(app_root),
+        "buildBranch": repo_branch(layout.build_repo_root),
         "buildCommit": repo_head(layout.build_repo_root),
+        "buildTestsBranch": repo_branch(layout.tests_repo_root),
+        "buildTestsCommit": repo_head(layout.tests_repo_root),
+        "toolingBranch": repo_branch(layout.tooling_repo_root),
         "toolingCommit": repo_head(layout.tooling_repo_root),
         "generatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "includedPaths": [
@@ -123,10 +163,40 @@ def create_release_package(
             "eMule/docs/REST-API-PARITY-INVENTORY.md",
         ],
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
-    print(f"Release package: {zip_path}")
-    print(f"Release manifest: {manifest_path}")
-    print(f"SHA256: {zip_hash}")
+
+
+def _assert_release_source_branch(app_variant: AppVariant) -> None:
+    """Requires release packages to come from the configured source branch."""
+
+    current_branch = repo_branch(app_variant.path)
+    if current_branch != app_variant.branch:
+        raise RuntimeError(
+            "package release requires app variant "
+            f"'{app_variant.name}' at {app_variant.path} to be on branch "
+            f"'{app_variant.branch}', not '{current_branch}'."
+        )
+
+
+def _assert_clean_release_inputs(layout: WorkspaceLayout, app_root: Path) -> None:
+    """Rejects dirty inputs whose exact commits are recorded in the manifest."""
+
+    repos = (
+        ("app source", app_root),
+        ("build orchestration", layout.build_repo_root),
+        ("build tests", layout.tests_repo_root),
+        ("tooling docs", layout.tooling_repo_root),
+    )
+    dirty_inputs: list[str] = []
+    for label, repo_path in repos:
+        changes = [line for line in repo_status_lines(repo_path) if not line.startswith("## ")]
+        if changes:
+            sample = "\n    ".join(changes[:20])
+            dirty_inputs.append(f"- {label}: {repo_path}\n    {sample}")
+    if dirty_inputs:
+        raise RuntimeError(
+            "package release requires clean provenance inputs before writing assets:\n"
+            + "\n".join(dirty_inputs)
+        )
 
 
 def ensure_canonical_app_anchor(layout: WorkspaceLayout) -> None:
