@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .config import (
+    AmutorrentCleanStartupOptions,
     AmutorrentSessionOptions,
     CommunityCoverageOptions,
     LiveE2eOptions,
@@ -311,6 +312,47 @@ def invoke_amutorrent_interactive_session(
     run_native(
         python.command(args),
         label="aMuTorrent interactive session",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
+
+
+def invoke_amutorrent_clean_startup(
+    layout: WorkspaceLayout,
+    options: WorkspaceOptions,
+    clean_options: AmutorrentCleanStartupOptions,
+) -> None:
+    """Runs the automated aMuTorrent first-run wizard integration proof."""
+
+    _assert_test_execution_platform_supported(options)
+    app_root = layout.get_app_variant(layout.test_targets.test_run_variant).path
+    script_path = layout.tests_repo_root / "scripts" / "amutorrent-clean-startup.py"
+    if not script_path.is_file():
+        raise RuntimeError(f"Missing aMuTorrent clean-startup runner: {script_path}")
+
+    args: list[str | Path | float] = [
+        script_path,
+        "--app-root",
+        app_root,
+        "--configuration",
+        options.configuration,
+        "--p2p-bind-interface-name",
+        clean_options.p2p_bind_interface_name,
+        "--ready-timeout-seconds",
+        clean_options.ready_timeout_seconds,
+        "--network-ready-timeout-seconds",
+        clean_options.network_ready_timeout_seconds,
+        "--search-observation-timeout-seconds",
+        clean_options.search_observation_timeout_seconds,
+    ]
+    if clean_options.live_wire_inputs_file:
+        args.extend(["--live-wire-inputs-file", clean_options.live_wire_inputs_file])
+    _append_optional_flag(args, clean_options.keep_artifacts, "--keep-artifacts")
+
+    python = get_python_invocation()
+    run_native(
+        python.command(args),
+        label="aMuTorrent clean startup",
         cwd=layout.emule_workspace_root,
         env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )

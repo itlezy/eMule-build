@@ -72,6 +72,17 @@ def test_test_live_e2e_help_exposes_live_options() -> None:
     assert "--rest-cold-start-dump-stress-cpu-profile-stack" in result.output
 
 
+def test_amutorrent_clean_startup_help_exposes_live_options() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["test", "amutorrent-clean-startup", "--help"])
+
+    assert result.exit_code == 0
+    assert "--live-wire-inputs-file" in result.output
+    assert "--p2p-bind-interface-name" in result.output
+    assert "--search-observation-timeout-seconds" in result.output
+
+
 def test_build_all_help_exposes_composed_build_options() -> None:
     runner = CliRunner()
 

@@ -13,6 +13,7 @@ from .build import build_apps as invoke_build_apps
 from .build import build_libs as invoke_build_libs
 from .cleanup import cleanup_workspace
 from .config import (
+    AmutorrentCleanStartupOptions,
     AmutorrentSessionOptions,
     BuildTestsOptions,
     CleanupOptions,
@@ -32,6 +33,7 @@ from .release import create_release_package
 from .setup_commands import run_compare, write_dependency_update_report, write_materialization_status
 from .status import write_dependency_status, write_workspace_summary
 from .test_runs import (
+    invoke_amutorrent_clean_startup,
     invoke_amutorrent_interactive_session,
     invoke_community_core_coverage,
     invoke_live_diff_runs,
@@ -565,6 +567,41 @@ def test_amutorrent_session(
     _locked(
         "test amutorrent-session",
         lambda **kwargs: invoke_amutorrent_interactive_session(kwargs["layout"], kwargs["workspace_options"], session_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("amutorrent-clean-startup")
+@_common_options
+@click.option("--live-wire-inputs-file", default=None, help="Runtime live-wire search/download input JSON.")
+@click.option("--keep-artifacts", is_flag=True, help="Keep source artifacts after the clean-startup run.")
+@click.option("--ready-timeout-seconds", default=60.0, show_default=True, type=float)
+@click.option("--network-ready-timeout-seconds", default=180.0, show_default=True, type=float)
+@click.option("--search-observation-timeout-seconds", default=120.0, show_default=True, type=float)
+@click.option("--p2p-bind-interface-name", default="hide.me", show_default=True)
+def test_amutorrent_clean_startup(
+    *,
+    live_wire_inputs_file: str | None,
+    keep_artifacts: bool,
+    ready_timeout_seconds: float,
+    network_ready_timeout_seconds: float,
+    search_observation_timeout_seconds: float,
+    p2p_bind_interface_name: str,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Run the automated aMuTorrent first-run wizard live proof."""
+
+    clean_options = AmutorrentCleanStartupOptions(
+        live_wire_inputs_file=live_wire_inputs_file,
+        keep_artifacts=keep_artifacts,
+        ready_timeout_seconds=ready_timeout_seconds,
+        network_ready_timeout_seconds=network_ready_timeout_seconds,
+        search_observation_timeout_seconds=search_observation_timeout_seconds,
+        p2p_bind_interface_name=p2p_bind_interface_name,
+    )
+    _locked(
+        "test amutorrent-clean-startup",
+        lambda **kwargs: invoke_amutorrent_clean_startup(kwargs["layout"], kwargs["workspace_options"], clean_options),
     )(workspace_options=workspace_options, layout=layout)
 
 
