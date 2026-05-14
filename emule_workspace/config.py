@@ -147,6 +147,20 @@ class AmutorrentCleanStartupOptions(BaseModel):
     p2p_bind_interface_name: str = "hide.me"
 
 
+class AmutorrentResilienceOptions(BaseModel):
+    """Options forwarded to the aMuTorrent resilience live E2E runner."""
+
+    model_config = ConfigDict(frozen=True)
+
+    live_wire_inputs_file: str | None = None
+    keep_artifacts: bool = False
+    ready_timeout_seconds: float = 60.0
+    network_ready_timeout_seconds: float = 180.0
+    search_observation_timeout_seconds: float = 120.0
+    reconnect_timeout_seconds: float = 120.0
+    p2p_bind_interface_name: str = "hide.me"
+
+
 class CommunityCoverageOptions(VariantComparisonOptions):
     """Options forwarded to the community-core coverage runner."""
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import (
     AmutorrentCleanStartupOptions,
+    AmutorrentResilienceOptions,
     AmutorrentSessionOptions,
     CommunityCoverageOptions,
     LiveE2eOptions,
@@ -353,6 +354,49 @@ def invoke_amutorrent_clean_startup(
     run_native(
         python.command(args),
         label="aMuTorrent clean startup",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
+
+
+def invoke_amutorrent_resilience(
+    layout: WorkspaceLayout,
+    options: WorkspaceOptions,
+    resilience_options: AmutorrentResilienceOptions,
+) -> None:
+    """Runs the automated aMuTorrent resilience live E2E proof."""
+
+    _assert_test_execution_platform_supported(options)
+    app_root = layout.get_app_variant(layout.test_targets.test_run_variant).path
+    script_path = layout.tests_repo_root / "scripts" / "amutorrent-resilience-live.py"
+    if not script_path.is_file():
+        raise RuntimeError(f"Missing aMuTorrent resilience live runner: {script_path}")
+
+    args: list[str | Path | float] = [
+        script_path,
+        "--app-root",
+        app_root,
+        "--configuration",
+        options.configuration,
+        "--p2p-bind-interface-name",
+        resilience_options.p2p_bind_interface_name,
+        "--ready-timeout-seconds",
+        resilience_options.ready_timeout_seconds,
+        "--network-ready-timeout-seconds",
+        resilience_options.network_ready_timeout_seconds,
+        "--search-observation-timeout-seconds",
+        resilience_options.search_observation_timeout_seconds,
+        "--reconnect-timeout-seconds",
+        resilience_options.reconnect_timeout_seconds,
+    ]
+    if resilience_options.live_wire_inputs_file:
+        args.extend(["--live-wire-inputs-file", resilience_options.live_wire_inputs_file])
+    _append_optional_flag(args, resilience_options.keep_artifacts, "--keep-artifacts")
+
+    python = get_python_invocation()
+    run_native(
+        python.command(args),
+        label="aMuTorrent resilience live",
         cwd=layout.emule_workspace_root,
         env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )
