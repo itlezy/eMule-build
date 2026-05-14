@@ -14,6 +14,7 @@ from .build import build_libs as invoke_build_libs
 from .cleanup import cleanup_workspace
 from .config import (
     AmutorrentCleanStartupOptions,
+    AmutorrentEmulebbUiOptions,
     AmutorrentResilienceOptions,
     AmutorrentSessionOptions,
     BuildTestsOptions,
@@ -35,6 +36,7 @@ from .setup_commands import run_compare, write_dependency_update_report, write_m
 from .status import write_dependency_status, write_workspace_summary
 from .test_runs import (
     invoke_amutorrent_clean_startup,
+    invoke_amutorrent_emulebb_ui,
     invoke_amutorrent_interactive_session,
     invoke_amutorrent_resilience,
     invoke_community_core_coverage,
@@ -642,6 +644,41 @@ def test_amutorrent_resilience(
     _locked(
         "test amutorrent-resilience",
         lambda **kwargs: invoke_amutorrent_resilience(kwargs["layout"], kwargs["workspace_options"], resilience_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("amutorrent-emulebb-ui")
+@_common_options
+@click.option("--live-wire-inputs-file", default=None, help="Runtime live-wire search/download input JSON.")
+@click.option("--keep-artifacts", is_flag=True, help="Keep source artifacts after the eMule BB UI run.")
+@click.option("--ready-timeout-seconds", default=60.0, show_default=True, type=float)
+@click.option("--network-ready-timeout-seconds", default=180.0, show_default=True, type=float)
+@click.option("--search-observation-timeout-seconds", default=120.0, show_default=True, type=float)
+@click.option("--p2p-bind-interface-name", default="hide.me", show_default=True)
+def test_amutorrent_emulebb_ui(
+    *,
+    live_wire_inputs_file: str | None,
+    keep_artifacts: bool,
+    ready_timeout_seconds: float,
+    network_ready_timeout_seconds: float,
+    search_observation_timeout_seconds: float,
+    p2p_bind_interface_name: str,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Run the automated aMuTorrent eMule BB UI live proof."""
+
+    ui_options = AmutorrentEmulebbUiOptions(
+        live_wire_inputs_file=live_wire_inputs_file,
+        keep_artifacts=keep_artifacts,
+        ready_timeout_seconds=ready_timeout_seconds,
+        network_ready_timeout_seconds=network_ready_timeout_seconds,
+        search_observation_timeout_seconds=search_observation_timeout_seconds,
+        p2p_bind_interface_name=p2p_bind_interface_name,
+    )
+    _locked(
+        "test amutorrent-emulebb-ui",
+        lambda **kwargs: invoke_amutorrent_emulebb_ui(kwargs["layout"], kwargs["workspace_options"], ui_options),
     )(workspace_options=workspace_options, layout=layout)
 
 

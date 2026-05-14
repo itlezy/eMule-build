@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import (
     AmutorrentCleanStartupOptions,
+    AmutorrentEmulebbUiOptions,
     AmutorrentResilienceOptions,
     AmutorrentSessionOptions,
     CommunityCoverageOptions,
@@ -397,6 +398,47 @@ def invoke_amutorrent_resilience(
     run_native(
         python.command(args),
         label="aMuTorrent resilience live",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
+
+
+def invoke_amutorrent_emulebb_ui(
+    layout: WorkspaceLayout,
+    options: WorkspaceOptions,
+    ui_options: AmutorrentEmulebbUiOptions,
+) -> None:
+    """Runs the automated aMuTorrent eMule BB UI live E2E proof."""
+
+    _assert_test_execution_platform_supported(options)
+    app_root = layout.get_app_variant(layout.test_targets.test_run_variant).path
+    script_path = layout.tests_repo_root / "scripts" / "amutorrent-emulebb-ui-live.py"
+    if not script_path.is_file():
+        raise RuntimeError(f"Missing aMuTorrent eMule BB UI live runner: {script_path}")
+
+    args: list[str | Path | float] = [
+        script_path,
+        "--app-root",
+        app_root,
+        "--configuration",
+        options.configuration,
+        "--p2p-bind-interface-name",
+        ui_options.p2p_bind_interface_name,
+        "--ready-timeout-seconds",
+        ui_options.ready_timeout_seconds,
+        "--network-ready-timeout-seconds",
+        ui_options.network_ready_timeout_seconds,
+        "--search-observation-timeout-seconds",
+        ui_options.search_observation_timeout_seconds,
+    ]
+    if ui_options.live_wire_inputs_file:
+        args.extend(["--live-wire-inputs-file", ui_options.live_wire_inputs_file])
+    _append_optional_flag(args, ui_options.keep_artifacts, "--keep-artifacts")
+
+    python = get_python_invocation()
+    run_native(
+        python.command(args),
+        label="aMuTorrent eMule BB UI live",
         cwd=layout.emule_workspace_root,
         env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )

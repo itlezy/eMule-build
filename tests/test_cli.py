@@ -95,6 +95,18 @@ def test_amutorrent_resilience_help_exposes_live_options() -> None:
     assert "--reconnect-timeout-seconds" in result.output
 
 
+def test_amutorrent_emulebb_ui_help_exposes_live_options() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["test", "amutorrent-emulebb-ui", "--help"])
+
+    assert result.exit_code == 0
+    assert "--live-wire-inputs-file" in result.output
+    assert "--p2p-bind-interface-name" in result.output
+    assert "--search-observation-timeout-seconds" in result.output
+    assert "--keep-artifacts" in result.output
+
+
 def test_build_all_help_exposes_composed_build_options() -> None:
     runner = CliRunner()
 

@@ -150,6 +150,7 @@ def assert_required_test_helpers(layout: WorkspaceLayout) -> None:
         "scripts/run-live-e2e-suite.py",
         "scripts/amutorrent-interactive-session.py",
         "scripts/amutorrent-resilience-live.py",
+        "scripts/amutorrent-emulebb-ui-live.py",
     )
     for relative_path in helpers:
         path = layout.tests_repo_root / Path(relative_path)
