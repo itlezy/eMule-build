@@ -1,0 +1,447 @@
+"""Release-certification test matrix orchestration."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+
+from .build import build_apps
+from .build_tests import invoke_build_tests
+from .config import (
+    AmutorrentCleanStartupOptions,
+    AmutorrentEmulebbUiOptions,
+    AmutorrentResilienceOptions,
+    BuildTestsOptions,
+    CertificationOptions,
+    LiveE2eOptions,
+    PythonTestOptions,
+    WorkspaceOptions,
+)
+from .layout import WorkspaceLayout
+from .python_tests import invoke_python_tests
+from .test_runs import (
+    invoke_amutorrent_clean_startup,
+    invoke_amutorrent_emulebb_ui,
+    invoke_amutorrent_resilience,
+    invoke_live_e2e_suite,
+    invoke_test_runs,
+)
+from .validation import validate_workspace
+
+
+@dataclass(frozen=True)
+class CertificationStepPlan:
+    """One planned certification step."""
+
+    name: str
+    category: str
+
+
+@dataclass
+class CertificationStepResult:
+    """Recorded result for one certification step."""
+
+    name: str
+    category: str
+    status: str
+    duration_seconds: float
+    error: str = ""
+    report_paths: tuple[Path, ...] = ()
+
+
+FAST_STEP_PLAN = (
+    CertificationStepPlan("validate", "static"),
+    CertificationStepPlan("build-app-debug-x64", "build"),
+    CertificationStepPlan("build-app-release-x64", "build"),
+    CertificationStepPlan("build-app-release-arm64", "build"),
+    CertificationStepPlan("build-tests-debug-x64", "build"),
+    CertificationStepPlan("build-tests-release-x64", "build"),
+    CertificationStepPlan("python-harness", "static"),
+    CertificationStepPlan("test-all-debug-x64", "native"),
+    CertificationStepPlan("test-all-release-x64", "native"),
+    CertificationStepPlan("live-fast-ui-rest", "live"),
+)
+
+OVERNIGHT_EXTRA_STEP_PLAN = (
+    CertificationStepPlan("live-controller-surface", "live"),
+    CertificationStepPlan("live-full-release", "live"),
+    CertificationStepPlan("live-stabilization-stress", "stress"),
+    CertificationStepPlan("amutorrent-clean-startup", "amutorrent"),
+    CertificationStepPlan("amutorrent-emulebb-ui", "amutorrent"),
+    CertificationStepPlan("amutorrent-resilience", "amutorrent"),
+)
+
+
+def get_certification_step_plan(profile: str) -> tuple[CertificationStepPlan, ...]:
+    """Returns the ordered certification matrix for one profile."""
+
+    if profile == "fast":
+        return FAST_STEP_PLAN
+    if profile == "overnight":
+        return FAST_STEP_PLAN + OVERNIGHT_EXTRA_STEP_PLAN
+    raise ValueError(f"Unsupported certification profile: {profile}")
+
+
+def invoke_certification(layout: WorkspaceLayout, options: WorkspaceOptions, certification_options: CertificationOptions) -> None:
+    """Runs the selected release-certification matrix and writes one report."""
+
+    report_dir = _new_report_dir(layout, certification_options.profile)
+    report_dir.mkdir(parents=True, exist_ok=False)
+    steps: list[CertificationStepResult] = []
+    started_at = datetime.now(timezone.utc)
+    status = "passed"
+
+    try:
+        for step_plan in get_certification_step_plan(certification_options.profile):
+            step_result = _run_step(
+                layout,
+                options,
+                certification_options,
+                step_plan,
+            )
+            steps.append(step_result)
+            _write_report(report_dir, layout, options, certification_options, started_at, steps, status="running")
+            if step_result.status != "passed":
+                status = step_result.status
+                raise RuntimeError(f"Certification step '{step_result.name}' {step_result.status}: {step_result.error}")
+    except Exception:
+        if status == "passed":
+            status = "failed"
+        _write_report(report_dir, layout, options, certification_options, started_at, steps, status=status)
+        print(f"Certification report: {report_dir / 'result.json'}")
+        raise
+
+    _write_report(report_dir, layout, options, certification_options, started_at, steps, status=status)
+    print("")
+    print(f"Certification profile: {certification_options.profile}")
+    print(f"Status: {status}")
+    print(f"Steps: {len(steps)}")
+    print(f"Report: {report_dir / 'result.json'}")
+
+
+def _run_step(
+    layout: WorkspaceLayout,
+    options: WorkspaceOptions,
+    certification_options: CertificationOptions,
+    step_plan: CertificationStepPlan,
+) -> CertificationStepResult:
+    """Runs one certification step and captures report directories touched by it."""
+
+    before_reports = _report_directory_snapshot(layout.tests_repo_root / "reports")
+    started = time.monotonic()
+    error = ""
+    status = "passed"
+    try:
+        _invoke_step(layout, options, certification_options, step_plan.name)
+    except Exception as exc:
+        error = str(exc)
+    duration = time.monotonic() - started
+    report_paths = _changed_report_paths(layout.tests_repo_root / "reports", before_reports)
+    if error:
+        status = _failure_status_from_child_reports(report_paths)
+    return CertificationStepResult(
+        name=step_plan.name,
+        category=step_plan.category,
+        status=status,
+        duration_seconds=round(duration, 3),
+        error=error,
+        report_paths=report_paths,
+    )
+
+
+def _invoke_step(
+    layout: WorkspaceLayout,
+    options: WorkspaceOptions,
+    certification_options: CertificationOptions,
+    name: str,
+) -> None:
+    """Dispatches one named certification step."""
+
+    if name == "validate":
+        validate_workspace(layout)
+        return
+    if name == "build-app-debug-x64":
+        build_apps(layout, _step_options(options, configuration="Debug", platform="x64"), clean=False, app_variant_names=("main",))
+        return
+    if name == "build-app-release-x64":
+        build_apps(layout, _step_options(options, configuration="Release", platform="x64"), clean=False, app_variant_names=("main",))
+        return
+    if name == "build-app-release-arm64":
+        build_apps(layout, _step_options(options, configuration="Release", platform="ARM64"), clean=False, app_variant_names=("main",))
+        return
+    if name == "build-tests-debug-x64":
+        invoke_build_tests(
+            layout,
+            _step_options(options, configuration="Debug", platform="x64"),
+            BuildTestsOptions(test_run_variant="main"),
+        )
+        return
+    if name == "build-tests-release-x64":
+        invoke_build_tests(
+            layout,
+            _step_options(options, configuration="Release", platform="x64"),
+            BuildTestsOptions(test_run_variant="main"),
+        )
+        return
+    if name == "python-harness":
+        invoke_python_tests(layout, PythonTestOptions(quiet=True))
+        return
+    if name == "test-all-debug-x64":
+        invoke_test_runs(layout, _step_options(options, configuration="Debug", platform="x64"))
+        return
+    if name == "test-all-release-x64":
+        invoke_test_runs(layout, _step_options(options, configuration="Release", platform="x64"))
+        return
+    if name == "live-fast-ui-rest":
+        invoke_live_e2e_suite(
+            layout,
+            _step_options(options, configuration="Release", platform="x64"),
+            _fast_live_options(certification_options),
+        )
+        return
+    if name == "live-controller-surface":
+        invoke_live_e2e_suite(
+            layout,
+            _step_options(options, configuration="Release", platform="x64"),
+            _live_options(certification_options, profile="controller-surface", fail_fast=True),
+        )
+        return
+    if name == "live-full-release":
+        invoke_live_e2e_suite(
+            layout,
+            _step_options(options, configuration="Release", platform="x64"),
+            _live_options(
+                certification_options,
+                profile="default",
+                preference_ui_directories_tree_stress=True,
+                search_ui_search_rounds=2,
+                search_ui_download_lifecycle_count=2,
+            ),
+        )
+        return
+    if name == "live-stabilization-stress":
+        invoke_live_e2e_suite(
+            layout,
+            _step_options(options, configuration="Release", platform="x64"),
+            _live_options(
+                certification_options,
+                profile="stabilization-stress",
+                fail_fast=True,
+                rest_cold_start_dump_stress_cpu_profile=True,
+                rest_cold_start_dump_stress_cpu_profile_stack=True,
+            ),
+        )
+        return
+    if name == "amutorrent-clean-startup":
+        invoke_amutorrent_clean_startup(
+            layout,
+            _step_options(options, configuration="Release", platform="x64"),
+            _amutorrent_clean_options(certification_options),
+        )
+        return
+    if name == "amutorrent-emulebb-ui":
+        invoke_amutorrent_emulebb_ui(
+            layout,
+            _step_options(options, configuration="Release", platform="x64"),
+            _amutorrent_ui_options(certification_options),
+        )
+        return
+    if name == "amutorrent-resilience":
+        invoke_amutorrent_resilience(
+            layout,
+            _step_options(options, configuration="Release", platform="x64"),
+            _amutorrent_resilience_options(certification_options),
+        )
+        return
+    raise ValueError(f"Unsupported certification step: {name}")
+
+
+def _step_options(options: WorkspaceOptions, *, configuration: str, platform: str) -> WorkspaceOptions:
+    return options.model_copy(update={"configuration": configuration, "platform": platform})
+
+
+def _fast_live_options(certification_options: CertificationOptions) -> LiveE2eOptions:
+    return _live_options(
+        certification_options,
+        suites=(
+            "preference-ui",
+            "shared-files-ui",
+            "config-stability-ui",
+            "shared-hash-ui",
+            "startup-profile",
+            "shared-directories-rest",
+            "rest-api",
+        ),
+        fail_fast=True,
+    )
+
+
+def _live_options(
+    certification_options: CertificationOptions,
+    *,
+    profile: str = "default",
+    suites: tuple[str, ...] = (),
+    fail_fast: bool = False,
+    preference_ui_directories_tree_stress: bool = False,
+    search_ui_search_rounds: int = 1,
+    search_ui_download_lifecycle_count: int = 1,
+    rest_cold_start_dump_stress_cpu_profile: bool = False,
+    rest_cold_start_dump_stress_cpu_profile_stack: bool = False,
+) -> LiveE2eOptions:
+    return LiveE2eOptions(
+        suites=suites,
+        profile=profile,
+        fail_fast=fail_fast,
+        skip_live_seed_refresh=certification_options.skip_live_seed_refresh,
+        preference_ui_directories_tree_stress=preference_ui_directories_tree_stress,
+        live_wire_inputs_file=certification_options.live_wire_inputs_file,
+        radarr_movie_root=certification_options.radarr_movie_root,
+        sonarr_series_root=certification_options.sonarr_series_root,
+        acquisition_timeout_minutes=certification_options.acquisition_timeout_minutes,
+        p2p_bind_interface_name=certification_options.p2p_bind_interface_name,
+        rest_coverage_budget="contract",
+        rest_stress_budget="smoke",
+        search_ui_search_rounds=search_ui_search_rounds,
+        search_ui_download_lifecycle_count=search_ui_download_lifecycle_count,
+        rest_cold_start_dump_stress_cpu_profile=rest_cold_start_dump_stress_cpu_profile,
+        rest_cold_start_dump_stress_cpu_profile_stack=rest_cold_start_dump_stress_cpu_profile_stack,
+    )
+
+
+def _amutorrent_clean_options(certification_options: CertificationOptions) -> AmutorrentCleanStartupOptions:
+    return AmutorrentCleanStartupOptions(
+        live_wire_inputs_file=certification_options.live_wire_inputs_file,
+        keep_artifacts=True,
+        p2p_bind_interface_name=certification_options.p2p_bind_interface_name,
+    )
+
+
+def _amutorrent_ui_options(certification_options: CertificationOptions) -> AmutorrentEmulebbUiOptions:
+    return AmutorrentEmulebbUiOptions(
+        live_wire_inputs_file=certification_options.live_wire_inputs_file,
+        keep_artifacts=True,
+        p2p_bind_interface_name=certification_options.p2p_bind_interface_name,
+    )
+
+
+def _amutorrent_resilience_options(certification_options: CertificationOptions) -> AmutorrentResilienceOptions:
+    return AmutorrentResilienceOptions(
+        live_wire_inputs_file=certification_options.live_wire_inputs_file,
+        keep_artifacts=True,
+        p2p_bind_interface_name=certification_options.p2p_bind_interface_name,
+    )
+
+
+def _new_report_dir(layout: WorkspaceLayout, profile: str) -> Path:
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    return layout.workspace_root / "state" / "certification" / f"{stamp}-{profile}"
+
+
+def _report_directory_snapshot(reports_root: Path) -> dict[Path, float]:
+    if not reports_root.is_dir():
+        return {}
+    return {path: path.stat().st_mtime for path in reports_root.iterdir() if path.is_dir()}
+
+
+def _changed_report_paths(reports_root: Path, before: dict[Path, float]) -> tuple[Path, ...]:
+    if not reports_root.is_dir():
+        return ()
+    changed: list[Path] = []
+    for path in reports_root.iterdir():
+        if not path.is_dir():
+            continue
+        previous_mtime = before.get(path)
+        current_mtime = path.stat().st_mtime
+        if previous_mtime is None or current_mtime > previous_mtime:
+            changed.append(path)
+    return tuple(sorted(changed))
+
+
+def _failure_status_from_child_reports(report_paths: tuple[Path, ...]) -> str:
+    """Classifies external live evidence when child reports mark inconclusive."""
+
+    for report_path in report_paths:
+        result_path = report_path / "result.json"
+        if not result_path.is_file():
+            continue
+        try:
+            payload = json.loads(result_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if payload.get("status") == "inconclusive" or payload.get("has_inconclusive_suites") is True:
+            return "inconclusive"
+    return "failed"
+
+
+def _write_report(
+    report_dir: Path,
+    layout: WorkspaceLayout,
+    options: WorkspaceOptions,
+    certification_options: CertificationOptions,
+    started_at: datetime,
+    steps: list[CertificationStepResult],
+    *,
+    status: str,
+) -> None:
+    completed_at = datetime.now(timezone.utc)
+    payload = {
+        "status": status,
+        "profile": certification_options.profile,
+        "workspace_root": str(layout.emule_workspace_root),
+        "workspace_name": options.workspace_name,
+        "started_utc": started_at.isoformat(),
+        "updated_utc": completed_at.isoformat(),
+        "duration_seconds": round((completed_at - started_at).total_seconds(), 3),
+        "commits": _workspace_commits(layout),
+        "options": {
+            "p2p_bind_interface_name": certification_options.p2p_bind_interface_name,
+            "live_wire_inputs_file": certification_options.live_wire_inputs_file or "",
+            "radarr_movie_root": certification_options.radarr_movie_root or "",
+            "sonarr_series_root": certification_options.sonarr_series_root or "",
+            "acquisition_timeout_minutes": certification_options.acquisition_timeout_minutes,
+            "skip_live_seed_refresh": certification_options.skip_live_seed_refresh,
+        },
+        "steps": [
+            {
+                "name": step.name,
+                "category": step.category,
+                "status": step.status,
+                "duration_seconds": step.duration_seconds,
+                "error": step.error,
+                "report_paths": [str(path) for path in step.report_paths],
+            }
+            for step in steps
+        ],
+    }
+    (report_dir / "result.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8", newline="\n")
+
+
+def _workspace_commits(layout: WorkspaceLayout) -> dict[str, str]:
+    paths = {
+        "app_main": layout.get_app_variant(layout.test_targets.test_run_variant).path,
+        "build": layout.build_repo_root,
+        "build_tests": layout.tests_repo_root,
+        "tooling": layout.tooling_repo_root,
+    }
+    return {name: _git_head(path) for name, path in paths.items()}
+
+
+def _git_head(path: Path) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "--short=12", "HEAD"],
+            cwd=str(path),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        if completed.returncode == 0:
+            return completed.stdout.strip()
+    except OSError:
+        pass
+    return ""

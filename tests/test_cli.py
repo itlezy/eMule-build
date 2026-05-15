@@ -74,6 +74,20 @@ def test_test_live_e2e_help_exposes_live_options() -> None:
     assert "--rest-cold-start-dump-stress-cpu-profile-stack" in result.output
 
 
+def test_test_certification_help_exposes_release_gate_options() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["test", "certification", "--help"])
+
+    assert result.exit_code == 0
+    assert "--profile" in result.output
+    assert "overnight" in result.output
+    assert "--live-wire-inputs-file" in result.output
+    assert "--radarr-movie-root" in result.output
+    assert "--sonarr-series-root" in result.output
+    assert "--p2p-bind-interface-name" in result.output
+
+
 def test_amutorrent_clean_startup_help_exposes_live_options() -> None:
     runner = CliRunner()
 

@@ -12,6 +12,7 @@ BuildConfiguration = Literal["Debug", "Release"]
 BuildPlatform = Literal["x64", "ARM64"]
 BuildOutputMode = Literal["Full", "Warnings", "ErrorsOnly"]
 LiveE2eProfile = Literal["default", "beta-green", "controller-surface", "beta-release", "stabilization-stress", "cpu-heavy"]
+CertificationProfile = Literal["fast", "overnight"]
 
 
 class WorkspaceOptions(BaseModel):
@@ -182,6 +183,20 @@ class CommunityCoverageOptions(VariantComparisonOptions):
 
     rest_coverage_budget: str = "contract"
     rest_stress_budget: str = "smoke"
+
+
+class CertificationOptions(BaseModel):
+    """Options for the release-certification test matrix."""
+
+    model_config = ConfigDict(frozen=True)
+
+    profile: CertificationProfile = "fast"
+    live_wire_inputs_file: str | None = None
+    radarr_movie_root: str | None = None
+    sonarr_series_root: str | None = None
+    acquisition_timeout_minutes: float | None = None
+    p2p_bind_interface_name: str = "hide.me"
+    skip_live_seed_refresh: bool = False
 
 
 class ReleasePackageOptions(BaseModel):

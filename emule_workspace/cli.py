@@ -11,6 +11,7 @@ import click
 from .build_tests import invoke_build_tests
 from .build import build_apps as invoke_build_apps
 from .build import build_libs as invoke_build_libs
+from .certification import invoke_certification
 from .cleanup import cleanup_workspace
 from .config import (
     AmutorrentCleanStartupOptions,
@@ -18,6 +19,7 @@ from .config import (
     AmutorrentResilienceOptions,
     AmutorrentSessionOptions,
     BuildTestsOptions,
+    CertificationOptions,
     CleanupOptions,
     CommunityCoverageOptions,
     LiveE2eOptions,
@@ -556,6 +558,44 @@ def test_live_e2e(
     _locked(
         "test live-e2e",
         lambda **kwargs: invoke_live_e2e_suite(kwargs["layout"], kwargs["workspace_options"], live_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("certification")
+@_common_options
+@click.option("--profile", type=click.Choice(["fast", "overnight"]), default="fast", show_default=True)
+@click.option("--live-wire-inputs-file", default=None, help="Runtime live-wire search/download input JSON.")
+@click.option("--radarr-movie-root", default=None, help="Radarr-visible movie root for Radarr import live checks.")
+@click.option("--sonarr-series-root", default=None, help="Sonarr-visible series root for Sonarr import live checks.")
+@click.option("--acquisition-timeout-minutes", default=None, type=float, help="Arr acquisition timeout forwarded to live suites.")
+@click.option("--p2p-bind-interface-name", default="hide.me", show_default=True)
+@click.option("--skip-live-seed-refresh", is_flag=True, help="Reuse the existing live seed state.")
+def test_certification(
+    *,
+    profile: str,
+    live_wire_inputs_file: str | None,
+    radarr_movie_root: str | None,
+    sonarr_series_root: str | None,
+    acquisition_timeout_minutes: float | None,
+    p2p_bind_interface_name: str,
+    skip_live_seed_refresh: bool,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Run the release-certification test matrix."""
+
+    certification_options = CertificationOptions(
+        profile=profile,
+        live_wire_inputs_file=live_wire_inputs_file,
+        radarr_movie_root=radarr_movie_root,
+        sonarr_series_root=sonarr_series_root,
+        acquisition_timeout_minutes=acquisition_timeout_minutes,
+        p2p_bind_interface_name=p2p_bind_interface_name,
+        skip_live_seed_refresh=skip_live_seed_refresh,
+    )
+    _locked(
+        "test certification",
+        lambda **kwargs: invoke_certification(kwargs["layout"], kwargs["workspace_options"], certification_options),
     )(workspace_options=workspace_options, layout=layout)
 
 
