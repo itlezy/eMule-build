@@ -152,6 +152,8 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--rest-leak-churn-budget", type=click.Choice(["off", "smoke", "soak"]), default="off")
     @click.option("--rest-leak-churn-cycles", default=-1, show_default=True, type=int)
     @click.option("--rest-stop-start-after-churn", is_flag=True)
+    @click.option("--search-ui-search-rounds", default=1, show_default=True, type=int)
+    @click.option("--search-ui-download-lifecycle-count", default=1, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-waves", default=4, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-searches-per-wave", default=12, show_default=True, type=int)
     @click.option("--rest-cold-start-dump-stress-max-concurrent-searches", default=8, show_default=True, type=int)
