@@ -258,6 +258,7 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
     _append_optional_flag(args, live_options.rest_stop_start_after_churn, "--rest-stop-start-after-churn")
     if live_options.shared_root:
         args.extend(["--shared-root", live_options.shared_root])
+    _append_optional_flag(args, live_options.preference_ui_directories_tree_stress, "--preference-ui-directories-tree-stress")
     for scenario_name in live_options.shared_files_ui_scenarios:
         args.extend(["--shared-files-ui-scenario", scenario_name])
     if live_options.shared_files_tree_stress_churn_cycles >= 0:

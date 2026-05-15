@@ -93,6 +93,31 @@ def test_live_e2e_forwards_cold_stress_cpu_profile_options(tmp_path: Path, monke
     assert captured["env"] == {"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root}
 
 
+def test_live_e2e_forwards_preference_directory_tree_stress(tmp_path: Path, monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_native(command, *, label, cwd, env=None, allow_failure=False):
+        captured["command"] = list(command)
+
+    layout = make_layout(tmp_path)
+    monkeypatch.setattr(test_runs, "run_native", fake_run_native)
+
+    test_runs.invoke_live_e2e_suite(
+        layout,
+        WorkspaceOptions(workspace_root=tmp_path, platform="x64"),
+        LiveE2eOptions(
+            suites=("preference-ui",),
+            shared_root=r"C:\tmp\large-shared-root",
+            preference_ui_directories_tree_stress=True,
+        ),
+    )
+
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert "--preference-ui-directories-tree-stress" in command
+    assert option_values(command, "--shared-root") == [r"C:\tmp\large-shared-root"]
+
+
 def test_live_e2e_forwards_radarr_movie_root_only_when_configured(tmp_path: Path, monkeypatch) -> None:
     captured: dict[str, object] = {}
 

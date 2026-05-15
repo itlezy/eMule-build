@@ -128,6 +128,7 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--skip-live-seed-refresh", is_flag=True, help="Reuse the existing live seed state.")
     @click.option("--startup-trace-mode", type=click.Choice(["required", "optional"]), default="required", show_default=True)
     @click.option("--shared-root", default=None, help="Shared file root for live UI scenarios.")
+    @click.option("--preference-ui-directories-tree-stress", is_flag=True, help="Exercise the Preferences Directories tree with a large shared-directory profile.")
     @click.option("--shared-files-ui-scenario", "shared_files_ui_scenarios", multiple=True)
     @click.option("--shared-files-tree-stress-churn-cycles", default=-1, show_default=True, type=int)
     @click.option("--live-wire-inputs-file", default=None, help="Runtime live-wire search input JSON.")

@@ -73,6 +73,7 @@ class LiveE2eOptions(BaseModel):
     skip_live_seed_refresh: bool = False
     startup_trace_mode: str = "required"
     shared_root: str | None = None
+    preference_ui_directories_tree_stress: bool = False
     shared_files_ui_scenarios: tuple[str, ...] = ()
     shared_files_tree_stress_churn_cycles: int = -1
     live_wire_inputs_file: str | None = None
