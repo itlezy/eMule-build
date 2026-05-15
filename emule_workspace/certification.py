@@ -94,6 +94,7 @@ def invoke_certification(layout: WorkspaceLayout, options: WorkspaceOptions, cer
     steps: list[CertificationStepResult] = []
     started_at = datetime.now(timezone.utc)
     status = "passed"
+    stop_error: RuntimeError | None = None
 
     try:
         for step_plan in get_certification_step_plan(certification_options.profile):
@@ -106,11 +107,19 @@ def invoke_certification(layout: WorkspaceLayout, options: WorkspaceOptions, cer
             steps.append(step_result)
             _write_report(report_dir, layout, options, certification_options, started_at, steps, status="running")
             if step_result.status != "passed":
-                status = step_result.status
-                raise RuntimeError(f"Certification step '{step_result.name}' {step_result.status}: {step_result.error}")
+                if not certification_options.continue_on_failure:
+                    stop_error = RuntimeError(f"Certification step '{step_result.name}' {step_result.status}: {step_result.error}")
+                    break
+        status = _aggregate_status(steps)
+        if stop_error is not None:
+            raise stop_error
+        if status != "passed":
+            raise RuntimeError(f"Certification profile '{certification_options.profile}' completed with status {status}.")
     except Exception:
-        if status == "passed":
+        if not steps:
             status = "failed"
+        else:
+            status = _aggregate_status(steps)
         _write_report(report_dir, layout, options, certification_options, started_at, steps, status=status)
         print(f"Certification report: {report_dir / 'result.json'}")
         raise
@@ -121,6 +130,16 @@ def invoke_certification(layout: WorkspaceLayout, options: WorkspaceOptions, cer
     print(f"Status: {status}")
     print(f"Steps: {len(steps)}")
     print(f"Report: {report_dir / 'result.json'}")
+
+
+def _aggregate_status(steps: list[CertificationStepResult]) -> str:
+    """Returns the terminal certification status from collected step results."""
+
+    if any(step.status == "failed" for step in steps):
+        return "failed"
+    if any(step.status == "inconclusive" for step in steps):
+        return "inconclusive"
+    return "passed"
 
 
 def _run_step(
@@ -398,6 +417,7 @@ def _write_report(
         "duration_seconds": round((completed_at - started_at).total_seconds(), 3),
         "commits": _workspace_commits(layout),
         "options": {
+            "continue_on_failure": certification_options.continue_on_failure,
             "p2p_bind_interface_name": certification_options.p2p_bind_interface_name,
             "live_wire_inputs_file": certification_options.live_wire_inputs_file or "",
             "radarr_movie_root": certification_options.radarr_movie_root or "",

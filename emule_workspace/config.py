@@ -191,6 +191,7 @@ class CertificationOptions(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     profile: CertificationProfile = "fast"
+    continue_on_failure: bool = False
     live_wire_inputs_file: str | None = None
     radarr_movie_root: str | None = None
     sonarr_series_root: str | None = None

@@ -570,6 +570,7 @@ def test_live_e2e(
 @click.option("--acquisition-timeout-minutes", default=None, type=float, help="Arr acquisition timeout forwarded to live suites.")
 @click.option("--p2p-bind-interface-name", default="hide.me", show_default=True)
 @click.option("--skip-live-seed-refresh", is_flag=True, help="Reuse the existing live seed state.")
+@click.option("--continue-on-failure", is_flag=True, help="Run remaining certification steps after a failed or inconclusive step.")
 def test_certification(
     *,
     profile: str,
@@ -579,6 +580,7 @@ def test_certification(
     acquisition_timeout_minutes: float | None,
     p2p_bind_interface_name: str,
     skip_live_seed_refresh: bool,
+    continue_on_failure: bool,
     workspace_options: WorkspaceOptions,
     layout,
 ) -> None:
@@ -586,6 +588,7 @@ def test_certification(
 
     certification_options = CertificationOptions(
         profile=profile,
+        continue_on_failure=continue_on_failure,
         live_wire_inputs_file=live_wire_inputs_file,
         radarr_movie_root=radarr_movie_root,
         sonarr_series_root=sonarr_series_root,

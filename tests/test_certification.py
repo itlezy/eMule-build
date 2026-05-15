@@ -91,8 +91,10 @@ def test_certification_writes_single_passing_report(tmp_path: Path, monkeypatch:
 
 def test_certification_records_failed_step(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     layout = make_layout(tmp_path)
+    calls: list[str] = []
 
     def fake_invoke_step(_layout, _options, _certification_options, name):
+        calls.append(name)
         if name == "build-tests-release-x64":
             raise RuntimeError("native test build failed")
 
@@ -111,6 +113,34 @@ def test_certification_records_failed_step(tmp_path: Path, monkeypatch: pytest.M
     assert len(failed) == 1
     assert failed[0]["name"] == "build-tests-release-x64"
     assert failed[0]["error"] == "native test build failed"
+    assert calls[-1] == "build-tests-release-x64"
+
+
+def test_certification_can_continue_after_failed_step(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    layout = make_layout(tmp_path)
+    calls: list[str] = []
+
+    def fake_invoke_step(_layout, _options, _certification_options, name):
+        calls.append(name)
+        if name == "build-tests-release-x64":
+            raise RuntimeError("native test build failed")
+
+    monkeypatch.setattr(certification, "_invoke_step", fake_invoke_step)
+
+    with pytest.raises(RuntimeError, match="completed with status failed"):
+        certification.invoke_certification(
+            layout,
+            WorkspaceOptions(workspace_root=tmp_path, platform="x64"),
+            CertificationOptions(profile="fast", continue_on_failure=True),
+        )
+
+    expected = [step.name for step in certification.get_certification_step_plan("fast")]
+    report = json.loads(latest_certification_report(layout).read_text(encoding="utf-8"))
+    assert calls == expected
+    assert report["status"] == "failed"
+    assert report["options"]["continue_on_failure"] is True
+    assert report["steps"][-1]["name"] == "live-fast-ui-rest"
+    assert [step["name"] for step in report["steps"]] == expected
 
 
 def test_certification_preserves_inconclusive_child_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
