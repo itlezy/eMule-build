@@ -119,7 +119,7 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--suite", "suites", multiple=True, help="Live E2E suite to run.")
     @click.option(
         "--profile",
-        type=click.Choice(["default", "beta-green", "controller-surface", "beta-release", "stabilization-stress"]),
+        type=click.Choice(["default", "beta-green", "controller-surface", "beta-release", "stabilization-stress", "cpu-heavy"]),
         default="default",
         show_default=True,
         help="Named live E2E suite profile.",
