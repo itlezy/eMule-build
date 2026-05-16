@@ -20,6 +20,7 @@ LiveE2eProfile = Literal[
     "release-expanded",
     "stabilization-stress",
     "cpu-heavy",
+    "ui-resource-depth",
 ]
 CertificationProfile = Literal["fast", "overnight"]
 

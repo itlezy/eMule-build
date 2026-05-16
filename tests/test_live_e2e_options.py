@@ -292,6 +292,16 @@ def test_live_e2e_forwards_profile_only_when_configured(tmp_path: Path, monkeypa
     assert isinstance(command, list)
     assert option_values(command, "--profile") == ["cpu-heavy"]
 
+    test_runs.invoke_live_e2e_suite(
+        layout,
+        WorkspaceOptions(workspace_root=tmp_path, platform="x64"),
+        LiveE2eOptions(profile="ui-resource-depth"),
+    )
+
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert option_values(command, "--profile") == ["ui-resource-depth"]
+
 
 def test_live_e2e_forwards_live_wire_inputs_file_only_when_configured(tmp_path: Path, monkeypatch) -> None:
     captured: dict[str, object] = {}

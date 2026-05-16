@@ -133,6 +133,7 @@ def _live_e2e_options(function: F) -> F:
             "release-expanded",
             "stabilization-stress",
             "cpu-heavy",
+            "ui-resource-depth",
         ]),
         default="default",
         show_default=True,
