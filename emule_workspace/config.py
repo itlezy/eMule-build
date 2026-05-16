@@ -17,6 +17,7 @@ LiveE2eProfile = Literal[
     "beta-green",
     "controller-surface",
     "beta-release",
+    "release-expanded",
     "stabilization-stress",
     "cpu-heavy",
 ]

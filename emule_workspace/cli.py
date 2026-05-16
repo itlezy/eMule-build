@@ -130,6 +130,7 @@ def _live_e2e_options(function: F) -> F:
             "beta-green",
             "controller-surface",
             "beta-release",
+            "release-expanded",
             "stabilization-stress",
             "cpu-heavy",
         ]),
