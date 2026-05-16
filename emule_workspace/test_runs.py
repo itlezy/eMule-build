@@ -11,6 +11,7 @@ from .config import (
     AmutorrentResilienceOptions,
     AmutorrentSessionOptions,
     CommunityCoverageOptions,
+    FakeKadTrustSoakOptions,
     LiveE2eOptions,
     VariantComparisonOptions,
     WorkspaceOptions,
@@ -319,6 +320,58 @@ def invoke_amutorrent_interactive_session(
     run_native(
         python.command(args),
         label="aMuTorrent interactive session",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
+
+
+def invoke_fake_kad_trust_soak(
+    layout: WorkspaceLayout,
+    options: WorkspaceOptions,
+    soak_options: FakeKadTrustSoakOptions,
+) -> None:
+    """Runs the focused fake-file/Kad trust live soak."""
+
+    _assert_test_execution_platform_supported(options)
+    app_root = layout.get_app_variant(layout.test_targets.test_run_variant).path
+    script_path = layout.tests_repo_root / "scripts" / "fake-kad-trust-soak.py"
+    if not script_path.is_file():
+        raise RuntimeError(f"Missing fake/Kad trust soak runner: {script_path}")
+
+    args: list[str | Path | float | int] = [
+        script_path,
+        "--app-root",
+        app_root,
+        "--configuration",
+        options.configuration,
+        "--duration-seconds",
+        soak_options.duration_seconds,
+        "--cycle-pause-seconds",
+        soak_options.cycle_pause_seconds,
+        "--search-observation-timeout-seconds",
+        soak_options.search_observation_timeout_seconds,
+        "--resource-sample-interval-seconds",
+        soak_options.resource_sample_interval_seconds,
+        "--min-result-rows",
+        soak_options.min_result_rows,
+        "--min-kad-publish-info-rows",
+        soak_options.min_kad_publish_info_rows,
+        "--max-failed-cycles",
+        soak_options.max_failed_cycles,
+        "--p2p-bind-interface-name",
+        soak_options.p2p_bind_interface_name,
+    ]
+    if soak_options.live_wire_inputs_file:
+        args.extend(["--live-wire-inputs-file", soak_options.live_wire_inputs_file])
+    _append_optional_flag(args, soak_options.keep_artifacts, "--keep-artifacts")
+    _append_optional_flag(args, soak_options.keep_running, "--keep-running")
+    _append_optional_flag(args, soak_options.skip_live_seed_refresh, "--skip-live-seed-refresh")
+    _append_optional_flag(args, soak_options.require_kad_connected, "--require-kad-connected")
+
+    python = get_python_invocation()
+    run_native(
+        python.command(args),
+        label="fake/Kad trust soak",
         cwd=layout.emule_workspace_root,
         env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )

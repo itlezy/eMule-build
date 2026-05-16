@@ -148,6 +148,7 @@ def assert_required_test_helpers(layout: WorkspaceLayout) -> None:
         "scripts/run-live-diff.py",
         "scripts/run-community-core-coverage.py",
         "scripts/run-live-e2e-suite.py",
+        "scripts/fake-kad-trust-soak.py",
         "scripts/amutorrent-interactive-session.py",
         "scripts/amutorrent-resilience-live.py",
         "scripts/amutorrent-emulebb-ui-live.py",

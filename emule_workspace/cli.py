@@ -22,6 +22,7 @@ from .config import (
     CertificationOptions,
     CleanupOptions,
     CommunityCoverageOptions,
+    FakeKadTrustSoakOptions,
     LiveE2eOptions,
     PythonTestOptions,
     ReleasePackageOptions,
@@ -42,6 +43,7 @@ from .test_runs import (
     invoke_amutorrent_interactive_session,
     invoke_amutorrent_resilience,
     invoke_community_core_coverage,
+    invoke_fake_kad_trust_soak,
     invoke_live_diff_runs,
     invoke_live_e2e_suite,
     invoke_native_test_suites,
@@ -617,6 +619,62 @@ def test_amutorrent_session(
     _locked(
         "test amutorrent-session",
         lambda **kwargs: invoke_amutorrent_interactive_session(kwargs["layout"], kwargs["workspace_options"], session_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("fake-kad-trust-soak")
+@_common_options
+@click.option("--live-wire-inputs-file", default=None, help="Runtime live-wire search input JSON.")
+@click.option("--keep-artifacts", is_flag=True, help="Keep source artifacts after the soak run.")
+@click.option("--keep-running", is_flag=True, help="Leave eMule running when the soak passes.")
+@click.option("--skip-live-seed-refresh", is_flag=True, help="Reuse the existing live seed state.")
+@click.option("--duration-seconds", default=3 * 60 * 60, show_default=True, type=float)
+@click.option("--cycle-pause-seconds", default=10.0, show_default=True, type=float)
+@click.option("--search-observation-timeout-seconds", default=90.0, show_default=True, type=float)
+@click.option("--resource-sample-interval-seconds", default=60.0, show_default=True, type=float)
+@click.option("--min-result-rows", default=1, show_default=True, type=int)
+@click.option("--min-kad-publish-info-rows", default=1, show_default=True, type=int)
+@click.option("--max-failed-cycles", default=0, show_default=True, type=int)
+@click.option("--require-kad-connected", is_flag=True, help="Require full Kad connected state before soaking.")
+@click.option("--p2p-bind-interface-name", default="hide.me", show_default=True)
+def test_fake_kad_trust_soak(
+    *,
+    live_wire_inputs_file: str | None,
+    keep_artifacts: bool,
+    keep_running: bool,
+    skip_live_seed_refresh: bool,
+    duration_seconds: float,
+    cycle_pause_seconds: float,
+    search_observation_timeout_seconds: float,
+    resource_sample_interval_seconds: float,
+    min_result_rows: int,
+    min_kad_publish_info_rows: int,
+    max_failed_cycles: int,
+    require_kad_connected: bool,
+    p2p_bind_interface_name: str,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Run a focused fake-file risk and Kad trust live soak."""
+
+    soak_options = FakeKadTrustSoakOptions(
+        live_wire_inputs_file=live_wire_inputs_file,
+        keep_artifacts=keep_artifacts,
+        keep_running=keep_running,
+        skip_live_seed_refresh=skip_live_seed_refresh,
+        duration_seconds=duration_seconds,
+        cycle_pause_seconds=cycle_pause_seconds,
+        search_observation_timeout_seconds=search_observation_timeout_seconds,
+        resource_sample_interval_seconds=resource_sample_interval_seconds,
+        min_result_rows=min_result_rows,
+        min_kad_publish_info_rows=min_kad_publish_info_rows,
+        max_failed_cycles=max_failed_cycles,
+        require_kad_connected=require_kad_connected,
+        p2p_bind_interface_name=p2p_bind_interface_name,
+    )
+    _locked(
+        "test fake-kad-trust-soak",
+        lambda **kwargs: invoke_fake_kad_trust_soak(kwargs["layout"], kwargs["workspace_options"], soak_options),
     )(workspace_options=workspace_options, layout=layout)
 
 

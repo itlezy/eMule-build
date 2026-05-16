@@ -138,6 +138,26 @@ class AmutorrentSessionOptions(BaseModel):
     live_network: bool = False
 
 
+class FakeKadTrustSoakOptions(BaseModel):
+    """Options forwarded to the focused fake-file/Kad trust live soak runner."""
+
+    model_config = ConfigDict(frozen=True)
+
+    live_wire_inputs_file: str | None = None
+    keep_artifacts: bool = False
+    keep_running: bool = False
+    skip_live_seed_refresh: bool = False
+    duration_seconds: float = 3 * 60 * 60
+    cycle_pause_seconds: float = 10.0
+    search_observation_timeout_seconds: float = 90.0
+    resource_sample_interval_seconds: float = 60.0
+    min_result_rows: int = 1
+    min_kad_publish_info_rows: int = 1
+    max_failed_cycles: int = 0
+    require_kad_connected: bool = False
+    p2p_bind_interface_name: str = "hide.me"
+
+
 class AmutorrentCleanStartupOptions(BaseModel):
     """Options forwarded to the aMuTorrent clean-startup live E2E runner."""
 
