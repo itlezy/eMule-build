@@ -148,6 +148,7 @@ def assert_required_test_helpers(layout: WorkspaceLayout) -> None:
         "scripts/run-native-coverage.py",
         "scripts/run-live-diff.py",
         "scripts/run-protocol-surface-diff.py",
+        "scripts/validate-protocol-goldens.py",
         "scripts/run-community-core-coverage.py",
         "scripts/run-live-e2e-suite.py",
         "scripts/fake-kad-trust-soak.py",

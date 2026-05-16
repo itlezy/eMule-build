@@ -150,6 +150,18 @@ def invoke_protocol_parity(
     run_native(
         python.command(
             [
+                layout.tests_repo_root / "scripts" / "validate-protocol-goldens.py",
+                "--test-repo-root",
+                layout.tests_repo_root,
+            ]
+        ),
+        label="protocol oracle golden validation",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
+    run_native(
+        python.command(
+            [
                 layout.tests_repo_root / "scripts" / "run-live-diff.py",
                 "--test-repo-root",
                 layout.tests_repo_root,

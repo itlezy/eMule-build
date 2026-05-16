@@ -87,6 +87,7 @@ python -m emule_workspace build all
 python -m emule_workspace test python
 python -m emule_workspace test all
 python -m emule_workspace test live-diff
+python -m emule_workspace test protocol-parity
 python -m emule_workspace test live-e2e
 python -m emule_workspace test amutorrent-session
 python -m emule_workspace test community-core-coverage
@@ -110,6 +111,7 @@ Command behavior:
 - `test python` runs the fast pytest harness suite from `eMule-build-tests`; use `--path`, `--expression`, and `--quiet` to narrow the pytest selection.
 - `test all` runs parity tests, native coverage, and live diff using the configured test target variants.
 - `test live-diff` runs parity and divergence comparison directly against any two configured app variants.
+- `test protocol-parity` runs the focused Kad/eD2K gate: protocol surface diff, protocol oracle golden validation, and `protocol-parity` native live-diff.
 - `test live-e2e` runs the aggregate UI, REST API, and live-wire E2E suite from `eMule-build-tests`.
 - `test amutorrent-session` starts a disposable interactive aMuTorrent session against eMule BB REST and leaves both processes running for operator testing.
 - `test community-core-coverage` runs community-core coverage checks with live REST E2E coverage enabled.
