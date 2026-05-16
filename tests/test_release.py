@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import struct
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -7,6 +11,37 @@ import pytest
 
 from emule_workspace import release
 from emule_workspace.layout import AppVariant
+
+
+def _pe_payload(machine: int) -> bytes:
+    payload = bytearray(128)
+    payload[0:2] = b"MZ"
+    struct.pack_into("<I", payload, 0x3C, 0x40)
+    payload[0x40:0x44] = b"PE\0\0"
+    struct.pack_into("<H", payload, 0x44, machine)
+    return bytes(payload)
+
+
+def _write_release_zip(path: Path, *, language_payloads: dict[str, bytes] | None = None, extra_entries: dict[str, bytes] | None = None) -> None:
+    entries = {
+        "eMule/emule.exe": _pe_payload(0x8664),
+        "eMule/README.md": b"readme\n",
+        "eMule/RELEASE-NOTES.md": b"notes\n",
+        "eMule/LICENSE-NOTICE.txt": b"notice\n",
+        "eMule/GPL-2.0-or-later.txt": b"gpl\n",
+        "eMule/THIRD-PARTY-NOTICES.txt": b"third party\n",
+        "eMule/docs/REST-API-CONTRACT.md": b"contract\n",
+        "eMule/docs/REST-API-OPENAPI.yaml": b"openapi\n",
+        "eMule/docs/REST-API-PARITY-INVENTORY.md": b"parity\n",
+        "eMule/webserver/eMule.tmpl": b"template\n",
+    }
+    for name, payload in (language_payloads or {"de_DE.dll": _pe_payload(0x8664)}).items():
+        entries[f"eMule/lang/{name}"] = payload
+    entries.update(extra_entries or {})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, payload in entries.items():
+            archive.writestr(name, payload)
 
 
 def test_package_release_dirty_guard_reports_all_provenance_inputs(
@@ -101,6 +136,8 @@ def test_release_manifest_records_explicit_source_provenance(
         release_root=release_root,
         zip_hash="zip-sha",
         exe_hash="exe-sha",
+        expected_language_dlls=("de_DE.dll", "fr_FR.dll"),
+        package_file_hashes={"eMule/emule.exe": "exe-entry-sha"},
     )
 
     assert manifest["appVariant"] == "main"
@@ -112,3 +149,64 @@ def test_release_manifest_records_explicit_source_provenance(
     assert manifest["buildTestsCommit"] == "tests12"
     assert manifest["toolingBranch"] == "main"
     assert manifest["toolingCommit"] == "tools12"
+    assert manifest["languageDllCount"] == 2
+    assert manifest["languageDlls"] == ["de_DE.dll", "fr_FR.dll"]
+    assert manifest["packageFileSha256"] == {"eMule/emule.exe": "exe-entry-sha"}
+
+
+def test_expected_language_dlls_uses_release_language_manifest(tmp_path: Path) -> None:
+    tooling_root = tmp_path / "repos" / "eMule-tooling"
+    manifest_path = tooling_root / "helpers" / "rc-release-languages.json"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(
+        json.dumps({"languages": [{"rc": "fr_FR.rc"}, {"rc": "de_DE.rc"}]}) + "\n",
+        encoding="utf-8",
+    )
+
+    assert release._expected_language_dlls(tooling_root) == ("de_DE.dll", "fr_FR.dll")
+
+
+def test_release_package_contents_require_exact_language_set(tmp_path: Path) -> None:
+    zip_path = tmp_path / "package.zip"
+    _write_release_zip(zip_path, language_payloads={"de_DE.dll": _pe_payload(0x8664)})
+
+    with pytest.raises(RuntimeError, match="missing language DLLs"):
+        release._assert_release_package_contents(zip_path, ("de_DE.dll", "fr_FR.dll"), "x64")
+
+
+def test_release_package_contents_reject_unexpected_language_dll(tmp_path: Path) -> None:
+    zip_path = tmp_path / "package.zip"
+    _write_release_zip(
+        zip_path,
+        language_payloads={"de_DE.dll": _pe_payload(0x8664), "extra.dll": _pe_payload(0x8664)},
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected language DLLs"):
+        release._assert_release_package_contents(zip_path, ("de_DE.dll",), "x64")
+
+
+def test_release_package_contents_reject_wrong_architecture(tmp_path: Path) -> None:
+    zip_path = tmp_path / "package.zip"
+    _write_release_zip(zip_path, language_payloads={"de_DE.dll": _pe_payload(0xAA64)})
+
+    with pytest.raises(RuntimeError, match="PE architecture mismatch"):
+        release._assert_release_package_contents(zip_path, ("de_DE.dll",), "x64")
+
+
+def test_release_package_contents_reject_forbidden_artifacts(tmp_path: Path) -> None:
+    zip_path = tmp_path / "package.zip"
+    _write_release_zip(zip_path, extra_entries={"eMule/build/emule.pdb": b"symbols"})
+
+    with pytest.raises(RuntimeError, match="build/source artifacts"):
+        release._assert_release_package_contents(zip_path, ("de_DE.dll",), "x64")
+
+
+def test_release_package_contents_accept_full_bundle_and_hash_entries(tmp_path: Path) -> None:
+    zip_path = tmp_path / "package.zip"
+    _write_release_zip(zip_path)
+
+    release._assert_release_package_contents(zip_path, ("de_DE.dll",), "x64")
+
+    hashes = release._zip_entry_hashes(zip_path)
+    assert hashes["eMule/README.md"] == hashlib.sha256(b"readme\n").hexdigest()
+    assert "eMule/THIRD-PARTY-NOTICES.txt" in hashes
