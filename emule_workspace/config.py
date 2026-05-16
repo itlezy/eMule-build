@@ -11,7 +11,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 BuildConfiguration = Literal["Debug", "Release"]
 BuildPlatform = Literal["x64", "ARM64"]
 BuildOutputMode = Literal["Full", "Warnings", "ErrorsOnly"]
-LiveE2eProfile = Literal["default", "beta-green", "controller-surface", "beta-release", "stabilization-stress", "cpu-heavy"]
+LiveE2eProfile = Literal[
+    "default",
+    "protocol-parity",
+    "beta-green",
+    "controller-surface",
+    "beta-release",
+    "stabilization-stress",
+    "cpu-heavy",
+]
 CertificationProfile = Literal["fast", "overnight"]
 
 

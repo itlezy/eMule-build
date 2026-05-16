@@ -47,6 +47,7 @@ from .test_runs import (
     invoke_live_diff_runs,
     invoke_live_e2e_suite,
     invoke_native_test_suites,
+    invoke_protocol_parity,
     invoke_test_runs,
 )
 from .validation import validate_workspace
@@ -123,7 +124,15 @@ def _live_e2e_options(function: F) -> F:
     @click.option("--suite", "suites", multiple=True, help="Live E2E suite to run.")
     @click.option(
         "--profile",
-        type=click.Choice(["default", "beta-green", "controller-surface", "beta-release", "stabilization-stress", "cpu-heavy"]),
+        type=click.Choice([
+            "default",
+            "protocol-parity",
+            "beta-green",
+            "controller-surface",
+            "beta-release",
+            "stabilization-stress",
+            "cpu-heavy",
+        ]),
         default="default",
         show_default=True,
         help="Named live E2E suite profile.",
@@ -514,6 +523,23 @@ def test_live_diff(
     _locked(
         "test live-diff",
         lambda **kwargs: invoke_live_diff_runs(kwargs["layout"], kwargs["workspace_options"], comparison_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("protocol-parity")
+@_common_options
+@_comparison_options
+def test_protocol_parity(
+    *,
+    comparison_options: VariantComparisonOptions,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Run focused Kad/eD2K protocol parity checks against the community baseline."""
+
+    _locked(
+        "test protocol-parity",
+        lambda **kwargs: invoke_protocol_parity(kwargs["layout"], kwargs["workspace_options"], comparison_options),
     )(workspace_options=workspace_options, layout=layout)
 
 

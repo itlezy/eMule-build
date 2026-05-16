@@ -23,7 +23,7 @@ from .process import get_python_invocation, run_native
 def invoke_test_runs(layout: WorkspaceLayout, options: WorkspaceOptions) -> None:
     """Runs native parity/web_api suites, coverage, and live-diff."""
 
-    invoke_native_test_suites(layout, options, None, ("parity", "web_api"))
+    invoke_native_test_suites(layout, options, None, ("parity", "protocol-parity", "web_api"))
 
     python = get_python_invocation()
     test_run_variant = layout.test_targets.test_run_variant
@@ -42,6 +42,8 @@ def invoke_test_runs(layout: WorkspaceLayout, options: WorkspaceOptions) -> None
                 options.platform,
                 "--suite-name",
                 "parity",
+                "--suite-name",
+                "protocol-parity",
                 "--suite-name",
                 "web_api",
             ]
@@ -108,6 +110,62 @@ def invoke_live_diff_runs(
             ]
         ),
         label=f"live diff {test_run_variant} vs {baseline_variant}",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
+
+
+def invoke_protocol_parity(
+    layout: WorkspaceLayout,
+    options: WorkspaceOptions,
+    comparison_options: VariantComparisonOptions,
+) -> None:
+    """Runs the focused Kad/eD2K protocol parity gate."""
+
+    _assert_test_execution_platform_supported(options)
+    test_run_variant = comparison_options.test_run_variant or layout.test_targets.test_run_variant
+    baseline_variant = comparison_options.baseline_variant or layout.test_targets.baseline_variant
+    test_run_app_root = layout.get_app_variant(test_run_variant).path
+    baseline_app_root = layout.get_app_variant(baseline_variant).path
+    python = get_python_invocation()
+
+    run_native(
+        python.command(
+            [
+                layout.tests_repo_root / "scripts" / "run-protocol-surface-diff.py",
+                "--test-repo-root",
+                layout.tests_repo_root,
+                "--workspace-root",
+                layout.workspace_root,
+                "--test-run-app-root",
+                test_run_app_root,
+                "--baseline-app-root",
+                baseline_app_root,
+            ]
+        ),
+        label=f"protocol surface diff {test_run_variant} vs {baseline_variant}",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
+    run_native(
+        python.command(
+            [
+                layout.tests_repo_root / "scripts" / "run-live-diff.py",
+                "--test-repo-root",
+                layout.tests_repo_root,
+                "--test-run-app-root",
+                test_run_app_root,
+                "--baseline-app-root",
+                baseline_app_root,
+                "--configuration",
+                options.configuration,
+                "--platform",
+                options.platform,
+                "--suite-name",
+                "protocol-parity",
+            ]
+        ),
+        label=f"protocol parity live diff {test_run_variant} vs {baseline_variant}",
         cwd=layout.emule_workspace_root,
         env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )
