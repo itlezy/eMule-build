@@ -190,6 +190,7 @@ def run_policy_audits(layout: WorkspaceLayout) -> None:
         ("dependency pin audit", "dependency-pins"),
         ("documentation path audit", "doc-paths"),
         ("editorconfig policy audit", "editorconfig-policy"),
+        ("localization policy audit", "localization-policy"),
         ("PowerShell boundary audit", "powershell-boundary"),
         ("project entrypoint audit", "project-entrypoints"),
         ("warning policy audit", "warning-policy"),
