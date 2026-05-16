@@ -33,6 +33,10 @@ In practice this repo needs:
 - `repos\eMule`
 - `repos\eMule-build`
 - `repos\eMule-build-tests`
+- `repos\eMule-tooling`
+- `repos\amutorrent`
+- `repos\eMulebb-pages`
+- `repos\eMulebb-org-profile`
 - `repos\third_party\...`
 - `workspaces\v0.72a\app\eMule-main`
 - `workspaces\v0.72a\app\eMule-v0.72a-community`
@@ -58,6 +62,9 @@ The active app layout and workspace repo paths are topology-driven from
 `workspaces\v0.72a\deps.json`, with build-specific settings kept in this repo's
 `deps.json`. Test, coverage, and live-diff flows resolve their app roots from
 configured variant names rather than duplicating hardcoded worktree paths.
+The generated manifest also tracks the public pages repo and organization
+profile repo so web/documentation repos are materialized with the rest of the
+workspace under `repos\`.
 
 ## Supported Commands
 

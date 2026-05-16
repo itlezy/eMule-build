@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from emule_workspace import validation
+from emule_workspace.topology import ManagedRepo
 
 
 def test_policy_audits_receive_workspace_root_through_environment(
@@ -84,3 +85,59 @@ def test_validation_refuses_dirty_canonical_app_anchor(
         validation.ensure_canonical_app_anchor(layout)
 
     assert calls == []
+
+
+def test_required_workspace_paths_include_topology_managed_repos(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace_root = tmp_path / "workspaces" / "v0.72a"
+    for path in (
+        tmp_path / "AGENTS.md",
+        tmp_path / "v0.72a-workspace.props",
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("", encoding="utf-8")
+    for path in (
+        tmp_path / "repos" / "eMule",
+        tmp_path / "repos" / "eMule-build-tests",
+        tmp_path / "repos" / "eMule-tooling",
+        tmp_path / "repos" / "eMule-build",
+        tmp_path / "analysis" / "compare",
+        workspace_root,
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+    (workspace_root / "deps.json").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        validation,
+        "canonical_topology",
+        lambda: SimpleNamespace(
+            repos=(
+                ManagedRepo(
+                    name="eMule-build",
+                    url="https://example.invalid/build.git",
+                    relative_path="repos\\eMule-build",
+                    branch="main",
+                ),
+                ManagedRepo(
+                    name="eMulebb-pages",
+                    url="https://example.invalid/pages.git",
+                    relative_path="repos\\eMulebb-pages",
+                    branch="main",
+                ),
+            )
+        ),
+    )
+    layout = SimpleNamespace(
+        emule_workspace_root=tmp_path,
+        workspace_root=workspace_root,
+        seed_repo_path=tmp_path / "repos" / "eMule",
+        tests_repo_root=tmp_path / "repos" / "eMule-build-tests",
+        tooling_repo_root=tmp_path / "repos" / "eMule-tooling",
+        dependencies=(),
+        app_variants=(),
+        resolve_workspace_path=lambda relative_path: tmp_path / relative_path,
+    )
+
+    with pytest.raises(RuntimeError, match="eMulebb-pages"):
+        validation.assert_required_workspace_paths(layout)

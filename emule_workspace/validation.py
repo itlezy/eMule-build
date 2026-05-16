@@ -45,6 +45,7 @@ def assert_required_workspace_paths(layout: WorkspaceLayout) -> None:
         layout.emule_workspace_root / "analysis" / "compare",
         layout.emule_workspace_root / "AGENTS.md",
         layout.seed_repo_path,
+        *(layout.emule_workspace_root / repo.relative_path for repo in canonical_topology().repos),
         layout.tests_repo_root,
         layout.tooling_repo_root,
         *(layout.resolve_workspace_path(dependency.path) for dependency in layout.dependencies),

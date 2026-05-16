@@ -30,11 +30,22 @@ def test_workspace_manifest_uses_json_contract_shape() -> None:
 
     assert manifest["schema_version"] == WORKSPACE_MANIFEST_SCHEMA_VERSION
     assert manifest["workspace"]["repos"]["build"] == "..\\..\\repos\\eMule-build"
+    assert manifest["workspace"]["repos"]["pages"] == "..\\..\\repos\\eMulebb-pages"
+    assert manifest["workspace"]["repos"]["org_profile"] == "..\\..\\repos\\eMulebb-org-profile"
     assert manifest["workspace"]["app_repo"]["variants"][0] == {
         "name": "main",
         "path": "app\\eMule-main",
         "branch": "main",
     }
+
+
+def test_canonical_topology_materializes_web_repositories_under_repos() -> None:
+    repos = {repo.name: repo for repo in canonical_topology().repos}
+
+    assert repos["eMulebb-pages"].url == "https://github.com/eMulebb/eMulebb.github.io.git"
+    assert repos["eMulebb-pages"].relative_path == "repos\\eMulebb-pages"
+    assert repos["eMulebb-org-profile"].url == "https://github.com/eMulebb/.github.git"
+    assert repos["eMulebb-org-profile"].relative_path == "repos\\eMulebb-org-profile"
 
 
 def test_workspace_manifest_schema_rejects_unsupported_versions() -> None:

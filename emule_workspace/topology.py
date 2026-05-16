@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 BUILD_MANIFEST_NAME = "deps.json"
 WORKSPACE_MANIFEST_NAME = "deps.json"
-WORKSPACE_MANIFEST_SCHEMA_VERSION = 1
+WORKSPACE_MANIFEST_SCHEMA_VERSION = 2
 DEFAULT_WORKSPACE_NAME = "v0.72a"
 WORKSPACE_PROPS_FILE_NAME = "v0.72a-workspace.props"
 SETUP_LOG_FILE_NAME = "eMule-workspace.log"
@@ -141,6 +141,8 @@ class WorkspaceManifestRepos(BaseModel):
     tests: str
     tooling: str
     amutorrent: str
+    pages: str
+    org_profile: str
     third_party: str
 
 
@@ -222,6 +224,8 @@ def build_workspace_manifest(topology: WorkspaceTopology, workspace_name: str | 
                 "tests": _workspace_relative_repo_path(repo_by_name["eMule-build-tests"]),
                 "tooling": _workspace_relative_repo_path(repo_by_name["eMule-tooling"]),
                 "amutorrent": _workspace_relative_repo_path(repo_by_name["amutorrent"]),
+                "pages": _workspace_relative_repo_path(repo_by_name["eMulebb-pages"]),
+                "org_profile": _workspace_relative_repo_path(repo_by_name["eMulebb-org-profile"]),
                 "third_party": str(workspace_prefix / "repos" / "third_party"),
             },
         },
@@ -288,6 +292,18 @@ def canonical_topology() -> WorkspaceTopology:
                 relative_path="repos\\amutorrent",
                 branch="main",
                 additional_remotes=(AdditionalRemote(name="upstream", url="https://github.com/got3nks/amutorrent.git"),),
+            ),
+            ManagedRepo(
+                name="eMulebb-pages",
+                url="https://github.com/eMulebb/eMulebb.github.io.git",
+                relative_path="repos\\eMulebb-pages",
+                branch="main",
+            ),
+            ManagedRepo(
+                name="eMulebb-org-profile",
+                url="https://github.com/eMulebb/.github.git",
+                relative_path="repos\\eMulebb-org-profile",
+                branch="main",
             ),
         ),
         analysis_repos=(
