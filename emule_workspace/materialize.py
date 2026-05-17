@@ -202,7 +202,7 @@ def ensure_root_layout(root: Path, topology: WorkspaceTopology, workspace_name: 
     root.mkdir(parents=True, exist_ok=True)
     for relative_path in topology.root_directories:
         (root / relative_path).mkdir(parents=True, exist_ok=True)
-    (root / "AGENTS.md").write_text(ROOT_AGENTS_CONTENT, encoding="ascii")
+    (root / "AGENTS.md").write_text(ROOT_AGENTS_CONTENT, encoding="ascii", newline="\n")
     workspace_root = root / "workspaces" / workspace_name
     for relative_path in ("app", "artifacts", "logs", "scripts", "state"):
         (workspace_root / relative_path).mkdir(parents=True, exist_ok=True)
