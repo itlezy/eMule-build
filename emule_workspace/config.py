@@ -215,6 +215,17 @@ class CommunityCoverageOptions(VariantComparisonOptions):
     rest_stress_budget: str = "smoke"
 
 
+class ReleaseCampaignOptions(BaseModel):
+    """Options for reporting release campaign matrices and evidence status."""
+
+    model_config = ConfigDict(frozen=True)
+
+    campaign: str = "emule-bb-0.7.3"
+    phase: str | None = None
+    show_template: bool = False
+    json_output: bool = False
+
+
 class CertificationOptions(BaseModel):
     """Options for the release-certification test matrix."""
 

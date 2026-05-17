@@ -13,6 +13,7 @@ from .config import (
     CommunityCoverageOptions,
     FakeKadTrustSoakOptions,
     LiveE2eOptions,
+    ReleaseCampaignOptions,
     VariantComparisonOptions,
     WorkspaceOptions,
 )
@@ -360,6 +361,41 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
     run_native(
         python.command(args),
         label="live E2E suite",
+        cwd=layout.emule_workspace_root,
+        env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
+    )
+
+
+def invoke_release_campaign_report(
+    layout: WorkspaceLayout,
+    campaign_options: ReleaseCampaignOptions,
+) -> None:
+    """Shows the eMule BB release campaign matrix and latest evidence status."""
+
+    script_path = layout.tests_repo_root / "scripts" / "show-release-campaigns.py"
+    if not script_path.is_file():
+        raise RuntimeError(f"Missing release campaign reporter: {script_path}")
+
+    args: list[str | Path] = [
+        script_path,
+        "--test-repo-root",
+        layout.tests_repo_root,
+        "--workspace-root",
+        layout.emule_workspace_root,
+        "--workspace-state-root",
+        layout.workspace_root / "state",
+        "--campaign",
+        campaign_options.campaign,
+    ]
+    if campaign_options.phase:
+        args.extend(["--phase", campaign_options.phase])
+    _append_optional_flag(args, campaign_options.show_template, "--template")
+    _append_optional_flag(args, campaign_options.json_output, "--json")
+
+    python = get_python_invocation()
+    run_native(
+        python.command(args),
+        label="release campaign report",
         cwd=layout.emule_workspace_root,
         env={"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root},
     )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from emule_workspace.config import LiveE2eOptions, WorkspaceOptions
+from emule_workspace.config import LiveE2eOptions, ReleaseCampaignOptions, WorkspaceOptions
 from emule_workspace.layout import AppVariant, TestTargets as LayoutTestTargets, WorkspaceLayout
 from emule_workspace import test_runs
 
@@ -16,6 +16,7 @@ def make_layout(tmp_path: Path) -> WorkspaceLayout:
     app_root = workspace_root / "app" / "eMule-main"
     (tests_repo_root / "scripts").mkdir(parents=True)
     (tests_repo_root / "scripts" / "run-live-e2e-suite.py").write_text("# test runner\n", encoding="utf-8")
+    (tests_repo_root / "scripts" / "show-release-campaigns.py").write_text("# campaign reporter\n", encoding="utf-8")
     app_root.mkdir(parents=True)
     return WorkspaceLayout(
         emule_workspace_root=emule_workspace_root,
@@ -332,3 +333,35 @@ def test_live_e2e_forwards_live_wire_inputs_file_only_when_configured(tmp_path: 
     command = captured["command"]
     assert isinstance(command, list)
     assert option_values(command, "--live-wire-inputs-file") == [live_wire_inputs_file]
+
+
+def test_release_campaign_report_forwards_campaign_phase_and_json_options(tmp_path: Path, monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_native(command, *, label, cwd, env=None, allow_failure=False):
+        captured["command"] = list(command)
+        captured["label"] = label
+        captured["cwd"] = cwd
+        captured["env"] = dict(env or {})
+
+    layout = make_layout(tmp_path)
+    monkeypatch.setattr(test_runs, "run_native", fake_run_native)
+
+    test_runs.invoke_release_campaign_report(
+        layout,
+        ReleaseCampaignOptions(
+            campaign="emule-bb-0.7.3",
+            phase="live-wire-release",
+            json_output=True,
+        ),
+    )
+
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert captured["label"] == "release campaign report"
+    assert option_values(command, "--campaign") == ["emule-bb-0.7.3"]
+    assert option_values(command, "--phase") == ["live-wire-release"]
+    assert option_values(command, "--test-repo-root") == [str(layout.tests_repo_root)]
+    assert option_values(command, "--workspace-state-root") == [str(layout.workspace_root / "state")]
+    assert "--json" in command
+    assert captured["env"] == {"EMULE_WORKSPACE_ROOT": layout.emule_workspace_root}

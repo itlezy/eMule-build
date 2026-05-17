@@ -27,6 +27,7 @@ from .config import (
     LiveE2eOptions,
     PythonTestOptions,
     ReleasePackageOptions,
+    ReleaseCampaignOptions,
     VariantComparisonOptions,
     WorkspaceOptions,
     resolve_workspace_options,
@@ -49,6 +50,7 @@ from .test_runs import (
     invoke_live_e2e_suite,
     invoke_native_test_suites,
     invoke_protocol_parity,
+    invoke_release_campaign_report,
     invoke_test_runs,
 )
 from .validation import validate_workspace
@@ -589,6 +591,35 @@ def test_live_e2e(
     _locked(
         "test live-e2e",
         lambda **kwargs: invoke_live_e2e_suite(kwargs["layout"], kwargs["workspace_options"], live_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@test.command("release-campaign")
+@_common_options
+@click.option("--campaign", default="emule-bb-0.7.3", show_default=True, help="Release campaign manifest id.")
+@click.option("--phase", default=None, help="Optional strict taxonomy phase id to show.")
+@click.option("--template", "show_template", is_flag=True, help="Show the generic eMule BB release campaign template.")
+@click.option("--json", "json_output", is_flag=True, help="Emit machine-readable JSON instead of a terminal table.")
+def test_release_campaign(
+    *,
+    campaign: str,
+    phase: str | None,
+    show_template: bool,
+    json_output: bool,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Show release campaign phases, feature flows, and evidence status."""
+
+    campaign_options = ReleaseCampaignOptions(
+        campaign=campaign,
+        phase=phase,
+        show_template=show_template,
+        json_output=json_output,
+    )
+    _locked(
+        "test release-campaign",
+        lambda **kwargs: invoke_release_campaign_report(kwargs["layout"], campaign_options),
     )(workspace_options=workspace_options, layout=layout)
 
 
