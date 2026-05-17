@@ -340,7 +340,7 @@ def invoke_live_e2e_suite(layout: WorkspaceLayout, options: WorkspaceOptions, li
     if live_options.shared_files_tree_stress_churn_cycles >= 0:
         args.extend(["--shared-files-tree-stress-churn-cycles", live_options.shared_files_tree_stress_churn_cycles])
     if live_options.live_wire_inputs_file:
-        args.extend(["--live-wire-inputs-file", live_options.live_wire_inputs_file])
+        args.extend(["--live-wire-inputs-file", _resolve_workspace_argument(layout, live_options.live_wire_inputs_file)])
     if live_options.radarr_movie_root:
         args.extend(["--radarr-movie-root", live_options.radarr_movie_root])
     if live_options.sonarr_series_root:
@@ -468,7 +468,7 @@ def invoke_fake_kad_trust_soak(
         soak_options.p2p_bind_interface_name,
     ]
     if soak_options.live_wire_inputs_file:
-        args.extend(["--live-wire-inputs-file", soak_options.live_wire_inputs_file])
+        args.extend(["--live-wire-inputs-file", _resolve_workspace_argument(layout, soak_options.live_wire_inputs_file)])
     _append_optional_flag(args, soak_options.keep_artifacts, "--keep-artifacts")
     _append_optional_flag(args, soak_options.keep_running, "--keep-running")
     _append_optional_flag(args, soak_options.skip_live_seed_refresh, "--skip-live-seed-refresh")
@@ -512,7 +512,7 @@ def invoke_amutorrent_clean_startup(
         clean_options.search_observation_timeout_seconds,
     ]
     if clean_options.live_wire_inputs_file:
-        args.extend(["--live-wire-inputs-file", clean_options.live_wire_inputs_file])
+        args.extend(["--live-wire-inputs-file", _resolve_workspace_argument(layout, clean_options.live_wire_inputs_file)])
     _append_optional_flag(args, clean_options.keep_artifacts, "--keep-artifacts")
 
     python = get_python_invocation()
@@ -555,7 +555,7 @@ def invoke_amutorrent_resilience(
         resilience_options.reconnect_timeout_seconds,
     ]
     if resilience_options.live_wire_inputs_file:
-        args.extend(["--live-wire-inputs-file", resilience_options.live_wire_inputs_file])
+        args.extend(["--live-wire-inputs-file", _resolve_workspace_argument(layout, resilience_options.live_wire_inputs_file)])
     _append_optional_flag(args, resilience_options.keep_artifacts, "--keep-artifacts")
 
     python = get_python_invocation()
@@ -596,7 +596,7 @@ def invoke_amutorrent_emulebb_ui(
         ui_options.search_observation_timeout_seconds,
     ]
     if ui_options.live_wire_inputs_file:
-        args.extend(["--live-wire-inputs-file", ui_options.live_wire_inputs_file])
+        args.extend(["--live-wire-inputs-file", _resolve_workspace_argument(layout, ui_options.live_wire_inputs_file)])
     _append_optional_flag(args, ui_options.keep_artifacts, "--keep-artifacts")
 
     python = get_python_invocation()
@@ -611,6 +611,18 @@ def invoke_amutorrent_emulebb_ui(
 def _append_optional_flag(args: list, enabled: bool, flag: str) -> None:
     if enabled:
         args.append(flag)
+
+
+def _resolve_workspace_argument(layout: WorkspaceLayout, value: str) -> str:
+    """Resolves an existing workspace-relative operator input path."""
+
+    path = Path(value)
+    if path.is_absolute():
+        return str(path)
+    workspace_path = layout.emule_workspace_root / path
+    if workspace_path.exists():
+        return str(workspace_path.resolve())
+    return value
 
 
 def _assert_test_execution_platform_supported(options: WorkspaceOptions) -> None:

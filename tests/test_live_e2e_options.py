@@ -335,6 +335,31 @@ def test_live_e2e_forwards_live_wire_inputs_file_only_when_configured(tmp_path: 
     assert option_values(command, "--live-wire-inputs-file") == [live_wire_inputs_file]
 
 
+def test_live_e2e_resolves_existing_workspace_relative_live_wire_inputs_file(tmp_path: Path, monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run_native(command, *, label, cwd, env=None, allow_failure=False):
+        captured["command"] = list(command)
+
+    layout = make_layout(tmp_path)
+    inputs_file = layout.tests_repo_root / "live-wire-inputs.local.json"
+    inputs_file.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(test_runs, "run_native", fake_run_native)
+
+    test_runs.invoke_live_e2e_suite(
+        layout,
+        WorkspaceOptions(workspace_root=tmp_path, platform="x64"),
+        LiveE2eOptions(
+            suites=("rest-api",),
+            live_wire_inputs_file=r"repos\eMule-build-tests\live-wire-inputs.local.json",
+        ),
+    )
+
+    command = captured["command"]
+    assert isinstance(command, list)
+    assert option_values(command, "--live-wire-inputs-file") == [str(inputs_file.resolve())]
+
+
 def test_release_campaign_report_forwards_campaign_phase_and_json_options(tmp_path: Path, monkeypatch) -> None:
     captured: dict[str, object] = {}
 
