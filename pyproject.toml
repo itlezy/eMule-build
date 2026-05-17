@@ -16,6 +16,9 @@ dev = [
 [project.scripts]
 emule-workspace = "emule_workspace.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["emule_workspace*"]
+
 [tool.pytest.ini_options]
 addopts = "-ra"
 testpaths = ["tests"]
