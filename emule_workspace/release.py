@@ -48,7 +48,7 @@ def create_amutorrent_package(
 
     amutorrent_root = layout.resolve_workspace_path("repos/amutorrent")
     _assert_clean_amutorrent_package_inputs(layout, amutorrent_root)
-    _assert_packaging_node_supported()
+    _assert_packaging_node_supported(workspace_options.platform)
     _build_amutorrent_webapp(amutorrent_root, package_options.clean)
 
     asset_arch = "arm64" if workspace_options.platform == "ARM64" else "x64"
@@ -429,25 +429,32 @@ def _default_platform_toolset_property(layout: WorkspaceLayout) -> str:
     return f"/p:PlatformToolset={override}" if override else "/p:PlatformToolset=v143"
 
 
-def _assert_packaging_node_supported() -> None:
-    """Requires the packaging host to expose Node 24 or newer on PATH."""
+def _assert_packaging_node_supported(platform: str) -> None:
+    """Requires PATH Node to support the requested native module package platform."""
 
     try:
         completed = subprocess.run(
-            ["node", "-p", "process.versions.node"],
+            ["node", "-p", "`${process.versions.node}|${process.arch}`"],
             check=True,
             capture_output=True,
             text=True,
         )
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         raise RuntimeError("package amutorrent requires Node 24 or newer on PATH.") from exc
-    version = completed.stdout.strip()
+    version, node_arch = completed.stdout.strip().split("|", 1)
     try:
         major = int(version.split(".", 1)[0])
     except ValueError as exc:
         raise RuntimeError(f"Cannot parse Node version from PATH: {version!r}") from exc
     if major < 24:
         raise RuntimeError(f"package amutorrent requires Node 24 or newer on PATH, found {version}.")
+    expected_arch = "arm64" if platform == "ARM64" else "x64"
+    if node_arch != expected_arch:
+        raise RuntimeError(
+            "package amutorrent target architecture must match PATH Node because "
+            f"server dependencies include native modules: target {platform} requires "
+            f"Node process.arch '{expected_arch}', found '{node_arch}'."
+        )
 
 
 def _build_amutorrent_webapp(amutorrent_root: Path, clean: bool) -> None:

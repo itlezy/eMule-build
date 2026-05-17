@@ -345,3 +345,18 @@ def test_amutorrent_package_contents_require_space_path_rejection(tmp_path: Path
 
     with pytest.raises(RuntimeError, match="spaces"):
         release._assert_amutorrent_package_contents(zip_path)
+
+
+def test_amutorrent_packaging_node_guard_accepts_matching_arch(monkeypatch: pytest.MonkeyPatch) -> None:
+    completed = SimpleNamespace(stdout="24.15.0|x64\n")
+    monkeypatch.setattr(release.subprocess, "run", lambda *args, **kwargs: completed)
+
+    release._assert_packaging_node_supported("x64")
+
+
+def test_amutorrent_packaging_node_guard_rejects_cross_arch_native_modules(monkeypatch: pytest.MonkeyPatch) -> None:
+    completed = SimpleNamespace(stdout="24.15.0|x64\n")
+    monkeypatch.setattr(release.subprocess, "run", lambda *args, **kwargs: completed)
+
+    with pytest.raises(RuntimeError, match="native modules"):
+        release._assert_packaging_node_supported("ARM64")
