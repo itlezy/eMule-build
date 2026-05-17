@@ -101,6 +101,10 @@ def test_test_release_campaign_help_exposes_report_options() -> None:
     assert "--phase" in result.output
     assert "--template" in result.output
     assert "--json" in result.output
+    assert "--execute" in result.output
+    assert "--include-nonblocking" in result.output
+    assert "--continue-on-failure" in result.output
+    assert "--dry-run" in result.output
 
 
 def test_amutorrent_clean_startup_help_exposes_live_options() -> None:

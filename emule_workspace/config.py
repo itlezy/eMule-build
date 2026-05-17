@@ -216,7 +216,7 @@ class CommunityCoverageOptions(VariantComparisonOptions):
 
 
 class ReleaseCampaignOptions(BaseModel):
-    """Options for reporting release campaign matrices and evidence status."""
+    """Options for reporting or executing release campaign matrices."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -224,6 +224,10 @@ class ReleaseCampaignOptions(BaseModel):
     phase: str | None = None
     show_template: bool = False
     json_output: bool = False
+    execute: bool = False
+    include_nonblocking: bool = False
+    continue_on_failure: bool = False
+    dry_run: bool = False
 
 
 class CertificationOptions(BaseModel):
