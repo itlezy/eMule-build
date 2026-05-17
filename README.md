@@ -8,7 +8,7 @@ build/test orchestration. It is responsible for:
 
 - canonical repo and worktree materialization
 - dependency builds under `repos\third_party`
-- app builds for the canonical 0.72a app worktrees
+- app builds for the canonical workspace app worktrees
 - shared test builds from `repos\eMule-build-tests`
 - parity, coverage, and live-diff execution against the canonical app variants
 
@@ -26,7 +26,7 @@ routing, build/test execution, live-test wrapping, and release packaging.
 This repo is the source of truth for workspace materialization and the full
 layout contract. A materialized workspace uses the standard
 `EMULE_WORKSPACE_ROOT\repos\...` plus
-`EMULE_WORKSPACE_ROOT\workspaces\v0.72a\...` layout.
+`EMULE_WORKSPACE_ROOT\workspaces\workspace\...` layout.
 
 In practice this repo needs:
 
@@ -38,28 +38,26 @@ In practice this repo needs:
 - `repos\eMulebb-pages`
 - `repos\eMulebb-org-profile`
 - `repos\third_party\...`
-- `workspaces\v0.72a\app\eMule-main`
-- `workspaces\v0.72a\app\eMule-v0.72a-community`
-- `workspaces\v0.72a\app\eMule-v0.72a-broadband`
-- `workspaces\v0.72a\app\eMule-v0.72a-tracing-harness-community`
+- `workspaces\workspace\app\eMule-main`
+- `workspaces\workspace\app\eMule-community-baseline`
+- `workspaces\workspace\app\eMule-community-tracing-harness`
 
 `repos\eMule` is not a normal development checkout. Python materialization owns
 it as the canonical app anchor, and it is expected to stay detached at
 `origin/main`. Active app development belongs in the managed worktrees under
-`workspaces\v0.72a\app\...`, especially `eMule-main` for the mainline branch.
+`workspaces\workspace\app\...`, especially `eMule-main` for the mainline branch.
 
 Canonical managed app variants:
 
 - `main`
-- `release/v0.72a-community`
-- `release/v0.72a-broadband`
-- `tracing-harness/v0.72a-community`
+- `baseline/community-0.72a`
+- `tracing-harness/community-0.72a`
 
 Branch roles, release intent, and baseline rules are owned by
 `EMULE_WORKSPACE_ROOT\repos\eMule-tooling\docs\WORKSPACE_POLICY.md`.
 
 The active app layout and workspace repo paths are topology-driven from
-`workspaces\v0.72a\deps.json`, with build-specific settings kept in this repo's
+`workspaces\workspace\deps.json`, with build-specific settings kept in this repo's
 `deps.json`. Test, coverage, and live-diff flows resolve their app roots from
 configured variant names rather than duplicating hardcoded worktree paths.
 The generated manifest also tracks the public pages repo and organization
@@ -143,7 +141,7 @@ python -m emule_workspace cleanup --apply
 
 The default `routine` profile targets old live-test payload directories under
 `repos\eMule-build-tests\reports`, timestamped report runs older than the
-retention window, old `workspaces\v0.72a\state\build-logs` runs, and Python test
+retention window, old `workspaces\workspace\state\build-logs` runs, and Python test
 caches. Build outputs and superseded release rehearsal state require explicit
 flags:
 

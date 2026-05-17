@@ -12,7 +12,7 @@ from emule_workspace.layout import AppVariant, TestTargets as LayoutTestTargets,
 
 def make_layout(tmp_path: Path) -> WorkspaceLayout:
     emule_workspace_root = tmp_path
-    workspace_root = emule_workspace_root / "workspaces" / "v0.72a"
+    workspace_root = emule_workspace_root / "workspaces" / "workspace"
     tests_repo_root = emule_workspace_root / "repos" / "eMule-build-tests"
     app_root = workspace_root / "app" / "eMule-main"
     for path in (
@@ -24,7 +24,7 @@ def make_layout(tmp_path: Path) -> WorkspaceLayout:
         path.mkdir(parents=True)
     return WorkspaceLayout(
         emule_workspace_root=emule_workspace_root,
-        workspace_name="v0.72a",
+        workspace_name="workspace",
         workspace_root=workspace_root,
         build_repo_root=emule_workspace_root / "repos" / "eMule-build",
         tests_repo_root=tests_repo_root,

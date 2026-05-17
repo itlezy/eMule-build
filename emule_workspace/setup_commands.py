@@ -68,7 +68,7 @@ def write_dependency_update_report(*, workspace_root: str | None = None, workspa
         "entries": entries,
     }
     for path in (report_path, summary_path):
-        path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8", newline="\n")
     counts: dict[str, int] = {}
     for entry in entries:
         counts[entry["status"]] = counts.get(entry["status"], 0) + 1

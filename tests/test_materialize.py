@@ -83,7 +83,7 @@ def test_seed_overlay_tracks_and_removes_stale_seed_files(tmp_path: Path) -> Non
     preserved_file.parent.mkdir(parents=True)
     preserved_file.write_text("keep\n", encoding="utf-8")
 
-    materialize.overlay_seed_artifacts(root, topology, str(seed_root), "v0.72a")
+    materialize.overlay_seed_artifacts(root, topology, str(seed_root), "workspace")
 
     assert (destination / "bin" / "seed.dll").read_text(encoding="utf-8") == "one\n"
     source_file.unlink()
@@ -91,7 +91,7 @@ def test_seed_overlay_tracks_and_removes_stale_seed_files(tmp_path: Path) -> Non
     replacement_file.parent.mkdir(parents=True)
     replacement_file.write_text("#pragma once\n", encoding="utf-8")
 
-    materialize.overlay_seed_artifacts(root, topology, str(seed_root), "v0.72a")
+    materialize.overlay_seed_artifacts(root, topology, str(seed_root), "workspace")
 
     assert not (destination / "bin" / "seed.dll").exists()
     assert (destination / "include" / "seed.h").read_text(encoding="utf-8") == "#pragma once\n"

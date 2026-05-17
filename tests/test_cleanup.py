@@ -60,7 +60,7 @@ def make_old(path: Path, stop: Path) -> None:
 
 
 def make_layout(tmp_path: Path):
-    workspace_root = tmp_path / "workspaces" / "v0.72a"
+    workspace_root = tmp_path / "workspaces" / "workspace"
     return SimpleNamespace(
         emule_workspace_root=tmp_path,
         workspace_root=workspace_root,

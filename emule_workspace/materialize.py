@@ -390,7 +390,7 @@ def write_seed_overlay_state(path: Path, payload: dict[str, list[str]]) -> None:
     """Writes tracked artifact-seed overlay state outside dependency repos."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
 
 
 def overlay_seed_directory(source: Path, destination: Path, previous_files: tuple[str, ...]) -> tuple[str, ...]:
@@ -463,7 +463,7 @@ def write_workspace_props(root: Path) -> None:
   </ItemDefinitionGroup>
 </Project>
 """
-    (root / WORKSPACE_PROPS_FILE_NAME).write_text(content, encoding="utf-8")
+    (root / WORKSPACE_PROPS_FILE_NAME).write_text(content, encoding="utf-8", newline="\n")
 
 
 def write_workspace_manifest(root: Path, topology: WorkspaceTopology, workspace_name: str) -> None:
@@ -550,4 +550,4 @@ def log_line(root: Path, message: str) -> None:
 
 
 def _write_cmd(path: Path, command: str) -> None:
-    path.write_text("@ECHO OFF\r\n" + command.replace("\n", "\r\n"), encoding="ascii", newline="")
+    path.write_text("@ECHO OFF\n" + command.replace("\r\n", "\n"), encoding="ascii", newline="\n")

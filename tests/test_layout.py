@@ -15,10 +15,10 @@ from emule_workspace.topology import (
 
 
 def test_get_test_build_tag_matches_existing_harness_shape(tmp_path: Path) -> None:
-    workspace_root = tmp_path / "owner" / "workspaces" / "v0.72a"
+    workspace_root = tmp_path / "owner" / "workspaces" / "workspace"
     app_root = workspace_root / "app" / "eMule-main"
 
-    assert get_test_build_tag(workspace_root, app_root) == "owner-v0.72a-eMule-main"
+    assert get_test_build_tag(workspace_root, app_root) == "owner-workspace-eMule-main"
 
 
 def test_file_token_matches_legacy_filename_sanitization() -> None:
@@ -26,7 +26,7 @@ def test_file_token_matches_legacy_filename_sanitization() -> None:
 
 
 def test_workspace_manifest_uses_json_contract_shape() -> None:
-    manifest = build_workspace_manifest(canonical_topology(), "v0.72a")
+    manifest = build_workspace_manifest(canonical_topology(), "workspace")
 
     assert manifest["schema_version"] == WORKSPACE_MANIFEST_SCHEMA_VERSION
     assert manifest["workspace"]["repos"]["build"] == "..\\..\\repos\\eMule-build"
@@ -49,7 +49,7 @@ def test_canonical_topology_materializes_web_repositories_under_repos() -> None:
 
 
 def test_workspace_manifest_schema_rejects_unsupported_versions() -> None:
-    manifest = build_workspace_manifest(canonical_topology(), "v0.72a")
+    manifest = build_workspace_manifest(canonical_topology(), "workspace")
     manifest["schema_version"] = WORKSPACE_MANIFEST_SCHEMA_VERSION + 1
 
     with pytest.raises(ValidationError, match="unsupported workspace manifest schema_version"):

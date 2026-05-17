@@ -31,7 +31,7 @@ class WorkspaceOptions(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     workspace_root: Path = Field(description="Canonical EMULE_WORKSPACE_ROOT path.")
-    workspace_name: str = Field(default="v0.72a")
+    workspace_name: str = Field(default="workspace")
     configuration: BuildConfiguration = "Release"
     platform: BuildPlatform = "x64"
     build_output_mode: BuildOutputMode = "ErrorsOnly"
@@ -279,7 +279,7 @@ def resolve_workspace_options(
         raise ValueError("EMULE_WORKSPACE_ROOT or --workspace-root is required.")
     return WorkspaceOptions(
         workspace_root=Path(resolved_root),
-        workspace_name=workspace_name or "v0.72a",
+        workspace_name=workspace_name or "workspace",
         configuration=configuration,
         platform=platform,
         build_output_mode=build_output_mode,

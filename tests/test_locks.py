@@ -10,7 +10,7 @@ from emule_workspace.locks import WorkspaceLock
 def test_mutex_name_uses_workspace_prefix(tmp_path: Path) -> None:
     layout = SimpleNamespace(
         emule_workspace_root=(tmp_path / "WorkspaceRoot").resolve(),
-        workspace_root=tmp_path / "WorkspaceRoot" / "workspaces" / "v0.72a",
+        workspace_root=tmp_path / "WorkspaceRoot" / "workspaces" / "workspace",
     )
     options = WorkspaceOptions(workspace_root=layout.emule_workspace_root)
 

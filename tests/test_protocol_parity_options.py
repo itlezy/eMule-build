@@ -11,11 +11,11 @@ def make_layout(tmp_path: Path) -> WorkspaceLayout:
     """Builds a minimal layout for protocol parity command orchestration tests."""
 
     emule_workspace_root = tmp_path
-    workspace_root = emule_workspace_root / "workspaces" / "v0.72a"
+    workspace_root = emule_workspace_root / "workspaces" / "workspace"
     tests_repo_root = emule_workspace_root / "repos" / "eMule-build-tests"
     return WorkspaceLayout(
         emule_workspace_root=emule_workspace_root,
-        workspace_name="v0.72a",
+        workspace_name="workspace",
         workspace_root=workspace_root,
         build_repo_root=emule_workspace_root / "repos" / "eMule-build",
         tests_repo_root=tests_repo_root,
@@ -27,8 +27,8 @@ def make_layout(tmp_path: Path) -> WorkspaceLayout:
             AppVariant(name="main", path=workspace_root / "app" / "eMule-main", branch="main"),
             AppVariant(
                 name="community",
-                path=workspace_root / "app" / "eMule-v0.72a-community",
-                branch="release/v0.72a-community",
+                path=workspace_root / "app" / "eMule-community-baseline",
+                branch="baseline/community-0.72a",
             ),
         ),
         test_targets=LayoutTestTargets(test_build_variant="main", test_run_variant="main", baseline_variant="community"),

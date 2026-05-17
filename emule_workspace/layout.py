@@ -88,7 +88,7 @@ def load_layout(emule_workspace_root: Path, workspace_name: str | None = None) -
     repo_root = build_repo_root()
     build_manifest = load_json(repo_root / BUILD_MANIFEST_NAME)
     build_workspace = _required_dict(build_manifest, "workspace")
-    resolved_workspace_name = workspace_name or str(build_workspace.get("name") or "v0.72a")
+    resolved_workspace_name = workspace_name or str(build_workspace.get("name") or "workspace")
     workspace_root = (emule_workspace_root / "workspaces" / resolved_workspace_name).resolve()
     workspace_manifest_path = workspace_root / WORKSPACE_MANIFEST_NAME
     if not workspace_manifest_path.is_file():

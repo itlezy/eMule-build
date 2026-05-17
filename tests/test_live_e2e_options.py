@@ -11,7 +11,7 @@ def make_layout(tmp_path: Path) -> WorkspaceLayout:
     """Builds a minimal layout with the live E2E runner script present."""
 
     emule_workspace_root = tmp_path
-    workspace_root = emule_workspace_root / "workspaces" / "v0.72a"
+    workspace_root = emule_workspace_root / "workspaces" / "workspace"
     tests_repo_root = emule_workspace_root / "repos" / "eMule-build-tests"
     app_root = workspace_root / "app" / "eMule-main"
     (tests_repo_root / "scripts").mkdir(parents=True)
@@ -19,7 +19,7 @@ def make_layout(tmp_path: Path) -> WorkspaceLayout:
     app_root.mkdir(parents=True)
     return WorkspaceLayout(
         emule_workspace_root=emule_workspace_root,
-        workspace_name="v0.72a",
+        workspace_name="workspace",
         workspace_root=workspace_root,
         build_repo_root=emule_workspace_root / "repos" / "eMule-build",
         tests_repo_root=tests_repo_root,

@@ -91,10 +91,10 @@ def test_required_workspace_paths_include_topology_managed_repos(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    workspace_root = tmp_path / "workspaces" / "v0.72a"
+    workspace_root = tmp_path / "workspaces" / "workspace"
     for path in (
         tmp_path / "AGENTS.md",
-        tmp_path / "v0.72a-workspace.props",
+        tmp_path / "workspace.props",
     ):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("", encoding="utf-8")

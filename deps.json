@@ -1,12 +1,12 @@
 {
   "workspace": {
-    "name": "v0.72a",
+    "name": "workspace",
     "toolchain": {
       "toolset_override_variable": "EMULE_V072_PLATFORM_TOOLSET"
     },
     "app_repo": {
       "test_targets": {
-        "test_build_variant": "community",
+        "test_build_variant": "main",
         "test_run_variant": "main",
         "baseline_variant": "community"
       }

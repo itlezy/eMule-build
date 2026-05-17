@@ -11,8 +11,8 @@ from pydantic import BaseModel, ConfigDict, field_validator
 BUILD_MANIFEST_NAME = "deps.json"
 WORKSPACE_MANIFEST_NAME = "deps.json"
 WORKSPACE_MANIFEST_SCHEMA_VERSION = 2
-DEFAULT_WORKSPACE_NAME = "v0.72a"
-WORKSPACE_PROPS_FILE_NAME = "v0.72a-workspace.props"
+DEFAULT_WORKSPACE_NAME = "workspace"
+WORKSPACE_PROPS_FILE_NAME = "workspace.props"
 SETUP_LOG_FILE_NAME = "eMule-workspace.log"
 
 
@@ -188,7 +188,7 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     """Writes a deterministic JSON object to disk."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
 
 
 def build_workspace_manifest(topology: WorkspaceTopology, workspace_name: str | None = None) -> dict[str, Any]:
@@ -249,21 +249,16 @@ def canonical_topology() -> WorkspaceTopology:
             relative_path="repos\\eMule",
             branch="main",
             worktrees=(
-                AppWorktree(name="main", branch="main", relative_path="workspaces\\v0.72a\\app\\eMule-main"),
+                AppWorktree(name="main", branch="main", relative_path="workspaces\\workspace\\app\\eMule-main"),
                 AppWorktree(
                     name="community",
-                    branch="release/v0.72a-community",
-                    relative_path="workspaces\\v0.72a\\app\\eMule-v0.72a-community",
-                ),
-                AppWorktree(
-                    name="broadband",
-                    branch="release/v0.72a-broadband",
-                    relative_path="workspaces\\v0.72a\\app\\eMule-v0.72a-broadband",
+                    branch="baseline/community-0.72a",
+                    relative_path="workspaces\\workspace\\app\\eMule-community-baseline",
                 ),
                 AppWorktree(
                     name="tracing-harness",
-                    branch="tracing-harness/v0.72a-community",
-                    relative_path="workspaces\\v0.72a\\app\\eMule-v0.72a-tracing-harness-community",
+                    branch="tracing-harness/community-0.72a",
+                    relative_path="workspaces\\workspace\\app\\eMule-community-tracing-harness",
                 ),
             ),
         ),

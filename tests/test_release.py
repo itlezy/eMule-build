@@ -80,7 +80,7 @@ def test_package_release_dirty_guard_reports_all_provenance_inputs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app_root = tmp_path / "workspaces" / "v0.72a" / "app" / "eMule-main"
+    app_root = tmp_path / "workspaces" / "workspace" / "app" / "eMule-main"
     build_root = tmp_path / "repos" / "eMule-build"
     tests_root = tmp_path / "repos" / "eMule-build-tests"
     tooling_root = tmp_path / "repos" / "eMule-tooling"
@@ -117,7 +117,7 @@ def test_package_release_requires_main_app_source_branch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app_root = tmp_path / "workspaces" / "v0.72a" / "app" / "eMule-main"
+    app_root = tmp_path / "workspaces" / "workspace" / "app" / "eMule-main"
     app_root.mkdir(parents=True)
     app_variant = AppVariant(name="main", path=app_root, branch="main")
     monkeypatch.setattr(release, "repo_branch", lambda repo: "feature/release-drift")
@@ -130,11 +130,11 @@ def test_release_manifest_records_explicit_source_provenance(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app_root = tmp_path / "workspaces" / "v0.72a" / "app" / "eMule-main"
+    app_root = tmp_path / "workspaces" / "workspace" / "app" / "eMule-main"
     build_root = tmp_path / "repos" / "eMule-build"
     tests_root = tmp_path / "repos" / "eMule-build-tests"
     tooling_root = tmp_path / "repos" / "eMule-tooling"
-    release_root = tmp_path / "workspaces" / "v0.72a" / "state" / "release" / "emule-bb-v0.7.3"
+    release_root = tmp_path / "workspaces" / "workspace" / "state" / "release" / "emule-bb-v0.7.3"
     zip_path = release_root / "eMule-broadband-0.7.3-x64.zip"
     for path in (app_root, build_root, tests_root, tooling_root, release_root):
         path.mkdir(parents=True)
