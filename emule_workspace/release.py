@@ -492,6 +492,8 @@ def _exclude_amutorrent_server_runtime(relative_path: Path, source_path: Path) -
         return True
     if any(part in {".cache", "__pycache__"} for part in parts):
         return True
+    if source_path.is_file() and source_path.suffix.lower() == ".map":
+        return True
     if "node_modules" not in parts and source_path.is_file() and source_path.suffix.lower() in {".log", ".db", ".sqlite", ".sqlite3"}:
         return True
     return False
