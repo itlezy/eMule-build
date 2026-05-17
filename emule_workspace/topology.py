@@ -310,6 +310,13 @@ def canonical_topology() -> WorkspaceTopology:
                 compare_subdir="srchybrid",
             ),
             ManagedRepo(
+                name="amule",
+                url="https://github.com/amule-project/amule.git",
+                relative_path="analysis\\amule",
+                branch="master",
+                compare_subdir="src",
+            ),
+            ManagedRepo(
                 name="community-0.60",
                 url="https://github.com/irwir/eMule.git",
                 relative_path="analysis\\community-0.60",

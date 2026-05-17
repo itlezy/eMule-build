@@ -110,6 +110,7 @@ def compare_presets(root: Path, topology: WorkspaceTopology) -> tuple[ComparePre
         presets.extend(
             [
                 ComparePreset(f"emuleai-vs-{right}", f"eMuleAI vs {right}", "eMuleAI vs local", "emuleai", right),
+                ComparePreset(f"amule-vs-{right}", f"aMule vs {right}", "aMule vs local", "amule", right),
                 ComparePreset(
                     f"community-060-vs-{right}",
                     f"Community 0.60 vs {right}",

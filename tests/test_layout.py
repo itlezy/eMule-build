@@ -48,6 +48,15 @@ def test_canonical_topology_materializes_web_repositories_under_repos() -> None:
     assert repos["eMulebb-org-profile"].relative_path == "repos\\eMulebb-org-profile"
 
 
+def test_canonical_topology_materializes_amule_under_analysis() -> None:
+    analysis_repos = {repo.name: repo for repo in canonical_topology().analysis_repos}
+
+    assert analysis_repos["amule"].url == "https://github.com/amule-project/amule.git"
+    assert analysis_repos["amule"].relative_path == "analysis\\amule"
+    assert analysis_repos["amule"].branch == "master"
+    assert analysis_repos["amule"].compare_subdir == "src"
+
+
 def test_workspace_manifest_schema_rejects_unsupported_versions() -> None:
     manifest = build_workspace_manifest(canonical_topology(), "workspace")
     manifest["schema_version"] = WORKSPACE_MANIFEST_SCHEMA_VERSION + 1
