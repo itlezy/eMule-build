@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 import struct
+import subprocess
 import time
 import zipfile
 from datetime import datetime, timezone
@@ -14,12 +15,80 @@ from pathlib import Path
 
 from .build import app_binary_path, app_property_overrides, ensure_app_dependency_artifacts, verify_app_control_flow_guard
 from .build_state import BuildSession
-from .config import ReleasePackageOptions, WorkspaceOptions
+from .config import AmutorrentPackageOptions, ReleasePackageOptions, WorkspaceOptions
 from .git import git_output, repo_branch, repo_head, repo_status_lines
 from .layout import AppVariant, WorkspaceLayout
 from .msbuild import env_override, invoke_msbuild_project
 
 PE_MACHINES = {"x64": 0x8664, "ARM64": 0xAA64}
+AMUTORRENT_NODE_VERSION = "v24.15.0"
+AMUTORRENT_NODE_ARCHIVES = {
+    "x64": (
+        "node-v24.15.0-win-x64.zip",
+        "cc5149eabd53779ce1e7bdc5401643622d0c7e6800ade18928a767e940bb0e62",
+    ),
+    "ARM64": (
+        "node-v24.15.0-win-arm64.zip",
+        "c9eb7402eda26e2ba7e44b6727fc85a8de56c5095b1f71ebd3062892211aa116",
+    ),
+}
+
+
+def create_amutorrent_package(
+    layout: WorkspaceLayout,
+    workspace_options: WorkspaceOptions,
+    package_options: AmutorrentPackageOptions,
+) -> None:
+    """Builds the optional aMuTorrent controller ZIP plus manifest."""
+
+    if workspace_options.configuration != "Release":
+        raise RuntimeError("package amutorrent requires --config Release.")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", package_options.release_version):
+        raise RuntimeError(f"Release version must use MAJOR.MINOR.PATCH format: {package_options.release_version}")
+
+    amutorrent_root = layout.resolve_workspace_path("repos/amutorrent")
+    _assert_clean_amutorrent_package_inputs(layout, amutorrent_root)
+    _assert_packaging_node_supported()
+    _build_amutorrent_webapp(amutorrent_root, package_options.clean)
+
+    asset_arch = "arm64" if workspace_options.platform == "ARM64" else "x64"
+    release_root = layout.workspace_root / "state" / "release" / f"emule-bb-v{package_options.release_version}"
+    staging_root = release_root / "staging" / f"amutorrent-{asset_arch}"
+    package_root = staging_root / "aMuTorrent"
+    zip_path = release_root / f"eMule-broadband-{package_options.release_version}-amutorrent-{asset_arch}.zip"
+    manifest_path = release_root / f"eMule-broadband-{package_options.release_version}-amutorrent-{asset_arch}.manifest.json"
+    for path_to_check in (staging_root, package_root, zip_path, manifest_path):
+        _assert_path_under_root(path_to_check, release_root, "aMuTorrent package path")
+
+    if staging_root.exists():
+        shutil.rmtree(staging_root)
+    package_root.mkdir(parents=True, exist_ok=True)
+    _copy_amutorrent_runtime(amutorrent_root, package_root)
+    _write_amutorrent_readme(package_root, package_options.release_version, workspace_options.platform)
+    _copy_package_file(amutorrent_root / "LICENSE", package_root, Path("LICENSE-aMuTorrent.txt"))
+
+    if zip_path.exists():
+        zip_path.unlink()
+    release_root.mkdir(parents=True, exist_ok=True)
+    _write_zip(staging_root, package_root, zip_path)
+    _assert_amutorrent_package_contents(zip_path)
+
+    zip_hash = _sha256(zip_path)
+    package_file_hashes = _zip_entry_hashes(zip_path)
+    manifest = _build_amutorrent_manifest(
+        layout=layout,
+        workspace_options=workspace_options,
+        package_options=package_options,
+        amutorrent_root=amutorrent_root,
+        zip_path=zip_path,
+        release_root=release_root,
+        zip_hash=zip_hash,
+        package_file_hashes=package_file_hashes,
+    )
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
+    print(f"aMuTorrent package: {zip_path}")
+    print(f"aMuTorrent manifest: {manifest_path}")
+    print(f"SHA256: {zip_hash}")
 
 
 def create_release_package(
@@ -184,6 +253,65 @@ def _build_release_manifest(
     }
 
 
+def _build_amutorrent_manifest(
+    *,
+    layout: WorkspaceLayout,
+    workspace_options: WorkspaceOptions,
+    package_options: AmutorrentPackageOptions,
+    amutorrent_root: Path,
+    zip_path: Path,
+    release_root: Path,
+    zip_hash: str,
+    package_file_hashes: dict[str, str],
+) -> dict[str, object]:
+    """Builds the provenance manifest for one optional aMuTorrent asset."""
+
+    node_archive_name, node_archive_sha256 = AMUTORRENT_NODE_ARCHIVES[workspace_options.platform]
+    return {
+        "product": "eMule broadband edition",
+        "compactName": "eMule BB",
+        "package": "aMuTorrent optional controller",
+        "version": package_options.release_version,
+        "tag": f"emule-bb-v{package_options.release_version}",
+        "configuration": workspace_options.configuration,
+        "platform": workspace_options.platform,
+        "asset": zip_path.name,
+        "assetPath": zip_path.relative_to(release_root).as_posix(),
+        "sha256": zip_hash,
+        "packageFileSha256": package_file_hashes,
+        "runtimePolicy": {
+            "minimumPathNodeMajor": 24,
+            "pinnedFallbackNodeVersion": AMUTORRENT_NODE_VERSION,
+            "pinnedFallbackNodeArchive": node_archive_name,
+            "pinnedFallbackNodeArchiveSha256": node_archive_sha256,
+            "pathPm2Allowed": True,
+            "packageLocalPm2Allowed": True,
+            "packageLocalDataRoot": "aMuTorrent/data",
+            "packageLocalLogRoot": "aMuTorrent/logs",
+            "packageLocalRuntimeRoot": "aMuTorrent/runtime",
+            "localAppDataUsed": False,
+            "spacesInInstallPathAllowed": False,
+        },
+        "amutorrentBranch": repo_branch(amutorrent_root),
+        "amutorrentCommit": repo_head(amutorrent_root),
+        "buildBranch": repo_branch(layout.build_repo_root),
+        "buildCommit": repo_head(layout.build_repo_root),
+        "buildTestsBranch": repo_branch(layout.tests_repo_root),
+        "buildTestsCommit": repo_head(layout.tests_repo_root),
+        "toolingBranch": repo_branch(layout.tooling_repo_root),
+        "toolingCommit": repo_head(layout.tooling_repo_root),
+        "generatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "includedPaths": [
+            "aMuTorrent/server",
+            "aMuTorrent/server/node_modules",
+            "aMuTorrent/static",
+            "aMuTorrent/installer/windows/amutorrent.ps1",
+            "aMuTorrent/README.md",
+            "aMuTorrent/LICENSE-aMuTorrent.txt",
+        ],
+    }
+
+
 def _assert_release_source_branch(app_variant: AppVariant) -> None:
     """Requires release packages to come from the configured source branch."""
 
@@ -214,6 +342,28 @@ def _assert_clean_release_inputs(layout: WorkspaceLayout, app_root: Path) -> Non
     if dirty_inputs:
         raise RuntimeError(
             "package release requires clean provenance inputs before writing assets:\n"
+            + "\n".join(dirty_inputs)
+        )
+
+
+def _assert_clean_amutorrent_package_inputs(layout: WorkspaceLayout, amutorrent_root: Path) -> None:
+    """Rejects dirty inputs whose exact commits are recorded in the aMuTorrent manifest."""
+
+    repos = (
+        ("aMuTorrent source", amutorrent_root),
+        ("build orchestration", layout.build_repo_root),
+        ("build tests", layout.tests_repo_root),
+        ("tooling docs", layout.tooling_repo_root),
+    )
+    dirty_inputs: list[str] = []
+    for label, repo_path in repos:
+        changes = [line for line in repo_status_lines(repo_path) if not line.startswith("## ")]
+        if changes:
+            sample = "\n    ".join(changes[:20])
+            dirty_inputs.append(f"- {label}: {repo_path}\n    {sample}")
+    if dirty_inputs:
+        raise RuntimeError(
+            "package amutorrent requires clean provenance inputs before writing assets:\n"
             + "\n".join(dirty_inputs)
         )
 
@@ -279,6 +429,85 @@ def _default_platform_toolset_property(layout: WorkspaceLayout) -> str:
     return f"/p:PlatformToolset={override}" if override else "/p:PlatformToolset=v143"
 
 
+def _assert_packaging_node_supported() -> None:
+    """Requires the packaging host to expose Node 24 or newer on PATH."""
+
+    try:
+        completed = subprocess.run(
+            ["node", "-p", "process.versions.node"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError("package amutorrent requires Node 24 or newer on PATH.") from exc
+    version = completed.stdout.strip()
+    try:
+        major = int(version.split(".", 1)[0])
+    except ValueError as exc:
+        raise RuntimeError(f"Cannot parse Node version from PATH: {version!r}") from exc
+    if major < 24:
+        raise RuntimeError(f"package amutorrent requires Node 24 or newer on PATH, found {version}.")
+
+
+def _build_amutorrent_webapp(amutorrent_root: Path, clean: bool) -> None:
+    """Installs runtime dependencies and refreshes bundled frontend assets."""
+
+    if clean:
+        for generated_path in (
+            amutorrent_root / "node_modules",
+            amutorrent_root / "server" / "node_modules",
+        ):
+            if generated_path.exists():
+                shutil.rmtree(generated_path)
+    npm = shutil.which("npm.cmd") or shutil.which("npm")
+    if not npm:
+        raise RuntimeError("package amutorrent requires npm on PATH.")
+    subprocess.run([npm, "ci"], cwd=amutorrent_root, check=True)
+    subprocess.run([npm, "ci", "--prefix", "server", "--omit=dev"], cwd=amutorrent_root, check=True)
+    subprocess.run([npm, "run", "build"], cwd=amutorrent_root, check=True)
+
+
+def _copy_amutorrent_runtime(amutorrent_root: Path, package_root: Path) -> None:
+    """Copies the aMuTorrent runtime payload and owned installer asset."""
+
+    server_root = amutorrent_root / "server"
+    static_root = amutorrent_root / "static"
+    installer_script = amutorrent_root / "installer" / "windows" / "amutorrent.ps1"
+    if not (server_root / "node_modules").is_dir():
+        raise RuntimeError(f"Cannot package missing aMuTorrent production node_modules: {server_root / 'node_modules'}")
+    if not (static_root / "dist" / "app.bundle.js").is_file():
+        raise RuntimeError(f"Cannot package missing built aMuTorrent frontend bundle: {static_root / 'dist' / 'app.bundle.js'}")
+    if not installer_script.is_file():
+        raise RuntimeError(f"Cannot package missing aMuTorrent Windows setup script: {installer_script}")
+
+    _copy_tree_filtered(server_root, package_root / "server", _exclude_amutorrent_server_runtime)
+    _copy_tree_filtered(static_root, package_root / "static", _exclude_amutorrent_static_runtime)
+    _copy_package_file(installer_script, package_root, Path("installer/windows/amutorrent.ps1"))
+
+
+def _exclude_amutorrent_server_runtime(relative_path: Path, source_path: Path) -> bool:
+    parts = relative_path.parts
+    if parts and parts[0] in {"data", "logs"}:
+        return True
+    if any(part in {".cache", "__pycache__"} for part in parts):
+        return True
+    if "node_modules" not in parts and source_path.is_file() and source_path.suffix.lower() in {".log", ".db", ".sqlite", ".sqlite3"}:
+        return True
+    return False
+
+
+def _exclude_amutorrent_static_runtime(relative_path: Path, source_path: Path) -> bool:
+    parts = relative_path.parts
+    if parts and parts[0] in {"components", "contexts", "hooks", "utils"}:
+        return True
+    if relative_path.name == "app.js":
+        return True
+    if source_path.is_file() and source_path.suffix.lower() in {".map", ".sh"}:
+        return True
+    return False
+
+
 def _expected_language_dlls(tooling_repo_root: Path) -> tuple[str, ...]:
     """Returns the release language DLL names from the stock language manifest."""
 
@@ -337,6 +566,23 @@ def _copy_directory_contents(source_path: Path, destination_path: Path) -> None:
             shutil.copytree(child, target, dirs_exist_ok=True)
         else:
             shutil.copy2(child, target)
+
+
+def _copy_tree_filtered(source_path: Path, destination_path: Path, exclude) -> None:
+    """Copies a tree while allowing package-specific runtime exclusions."""
+
+    destination_path.mkdir(parents=True, exist_ok=True)
+    for source_child in sorted(source_path.rglob("*")):
+        relative_path = source_child.relative_to(source_path)
+        if exclude(relative_path, source_child):
+            continue
+        target = destination_path / relative_path
+        _assert_path_under_root(target, destination_path, "filtered package file")
+        if source_child.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+        elif source_child.is_file():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_child, target)
 
 
 def _write_package_readme(package_root: Path, release_version: str, platform: str) -> None:
@@ -470,6 +716,48 @@ def _write_package_gpl_text(layout: WorkspaceLayout, package_root: Path) -> None
     destination_path.write_text(gpl_text, encoding="utf-8", newline="\n")
 
 
+def _write_amutorrent_readme(package_root: Path, release_version: str, platform: str) -> None:
+    """Writes the optional aMuTorrent package README."""
+
+    asset_arch = "arm64" if platform == "ARM64" else "x64"
+    readme_path = package_root / "README.md"
+    _assert_path_under_root(readme_path, package_root, "aMuTorrent package README")
+    readme_path.write_text(
+        "\n".join(
+            (
+                "# aMuTorrent optional controller",
+                "",
+                f"eMule broadband edition package version: {release_version}",
+                f"Architecture: {asset_arch}",
+                "",
+                "Extract this folder to a path without spaces, then run the Windows",
+                "PowerShell setup runner from the package root:",
+                "",
+                "```powershell",
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\installer\\windows\\amutorrent.ps1 Doctor",
+                "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\installer\\windows\\amutorrent.ps1 Start",
+                "```",
+                "",
+                "The runner uses Node 24 or newer from PATH when available. Otherwise it",
+                f"downloads the pinned {AMUTORRENT_NODE_VERSION} Windows runtime into `runtime\\node`.",
+                "Persistent mode is optional and uses PM2 only when PM2 is already on PATH",
+                "or after you explicitly run the `Install-Pm2` command.",
+                "",
+                "Runtime state is package-local:",
+                "- `data\\` stores aMuTorrent configuration and databases through `AMUTORRENT_DATA_DIR`.",
+                "- `logs\\` is reserved for package-local logs.",
+                "- `runtime\\` stores downloaded Node, package-local PM2, and PM2 state.",
+                "",
+                "This package is a portable multi-client aMuTorrent controller. It keeps",
+                "runtime defaults under the package root.",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
 def _write_zip(staging_root: Path, package_root: Path, zip_path: Path) -> None:
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(package_root.rglob("*")):
@@ -518,6 +806,68 @@ def _assert_release_package_contents(zip_path: Path, expected_language_dlls: tup
             sample = "\n".join(forbidden_entries[:20])
             raise RuntimeError(f"Release package contains build/source artifacts:\n{sample}")
     print(f"Package content check: {zip_path} ({len(entry_names)} entries, {len(language_dlls)} language DLLs)")
+
+
+def _assert_amutorrent_package_contents(zip_path: Path) -> None:
+    """Checks the optional aMuTorrent package for required runtime files and forbidden state."""
+
+    with zipfile.ZipFile(zip_path, "r") as archive:
+        entry_names = [name.replace("\\", "/") for name in archive.namelist()]
+        entry_set = set(entry_names)
+        required_entries = (
+            "aMuTorrent/README.md",
+            "aMuTorrent/LICENSE-aMuTorrent.txt",
+            "aMuTorrent/installer/windows/amutorrent.ps1",
+            "aMuTorrent/server/server.js",
+            "aMuTorrent/server/package.json",
+            "aMuTorrent/server/package-lock.json",
+            "aMuTorrent/server/node_modules/express/package.json",
+            "aMuTorrent/server/node_modules/better-sqlite3/package.json",
+            "aMuTorrent/static/index.html",
+            "aMuTorrent/static/output.css",
+            "aMuTorrent/static/dist/app.bundle.js",
+        )
+        for required_entry in required_entries:
+            if required_entry not in entry_set:
+                raise RuntimeError(f"aMuTorrent package is missing required entry '{required_entry}': {zip_path}")
+        forbidden_entries = [
+            name
+            for name in entry_names
+            if name.startswith("aMuTorrent/server/data/")
+            or name.startswith("aMuTorrent/server/logs/")
+            or name.startswith("aMuTorrent/data/")
+            or name.startswith("aMuTorrent/logs/")
+            or name.startswith("aMuTorrent/runtime/")
+            or name.startswith("aMuTorrent/node_modules/")
+            or name.startswith("aMuTorrent/static/components/")
+            or name.startswith("aMuTorrent/static/contexts/")
+            or name.startswith("aMuTorrent/static/hooks/")
+            or name.startswith("aMuTorrent/static/utils/")
+            or name == "aMuTorrent/static/app.js"
+            or "/.git/" in name
+            or "/tests/" in name
+            or name.endswith(".map")
+            or name.endswith(".log")
+            or name.endswith(".db")
+            or name.endswith(".sqlite")
+            or name.endswith(".sqlite3")
+            or name == "aMuTorrent/server/node_modules/nodemon/package.json"
+            or " " in name
+        ]
+        if forbidden_entries:
+            sample = "\n".join(forbidden_entries[:20])
+            raise RuntimeError(f"aMuTorrent package contains forbidden generated or source artifacts:\n{sample}")
+
+        script = archive.read("aMuTorrent/installer/windows/amutorrent.ps1").decode("utf-8")
+        if "#Requires -Version 5.1" not in script:
+            raise RuntimeError("aMuTorrent package script must declare Windows PowerShell 5.1 compatibility.")
+        if "LOCALAPPDATA" in script.upper() or "APPDATA" in script.upper():
+            raise RuntimeError("aMuTorrent package script must not use Windows app data defaults.")
+        if "$env:AMUTORRENT_DATA_DIR = $DataRoot" not in script:
+            raise RuntimeError("aMuTorrent package script does not set AMUTORRENT_DATA_DIR to package-local data.")
+        if "PackageRoot -match \"\\s\"" not in script:
+            raise RuntimeError("aMuTorrent package script does not reject install paths containing spaces.")
+    print(f"aMuTorrent package content check: {zip_path} ({len(entry_names)} entries)")
 
 
 def _assert_pe_machine(path: Path, platform: str) -> None:

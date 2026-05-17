@@ -14,6 +14,7 @@ from .build import build_libs as invoke_build_libs
 from .certification import invoke_certification
 from .cleanup import cleanup_workspace
 from .config import (
+    AmutorrentPackageOptions,
     AmutorrentCleanStartupOptions,
     AmutorrentEmulebbUiOptions,
     AmutorrentResilienceOptions,
@@ -34,7 +35,7 @@ from .layout import load_layout
 from .locks import WorkspaceLock
 from .materialize import materialize_workspace, sync_workspace
 from .python_tests import invoke_python_tests
-from .release import create_release_package
+from .release import create_amutorrent_package, create_release_package
 from .setup_commands import run_compare, write_dependency_update_report, write_materialization_status
 from .status import write_dependency_status, write_workspace_summary
 from .test_runs import (
@@ -858,6 +859,26 @@ def package_release(
     _locked(
         "package release",
         lambda **kwargs: create_release_package(kwargs["layout"], kwargs["workspace_options"], package_options),
+    )(workspace_options=workspace_options, layout=layout)
+
+
+@main.command("package-amutorrent")
+@_common_options
+@click.option("--clean", is_flag=True, help="Clean selected package build outputs before building.")
+@click.option("--release-version", default="0.7.3", show_default=True, help="Release version in MAJOR.MINOR.PATCH form.")
+def package_amutorrent(
+    *,
+    clean: bool,
+    release_version: str,
+    workspace_options: WorkspaceOptions,
+    layout,
+) -> None:
+    """Build the optional aMuTorrent controller package artifact."""
+
+    package_options = AmutorrentPackageOptions(release_version=release_version, clean=clean)
+    _locked(
+        "package amutorrent",
+        lambda **kwargs: create_amutorrent_package(kwargs["layout"], kwargs["workspace_options"], package_options),
     )(workspace_options=workspace_options, layout=layout)
 
 

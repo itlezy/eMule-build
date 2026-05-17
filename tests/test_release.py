@@ -44,6 +44,38 @@ def _write_release_zip(path: Path, *, language_payloads: dict[str, bytes] | None
             archive.writestr(name, payload)
 
 
+def _amutorrent_script(*, data_dir: bool = True, space_check: bool = True, appdata: bool = False) -> bytes:
+    lines = ["#Requires -Version 5.1"]
+    if space_check:
+        lines.append('if ($PackageRoot -match "\\s") { throw "path contains spaces" }')
+    if data_dir:
+        lines.append("$env:AMUTORRENT_DATA_DIR = $DataRoot")
+    if appdata:
+        lines.append("$env:LOCALAPPDATA")
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def _write_amutorrent_zip(path: Path, *, extra_entries: dict[str, bytes] | None = None, script_payload: bytes | None = None) -> None:
+    entries = {
+        "aMuTorrent/README.md": b"readme\n",
+        "aMuTorrent/LICENSE-aMuTorrent.txt": b"license\n",
+        "aMuTorrent/installer/windows/amutorrent.ps1": script_payload or _amutorrent_script(),
+        "aMuTorrent/server/server.js": b"server\n",
+        "aMuTorrent/server/package.json": b"{}\n",
+        "aMuTorrent/server/package-lock.json": b"{}\n",
+        "aMuTorrent/server/node_modules/express/package.json": b"{}\n",
+        "aMuTorrent/server/node_modules/better-sqlite3/package.json": b"{}\n",
+        "aMuTorrent/static/index.html": b"<html></html>\n",
+        "aMuTorrent/static/output.css": b"body{}\n",
+        "aMuTorrent/static/dist/app.bundle.js": b"console.log('ok');\n",
+    }
+    entries.update(extra_entries or {})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, payload in entries.items():
+            archive.writestr(name, payload)
+
+
 def test_package_release_dirty_guard_reports_all_provenance_inputs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -210,3 +242,106 @@ def test_release_package_contents_accept_full_bundle_and_hash_entries(tmp_path: 
     hashes = release._zip_entry_hashes(zip_path)
     assert hashes["eMule/README.md"] == hashlib.sha256(b"readme\n").hexdigest()
     assert "eMule/THIRD-PARTY-NOTICES.txt" in hashes
+
+
+def test_amutorrent_manifest_records_runtime_policy_and_source_provenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    amutorrent_root = tmp_path / "repos" / "amutorrent"
+    build_root = tmp_path / "repos" / "eMule-build"
+    tests_root = tmp_path / "repos" / "eMule-build-tests"
+    tooling_root = tmp_path / "repos" / "eMule-tooling"
+    release_root = tmp_path / "state" / "release" / "emule-bb-v0.7.3"
+    zip_path = release_root / "eMule-broadband-0.7.3-amutorrent-arm64.zip"
+    for path in (amutorrent_root, build_root, tests_root, tooling_root, release_root):
+        path.mkdir(parents=True)
+
+    branches = {
+        amutorrent_root: "main",
+        build_root: "main",
+        tests_root: "main",
+        tooling_root: "main",
+    }
+    heads = {
+        amutorrent_root: "amut123",
+        build_root: "build12",
+        tests_root: "tests12",
+        tooling_root: "tools12",
+    }
+    monkeypatch.setattr(release, "repo_branch", lambda repo: branches[repo])
+    monkeypatch.setattr(release, "repo_head", lambda repo: heads[repo])
+
+    manifest = release._build_amutorrent_manifest(
+        layout=SimpleNamespace(
+            build_repo_root=build_root,
+            tests_repo_root=tests_root,
+            tooling_repo_root=tooling_root,
+        ),
+        workspace_options=SimpleNamespace(configuration="Release", platform="ARM64"),
+        package_options=SimpleNamespace(release_version="0.7.3"),
+        amutorrent_root=amutorrent_root,
+        zip_path=zip_path,
+        release_root=release_root,
+        zip_hash="zip-sha",
+        package_file_hashes={"aMuTorrent/installer/windows/amutorrent.ps1": "script-sha"},
+    )
+
+    assert manifest["package"] == "aMuTorrent optional controller"
+    assert manifest["amutorrentBranch"] == "main"
+    assert manifest["amutorrentCommit"] == "amut123"
+    assert manifest["runtimePolicy"]["minimumPathNodeMajor"] == 24
+    assert manifest["runtimePolicy"]["pinnedFallbackNodeVersion"] == "v24.15.0"
+    assert manifest["runtimePolicy"]["pinnedFallbackNodeArchive"] == "node-v24.15.0-win-arm64.zip"
+    assert manifest["runtimePolicy"]["localAppDataUsed"] is False
+    assert manifest["runtimePolicy"]["spacesInInstallPathAllowed"] is False
+    assert manifest["packageFileSha256"] == {"aMuTorrent/installer/windows/amutorrent.ps1": "script-sha"}
+
+
+def test_amutorrent_package_contents_accept_runtime_bundle(tmp_path: Path) -> None:
+    zip_path = tmp_path / "amutorrent.zip"
+    _write_amutorrent_zip(zip_path)
+
+    release._assert_amutorrent_package_contents(zip_path)
+
+    hashes = release._zip_entry_hashes(zip_path)
+    assert hashes["aMuTorrent/README.md"] == hashlib.sha256(b"readme\n").hexdigest()
+    assert "aMuTorrent/installer/windows/amutorrent.ps1" in hashes
+
+
+def test_amutorrent_package_contents_reject_generated_state_and_source_maps(tmp_path: Path) -> None:
+    zip_path = tmp_path / "amutorrent.zip"
+    _write_amutorrent_zip(
+        zip_path,
+        extra_entries={
+            "aMuTorrent/server/data/config.json": b"{}\n",
+            "aMuTorrent/static/dist/app.bundle.js.map": b"{}\n",
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="forbidden generated or source artifacts"):
+        release._assert_amutorrent_package_contents(zip_path)
+
+
+def test_amutorrent_package_contents_require_package_local_data_script(tmp_path: Path) -> None:
+    zip_path = tmp_path / "amutorrent.zip"
+    _write_amutorrent_zip(zip_path, script_payload=_amutorrent_script(data_dir=False))
+
+    with pytest.raises(RuntimeError, match="AMUTORRENT_DATA_DIR"):
+        release._assert_amutorrent_package_contents(zip_path)
+
+
+def test_amutorrent_package_contents_reject_appdata_defaults(tmp_path: Path) -> None:
+    zip_path = tmp_path / "amutorrent.zip"
+    _write_amutorrent_zip(zip_path, script_payload=_amutorrent_script(appdata=True))
+
+    with pytest.raises(RuntimeError, match="app data"):
+        release._assert_amutorrent_package_contents(zip_path)
+
+
+def test_amutorrent_package_contents_require_space_path_rejection(tmp_path: Path) -> None:
+    zip_path = tmp_path / "amutorrent.zip"
+    _write_amutorrent_zip(zip_path, script_payload=_amutorrent_script(space_check=False))
+
+    with pytest.raises(RuntimeError, match="spaces"):
+        release._assert_amutorrent_package_contents(zip_path)

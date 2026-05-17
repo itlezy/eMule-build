@@ -155,6 +155,16 @@ def test_package_release_help_exposes_release_version() -> None:
     assert "0.7.3" in result.output
 
 
+def test_package_amutorrent_help_exposes_release_version() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["package-amutorrent", "--help"])
+
+    assert result.exit_code == 0
+    assert "--release-version" in result.output
+    assert "0.7.3" in result.output
+
+
 def test_materialize_help_exposes_bootstrap_options() -> None:
     runner = CliRunner()
 

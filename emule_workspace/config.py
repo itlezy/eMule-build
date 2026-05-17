@@ -239,6 +239,15 @@ class ReleasePackageOptions(BaseModel):
     clean: bool = False
 
 
+class AmutorrentPackageOptions(BaseModel):
+    """Options for building the optional aMuTorrent package artifact."""
+
+    model_config = ConfigDict(frozen=True)
+
+    release_version: str = "0.7.3"
+    clean: bool = False
+
+
 class CleanupOptions(BaseModel):
     """Options for pruning generated workspace artifacts."""
 
